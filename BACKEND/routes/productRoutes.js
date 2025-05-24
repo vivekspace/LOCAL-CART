@@ -1,37 +1,4 @@
-// const express = require('express');
-// const router = express.Router();
-// const { getAllProducts, createProduct } = require('../controllers/productController');
-// const { protect, authorize } = require('../middleware/authMiddleware');
-// const multer = require('multer');
-// const upload = multer({
-//     dest: 'uploads/',
-//     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
-// }); router.post('/', upload.array('productImages', 10), createProduct);
-// router.get('/', getAllProducts);
-// router.post('/', protect, authorize('seller', 'admin'), createProduct);
 
-// module.exports = router;
-
-
-// const express = require('express');
-// const router = express.Router();
-// const { getAllProducts, createProduct } = require('../controllers/productController');
-// const { protectVendor } = require('../middleware/vendorAuth'); // NEW middleware
-// const multer = require('multer');
-
-// // Multer config
-// const upload = multer({
-//   dest: 'uploads/',
-//   limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
-// });
-
-// // ✅ Protected route: Only logged-in vendors can create products with images
-// router.post('/', protectVendor, upload.array('productImages', 10), createProduct);
-
-// // ✅ Public route: Anyone can view products
-// router.get('/', getAllProducts);
-
-// module.exports = router;
 
 
 const express = require('express');
@@ -40,6 +7,7 @@ const { getAllProducts, createProduct } = require('../controllers/productControl
 const { protectVendor } = require('../middleware/vendorAuth'); // NEW middleware
 const multer = require('multer');
 const path = require('path'); // Import the 'path' module
+const productController = require('../controllers/productController');
 
 // Multer config - Use diskStorage for more control over filenames
 const storage = multer.diskStorage({
@@ -60,6 +28,8 @@ const upload = multer({
 
 // ✅ Protected route: Only logged-in vendors can create products with images
 router.post('/', protectVendor, upload.array('productImages', 10), createProduct);
+router.get('/nearby', productController.getNearbyProducts);
+
 
 // ✅ Public route: Anyone can view products
 router.get('/', getAllProducts);

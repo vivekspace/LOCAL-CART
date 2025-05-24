@@ -1,16 +1,17 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Upload, Image, Plus, Loader2 } from "lucide-react";
 
 const AddProduct = () => {
+  const [geoLocation, setGeoLocation] = useState({ lat: null, lng: null });
+  const [city, setCity] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     price: "",
     category: "Electronics",
     stock: "",
-
   });
   const [images, setImages] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
@@ -62,6 +63,31 @@ const AddProduct = () => {
     setPreviewUrls(newPreviews);
   };
 
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setGeoLocation({ lat: latitude, lng: longitude });
+
+        // Reverse geocode using Nominatim (OpenStreetMap)
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+          setCity(
+            data.address.city || data.address.town || data.address.village || ""
+          );
+        } catch (err) {
+          console.error("Failed to fetch city name:", err);
+        }
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+      }
+    );
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -69,34 +95,48 @@ const AddProduct = () => {
     try {
       const formDataToSend = new FormData();
 
-      // Append product data
+      // Append standard product fields
       Object.entries(formData).forEach(([key, value]) => {
         formDataToSend.append(key, value);
       });
+
+      // Append location (as a stringified GeoJSON object)
+      formDataToSend.append(
+        "location",
+        JSON.stringify({
+          type: "Point",
+          coordinates: [geoLocation.lng, geoLocation.lat], // Longitude first
+        })
+      );
+
+      // Append city name
+      formDataToSend.append("city", city);
 
       // Append images
       images.forEach((image) => {
         formDataToSend.append("productImages", image);
       });
 
+      // Send request
       const response = await fetch("http://localhost:5000/api/products", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("vendorToken")}`,
-          // "Content-Type": "multipart/form-data",
+          // Note: Do NOT set 'Content-Type' when using FormData
         },
         body: formDataToSend,
       });
 
       const data = await response.json();
 
-      if (!response.ok)
+      if (!response.ok) {
         throw new Error(data.message || "Product upload failed");
+      }
 
       toast.success("Product listed successfully!");
       navigate("/vendor/dashboard");
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || "Something went wrong");
     } finally {
       setIsLoading(false);
     }

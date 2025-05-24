@@ -95,7 +95,7 @@ const CartPage = () => {
             <p className="text-gray-500 mb-6">
               Looks like you haven't added any products to your cart yet.
             </p>
-            <Link to={"/"}>
+            <Link to={"/shopping"}>
               <button className="inline-flex items-center px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition">
                 <ArrowLeft size={18} className="mr-2" />
                 Continue Shopping

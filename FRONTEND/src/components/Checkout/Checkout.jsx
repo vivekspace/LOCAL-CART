@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { AuthContext } from "../../Context/Context";
 import {
   CreditCard,
@@ -7,16 +7,25 @@ import {
   ChevronDown,
   ArrowLeft,
   CheckCircle,
-  Truck
+  Truck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Checkout = () => {
   const { cartItems } = useContext(AuthContext);
+  const [shippingMethod, setShippingMethod] = useState("standard");
+  
+  const handleShippingMethodChange = (method) => {
+    setShippingMethod(method);
+  };
+ 
 
   // Calculate total price (same as in cart)
   const totalPrice = cartItems
-    ? cartItems.reduce((sum, item) => sum + item.price * (item.quantity || 1), 0)
+    ? (cartItems.reduce(
+        (sum, item) => sum + item.price * (item.quantity || 1),
+        0
+      ) + (shippingMethod === "express" ? 9.99 : 0))
     : 0;
 
   return (
@@ -37,14 +46,18 @@ const Checkout = () => {
               <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
                 <CheckCircle size={16} className="text-white" />
               </div>
-              <span className="text-xs mt-1 text-green-600 font-medium">Cart</span>
+              <span className="text-xs mt-1 text-green-600 font-medium">
+                Cart
+              </span>
             </div>
             <div className="flex-1 h-1 bg-green-500 rounded-full"></div>
             <div className="mx-4 flex flex-col items-center">
               <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
                 <span className="text-white font-medium">2</span>
               </div>
-              <span className="text-xs mt-1 text-green-600 font-medium">Details</span>
+              <span className="text-xs mt-1 text-green-600 font-medium">
+                Details
+              </span>
             </div>
             <div className="flex-1 h-1 bg-gray-200 rounded-full"></div>
             <div className="mx-4 flex flex-col items-center">
@@ -61,7 +74,9 @@ const Checkout = () => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
               <div className="border-b border-gray-100 px-6 py-4 bg-gray-50">
-                <h2 className="font-medium text-gray-700">Contact Information</h2>
+                <h2 className="font-medium text-gray-700">
+                  Contact Information
+                </h2>
               </div>
               <div className="p-6">
                 <div className="mb-4">
@@ -80,7 +95,10 @@ const Checkout = () => {
                     id="newsletter"
                     className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                   />
-                  <label htmlFor="newsletter" className="ml-2 block text-sm text-gray-700">
+                  <label
+                    htmlFor="newsletter"
+                    className="ml-2 block text-sm text-gray-700"
+                  >
                     Email me with news and offers
                   </label>
                 </div>
@@ -154,7 +172,10 @@ const Checkout = () => {
                         <option>Canada</option>
                         <option>United Kingdom</option>
                       </select>
-                      <ChevronDown size={16} className="absolute right-3 top-3 text-gray-400" />
+                      <ChevronDown
+                        size={16}
+                        className="absolute right-3 top-3 text-gray-400"
+                      />
                     </div>
                   </div>
                   <div>
@@ -189,7 +210,14 @@ const Checkout = () => {
                 <h2 className="font-medium text-gray-700">Shipping Method</h2>
               </div>
               <div className="p-6">
-                <div className="flex items-center justify-between p-4 border border-green-500 rounded-lg bg-green-50 mb-3">
+                <div
+                  onClick={() => handleShippingMethodChange("standard")}
+                  className={`flex items-center justify-between p-4 border rounded-lg transition cursor-pointer mb-3 ${
+                    shippingMethod === "standard"
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-200 hover:border-gray-300 "
+                  }`}
+                >
                   <div className="flex items-center">
                     <Truck size={20} className="text-green-600 mr-3" />
                     <div>
@@ -200,7 +228,14 @@ const Checkout = () => {
                   <span className="text-green-600 font-medium">Free</span>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition cursor-pointer">
+                <div
+                  onClick={() => handleShippingMethodChange("express")}
+                  className={`flex items-center justify-between p-4 border rounded-lg transition cursor-pointer ${
+                    shippingMethod === "express"
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-200 hover:border-gray-300 "
+                  }`}
+                >
                   <div className="flex items-center">
                     <Truck size={20} className="text-gray-600 mr-3" />
                     <div>
@@ -224,13 +259,21 @@ const Checkout = () => {
                 <div className="space-y-4">
                   {cartItems &&
                     cartItems.map((item) => (
-                      <div key={item.id} className="flex justify-between items-start">
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-start"
+                      >
                         <div className="flex items-center">
                           <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 h-12 w-12 flex-shrink-0 mr-3">
                             <img
-                              src={item.image}
+                              src={`http://localhost:5000/uploads/${item.images[0]}`}
                               alt={item.name}
-                              className="h-full w-full object-cover"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src =
+                                  "http://localhost:5000/uploads/default-product.png";
+                                e.target.onerror = null;
+                              }}
                             />
                           </div>
                           <div>
@@ -243,7 +286,8 @@ const Checkout = () => {
                           </div>
                         </div>
                         <span className="text-sm font-medium">
-                          ${(item.price * (item.quantity || 1)).toFixed(2)}
+
+                          ${(item.price * item.quantity  || 1).toFixed(2)}
                         </span>
                       </div>
                     ))}
@@ -251,7 +295,9 @@ const Checkout = () => {
                   <div className="border-t border-gray-100 pt-4 mt-2">
                     <div className="flex justify-between mb-2">
                       <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium">${totalPrice.toFixed(2)}</span>
+                      <span className="font-medium">
+                        ${totalPrice.toFixed(2)}
+                      </span>
                     </div>
                     <div className="flex justify-between mb-2">
                       <span className="text-gray-600">Shipping</span>
@@ -272,11 +318,11 @@ const Checkout = () => {
                     </div>
                   </div>
                 </div>
-                <Link to={'/payment'}>
-                <button className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg flex items-center justify-center font-medium transition">
-                  Continue to Payment
-                </button>
-               </Link>
+                <Link to={"/payment"}>
+                  <button className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg flex items-center justify-center font-medium transition">
+                    Continue to Payment
+                  </button>
+                </Link>
                 <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
                   <ShieldCheck size={14} className="mr-1 text-green-600" />
                   Secure checkout
@@ -304,7 +350,9 @@ const Checkout = () => {
                       />
                     </svg>
                   </div>
-                  <span className="text-gray-600">Call us: +1 (555) 123-4567</span>
+                  <span className="text-gray-600">
+                    Call us: +1 (555) 123-4567
+                  </span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-3">
@@ -323,7 +371,9 @@ const Checkout = () => {
                       />
                     </svg>
                   </div>
-                  <span className="text-gray-600">Email: localcart@example.com</span>
+                  <span className="text-gray-600">
+                    Email: localcart@example.com
+                  </span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-3">

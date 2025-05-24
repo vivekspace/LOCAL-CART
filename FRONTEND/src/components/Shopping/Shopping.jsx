@@ -12,8 +12,6 @@ const ShoppingPage = () => {
   const { products, addToCart } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  console.log(products);
-
   const mockCategories = [
     "All",
     "Fruits",
@@ -100,6 +98,25 @@ const ShoppingPage = () => {
     e.stopPropagation();
     addToCart(productId);
   };
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      // Call your API
+      fetch(`http://localhost:5000/api/products/nearby?lat=${lat}&lng=${lng}&distance=10`)
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("Nearby Products:", data);
+          // setState to show in UI
+        });
+    },
+    (error) => {
+      console.error("Geolocation error:", error);
+      alert("Please allow location access to see nearby products");
+    }
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
@@ -543,14 +560,18 @@ const ShoppingPage = () => {
                       {product.originalPrice && (
                         <p className="text-xs text-green-600 font-medium">
                           Save $
-                          {(product.originalPrice - product.price).toFixed(2)}
+                          {(product.originalPrice - product.price ).toFixed(2)}
                         </p>
                       )}
                     </div>
 
                     <button
                       className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white p-3 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center transform hover:scale-105 group"
-                      onClick={(e) => handleAddToCart(e, product._id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleAddToCart(e, product._id);
+                        navigate('/cart');
+                      }}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"

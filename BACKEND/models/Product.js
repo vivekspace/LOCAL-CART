@@ -70,15 +70,36 @@ const productSchema = new mongoose.Schema({
   ratingsQuantity: {
     type: Number,
     default: 0
-  }
+  },
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      required: [true, 'Location type is required'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      required: [true, 'Product location coordinates are required']
+    },
+  },
+  city: {
+    type: String,
+    required: [true, 'City is required'],
+    trim: true
+  },
+
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
-});
+}
+
+);
 
 // Add index for better performance on frequently queried fields
 productSchema.index({ name: 'text', description: 'text' });
+productSchema.index({ location: '2dsphere' }); // For geospatial queries
 productSchema.index({ price: 1, ratingsAverage: -1 });
 productSchema.index({ seller: 1 });
 
@@ -97,7 +118,7 @@ productSchema.pre('save', function (next) {
     this.images = [DEFAULT_PRODUCT_IMAGE];
   }
   next();
-});  
+});
 
 // Query middleware to populate seller info
 productSchema.pre(/^find/, function (next) {

@@ -12,8 +12,7 @@ import {
   ChevronDown,
   Power,
   ShoppingBag,
-  UserCog
-  
+  UserCog,
 } from "lucide-react";
 import { useContext } from "react";
 import { AuthContext } from "../../Context/Context.jsx";
@@ -114,18 +113,22 @@ const Header = () => {
                     className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 text-center hover:text-green-600 transition-colors"
                     onClick={toggleUserDropdown}
                   >
-                   <UserCog className="h-5 w-5 inline-block mr-2" /> My Profile
+                    <UserCog className="h-5 w-5 inline-block mr-2" /> My Profile
                   </Link>
                   <Link
                     to="/orders"
                     className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 text-center hover:text-green-600 transition-colors"
                     onClick={toggleUserDropdown}
                   >
-                    <ShoppingBag className="h-5 w-5 inline-block mr-2" /> My Orders
+                    <ShoppingBag className="h-5 w-5 inline-block mr-2" /> My
+                    Orders
                   </Link>
                   <button
                     onClick={() => {
                       setIsLoggedIn(false);
+                      handleLogOut();
+                      toggleUserDropdown();
+                      setMenuOpen(false);
                       setUserDropdownOpen(false);
                     }}
                     className=" w-full px-4 py-2.5 text-sm text-center bg-red-500 rounded text-white font-bold hover:bg-red-50 hover:text-red-600 transition-colors flex items-center justify-center"
@@ -299,9 +302,11 @@ const Header = () => {
                   <button
                     onClick={() => {
                       setIsLoggedIn(false);
+                      handleLogOut();
+                      setUserDropdownOpen(false);
                       toggleMenu();
                     }}
-                    className="w-full text-left px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                    className="px-4 py-3 rounded-lg text-base font-medium text-white bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 flex items-center gap-3 justify-center mt-2 transition-all hover:shadow-md"
                   >
                     <LogIn className="h-5 w-5 transform rotate-180" />
                     Sign Out
@@ -334,7 +339,7 @@ const Header = () => {
                     <UserPlus className="h-5 w-5" />
                     Register
                   </NavLink>
-                  <NavLink
+                  {/* <NavLink
                     to="/"
                     onClick={() => {
                       toggleMenu();
@@ -344,7 +349,7 @@ const Header = () => {
                   >
                     <Power className="h-5 w-5" />
                     LogOut
-                  </NavLink>
+                  </NavLink> */}
                 </>
               )}
             </div>

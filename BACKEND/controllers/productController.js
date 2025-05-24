@@ -87,10 +87,23 @@ exports.createProduct = async (req, res) => {
 
 
     // 4. Create product with images
+    let parsedLocation = req.body.location;
+    if (typeof parsedLocation === 'string') {
+      try {
+        parsedLocation = JSON.parse(req.body.location);
+      } catch (err) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Invalid location format'
+        });
+      }
+    }
     const product = await Product.create({
       ...req.body,
       seller: req.vendor.id,
-      images: imagePaths
+      images: imagePaths,
+      location: parsedLocation,
+      city: req.body.city
     });
 
     // 5. Send response
@@ -113,6 +126,50 @@ exports.createProduct = async (req, res) => {
     res.status(400).json({
       status: 'error',
       message: process.env.NODE_ENV === 'development' ? err.message : 'Invalid data'
+    });
+  }
+};
+
+// GET /api/products/nearby?lat=19.12&lng=72.84&distance=10
+exports.getNearbyProducts = async (req, res) => {
+  const { lat, lng, distance = 10 } = req.query;
+
+  if (!lat || !lng) {
+    return res.status(400).json({
+      status: 'fail',
+      message: 'Latitude and longitude are required'
+    });
+  }
+
+  const userLocation = {
+    type: 'Point',
+    coordinates: [parseFloat(lng), parseFloat(lat)]
+  };
+
+  try {
+    const nearbyProducts = await Product.aggregate([
+      {
+        $geoNear: {
+          near: userLocation,
+          distanceField: 'distance',
+          maxDistance: distance * 1000, // Convert km to meters
+          spherical: true
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      results: nearbyProducts.length,
+      data: {
+        products: nearbyProducts
+      }
+    });
+  } catch (err) {
+    console.error('Geo query error:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error finding nearby products'
     });
   }
 };
