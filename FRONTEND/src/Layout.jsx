@@ -25,7 +25,9 @@ const Layout = () => {
 };
 
 const LayoutContent = () => {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
+  const user = JSON.parse(localStorage.getItem("user"));
+
 
   if (loading) {
     return <Loader />;

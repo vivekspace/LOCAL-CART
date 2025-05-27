@@ -1,6 +1,3 @@
-
-
-
 const express = require('express');
 const router = express.Router();
 const { getAllProducts, createProduct } = require('../controllers/productController');
@@ -8,6 +5,7 @@ const { protectVendor } = require('../middleware/vendorAuth'); // NEW middleware
 const multer = require('multer');
 const path = require('path'); // Import the 'path' module
 const productController = require('../controllers/productController');
+
 
 // Multer config - Use diskStorage for more control over filenames
 const storage = multer.diskStorage({

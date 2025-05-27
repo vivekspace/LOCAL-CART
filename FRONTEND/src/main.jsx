@@ -29,7 +29,12 @@ import UserManagement from "./components/AdminLayout/UserManagement.jsx";
 import VendorSellPage from "./components/VendorSellPage/VendorSellPage.jsx";
 import VendorLogin from "./components/VendorLogin/VendorLogin.jsx";
 import VendorRegister from "./components/VendorRegister/VendorRegister.jsx";
-import UserProfile from './components/UserProfile/UserProfile.jsx';
+import UserProfile from "./components/UserProfile/UserProfile.jsx";
+import AdminPanel from "./components/AdminPanel/AdminPanel.jsx";
+import AdminLogin from "./components/AdminLogin/AdminLogin.jsx";
+import VendorProfile from "./components/VendorProfile/VendorProfile.jsx";
+import NotFoundPage from "./components/PageNotFound/PageNotFound.jsx";
+import OrderConfirmation from "./components/OrderConfirmed/OrderConfirm.jsx";
 // import Dashboard from "./components/AdminLayout/Dashboard.jsx";
 
 const router = createBrowserRouter(
@@ -56,16 +61,13 @@ const router = createBrowserRouter(
       <Route path="users" element={<UserManagement />} />
       <Route path="/vendor/register" element={<VendorRegister />} />
       <Route path="vendor/login" element={<VendorLogin />} />
-      <Route path='/profile' element={<UserProfile/>}/>
+      <Route path="/profile" element={<UserProfile />} />
+      <Route path="/admin-panel" element={<AdminPanel />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/vendor/profile" element={<VendorProfile />} />
+      <Route path="order-confirmation" element={<OrderConfirmation />} />
 
-      <Route
-        path="*"
-        element={
-          <h1 className="font-bold text-center flex items-center justify-center h-[80vh] text-3xl">
-            This page is not built yet. Sorry for inconvenience...
-          </h1>
-        }
-      />
+      <Route path="*" element={<NotFoundPage />} />
     </Route>
   )
 );

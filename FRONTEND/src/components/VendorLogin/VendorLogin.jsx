@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState , useContext } from 'react';
+import { AuthContext } from '../../Context/Context.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 
@@ -9,6 +10,8 @@ export default function VendorLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { setUser } = useContext(AuthContext); 
+
 
  const handleSubmit = async (e) => {
   e.preventDefault();
@@ -31,6 +34,8 @@ export default function VendorLogin() {
 
     // Optional: Store token in localStorage
     localStorage.setItem('vendorToken', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    setUser(data.user); // Update user context
 
     // Navigate to dashboard
     navigate('/vendor/dashboard');

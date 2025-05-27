@@ -15,7 +15,7 @@ exports.registerVendor = async (req, res) => {
         const vendor = new Vendor({ name, email, password: hashedPassword, storeName, phone });
         await vendor.save();
 
-        const token = jwt.sign({ id: vendor._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign({ id: vendor._id , role: 'vendor' }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
         res.status(201).json({
             token,
@@ -49,7 +49,7 @@ exports.loginVendor = async (req, res) => {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
-        const token = jwt.sign({ id: vendor._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign({ id: vendor._id , role: 'vendor' }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
         res.status(200).json({
             token,
@@ -68,5 +68,45 @@ exports.loginVendor = async (req, res) => {
             ...(isDev && { error: error.message })
         });
     }
+};
+
+exports.getVendorProfile = async (req, res) => {
+  try {
+    const vendor = req.vendor; // Comes from protectVendor middleware
+    res.json({
+      success: true,
+      vendor: {
+        id: vendor._id,
+        businessName: vendor.businessName,
+        email: vendor.email,
+        createdAt: vendor.createdAt,
+        // Add other fields as needed
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch profile' });
+  }
+};
+
+const Product = require('../models/Product');
+
+exports.addProduct = async (req, res) => {
+  try {
+    const { name, description, price } = req.body;
+
+    const product = new Product({
+      name,
+      description,
+      price,
+      vendor: req.vendor._id // comes from protectVendor middleware
+    });
+
+    await product.save();
+
+    res.status(201).json({ message: 'Product added successfully', product });
+  } catch (err) {
+    console.error('Add Product Error:', err);
+    res.status(500).json({ message: 'Failed to add product' });
+  }
 };
 

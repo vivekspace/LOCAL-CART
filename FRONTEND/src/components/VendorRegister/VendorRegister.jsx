@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState , useContext} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { User, Mail, Lock, Eye, EyeOff, Store, Phone } from "lucide-react";
 import { AuthContext } from "../../Context/Context";
@@ -13,6 +13,7 @@ export default function VendorRegister() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { setUser } = useContext(AuthContext);
 
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export default function VendorRegister() {
       const data = await response.json();
       localStorage.setItem("vendorToken", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user); // Update user context
       navigate("/vendor-dashboard"); // ✅ Correct redirection
     } catch (err) {
       setError(err.message || "Registration failed");

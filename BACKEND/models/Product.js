@@ -40,19 +40,12 @@ const productSchema = new mongoose.Schema({
   },
   seller: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Product must belong to a seller']
+    ref: 'Vendor',
+    required: [true, 'Product must belong to a vendor']
   },
   images: [{
     type: String,
     required: [true, 'Image path is required'],
-    // validate: {
-    //   validator: function (v) {
-    //     // Validate file extension and basic URL/path format
-    //     return /^(http|https):\/\/.*\.(jpg|jpeg|png|webp)$|^.*\.(jpg|jpeg|png|webp)$/.test(v.toLowerCase());
-    //   },
-    //   message: 'Please provide a valid image URL or file path (jpg, jpeg, png, webp)'
-    // }
   }],
   stock: {
     type: Number,
@@ -88,20 +81,17 @@ const productSchema = new mongoose.Schema({
     required: [true, 'City is required'],
     trim: true
   },
-
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
-}
-
-);
+});
 
 // Add index for better performance on frequently queried fields
 productSchema.index({ name: 'text', description: 'text' });
 productSchema.index({ location: '2dsphere' }); // For geospatial queries
 productSchema.index({ price: 1, ratingsAverage: -1 });
-productSchema.index({ seller: 1 });
+productSchema.index({ seller: 1 }); // FIXED: Changed from 'seller' to 'vendorId'
 
 // Virtual populate reviews (if you have a Review model)
 productSchema.virtual('reviews', {
@@ -111,7 +101,6 @@ productSchema.virtual('reviews', {
 });
 
 // Document middleware to set default image if none provided
-
 const DEFAULT_PRODUCT_IMAGE = 'default-product.png';
 productSchema.pre('save', function (next) {
   if (this.images && this.images.length === 0) {
@@ -120,7 +109,7 @@ productSchema.pre('save', function (next) {
   next();
 });
 
-// Query middleware to populate seller info
+// FIXED: Query middleware to populate vendorId (not seller)
 productSchema.pre(/^find/, function (next) {
   this.populate({
     path: 'seller',

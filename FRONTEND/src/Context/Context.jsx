@@ -1,6 +1,7 @@
-import React, { createContext, useState , useContext } from "react";
+import React, { createContext, useState, useContext } from "react";
 import { toast } from "react-toastify";
 import { login as apiLogin, register as apiRegister } from "/api";
+import { getAdminProfile, loginAdmin } from "/api";
 
 import { useEffect } from "react";
 
@@ -89,7 +90,7 @@ export const AuthProvider = ({ children }) => {
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isLoggedIn , setIsLoggedIn] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
@@ -98,6 +99,56 @@ export const AuthProvider = ({ children }) => {
       setIsLoggedIn(true);
     }
     setLoading(false);
+  }, []);
+
+  const [admin, setAdmin] = useState(null);
+
+  useEffect(() => {
+    const loadAdmin = async () => {
+      try {
+        const { data } = await getAdminProfile();
+        setAdmin(data);
+      } catch (err) {
+        console.error("Not authenticated", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAdmin();
+  }, []);
+
+  const adminSignIn = async (credentials) => {
+    const { data } = await loginAdmin(credentials);
+    localStorage.setItem("adminToken", data.token);
+    setAdmin(data.admin);
+  };
+
+  const adminSignOut = () => {
+    localStorage.removeItem("adminToken");
+    setAdmin(null);
+  };
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/products");
+
+        console.log("Response status:", response.status);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const products = data.data.products;
+
+        setProducts(Array.isArray(products) ? products : []);
+      } catch (error) {
+        console.error("Fetch error: Failed to fetch products", error);
+      }
+    };
+
+    fetchProducts();
   }, []);
 
   const register = async (userData) => {
@@ -135,29 +186,6 @@ export const AuthProvider = ({ children }) => {
     toast.success("Logged out successfully");
   };
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch("http://localhost:5000/api/products");
-
-        console.log("Response status:", response.status);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const products = data.data.products;
-
-        setProducts(Array.isArray(products) ? products : []);
-      } catch (error) {
-        console.error("Fetch error: Failed to fetch products", error);
-      }
-    };
-
-    fetchProducts();
-  }, []);
-
   return (
     <AuthContext.Provider
       value={{
@@ -168,15 +196,21 @@ export const AuthProvider = ({ children }) => {
         removeFromCart,
         clearCart,
         getCartTotal,
+        login,
+        logout,
+        register,
+        
 
         user,
         loading,
-        register,
-        login,
-        logout,
+        setUser,
         products,
         isLoggedIn,
-        setIsLoggedIn
+        setIsLoggedIn,
+        adminSignIn,
+        adminSignOut,
+        admin,
+        setAdmin,
       }}
     >
       {children}
@@ -185,9 +219,9 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

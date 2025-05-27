@@ -140,7 +140,7 @@ const CartPage = () => {
                           {item.name}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          Vendor: {item.seller}
+                          Vendor: {item.seller?.name}
                         </p>
                       </div>
 

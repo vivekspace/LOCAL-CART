@@ -12,7 +12,18 @@ const AddProduct = () => {
     price: "",
     category: "Electronics",
     stock: "",
+    vendorId: "",
   });
+
+  useEffect(() => {
+    const vendor = JSON.parse(localStorage.getItem("user"));
+    if (vendor && vendor.id) {
+      setFormData((prev) => ({
+        ...prev,
+        vendorId: vendor.id, // ✅ set vendorId here
+      }));
+    }
+  }, []);
   const [images, setImages] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,36 +104,28 @@ const AddProduct = () => {
     setIsLoading(true);
 
     try {
-      const formDataToSend = new FormData();
+      const vendorToken = localStorage.getItem("vendorToken");
+      console.log("Token:", vendorToken); // Debug: Verify token exists
 
-      // Append standard product fields
+      const formDataToSend = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
         formDataToSend.append(key, value);
       });
 
-      // Append location (as a stringified GeoJSON object)
       formDataToSend.append(
         "location",
         JSON.stringify({
           type: "Point",
-          coordinates: [geoLocation.lng, geoLocation.lat], // Longitude first
+          coordinates: [geoLocation.lng, geoLocation.lat],
         })
       );
-
-      // Append city name
       formDataToSend.append("city", city);
+      images.forEach((image) => formDataToSend.append("productImages", image));
 
-      // Append images
-      images.forEach((image) => {
-        formDataToSend.append("productImages", image);
-      });
-
-      // Send request
       const response = await fetch("http://localhost:5000/api/products", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("vendorToken")}`,
-          // Note: Do NOT set 'Content-Type' when using FormData
+          Authorization: `Bearer ${vendorToken}`,
         },
         body: formDataToSend,
       });
@@ -130,18 +133,19 @@ const AddProduct = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        console.error("Backend error:", data); // Debug: Log backend response
         throw new Error(data.message || "Product upload failed");
       }
 
       toast.success("Product listed successfully!");
       navigate("/vendor/dashboard");
     } catch (err) {
+      console.error("Request failed:", err); // Debug: Log full error
       toast.error(err.message || "Something went wrong");
     } finally {
       setIsLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">

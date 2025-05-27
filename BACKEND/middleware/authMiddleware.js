@@ -11,7 +11,7 @@ exports.createProduct = async (req, res) => {
     // 2. Check for duplicate product
     const existingProduct = await Product.findOne({
       name: req.body.name,
-      seller: req.vendor.id  // Changed from req.user.id to req.vendor.id
+      seller: req.seller.id  // Changed from req.user.id to req.vendor.id
     });
     
     if (existingProduct) {

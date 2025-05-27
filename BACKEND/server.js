@@ -6,6 +6,8 @@ const morgan = require('morgan');
 const helmet = require('helmet'); // Keep Helmet imported
 const vendorRoutes = require('./routes/vendorRoutes');
 const path = require('path');
+const bodyParser = require('body-parser');
+const orderRoutes = require('./routes/orderRoutes');
 
 
 dotenv.config();
@@ -34,6 +36,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 
 // Routes
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -41,6 +44,7 @@ console.log('Uploads directory:', path.join(__dirname, 'uploads'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/vendor', vendorRoutes);
+app.use('/api/orders', orderRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

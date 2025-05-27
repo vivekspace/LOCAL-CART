@@ -306,7 +306,7 @@ const Header = () => {
                       setUserDropdownOpen(false);
                       toggleMenu();
                     }}
-                    className="px-4 py-3 rounded-lg text-base font-medium text-white bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 flex items-center gap-3 justify-center mt-2 transition-all hover:shadow-md"
+                    className="px-4 py-3 w-full rounded-lg text-base font-medium text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 flex items-center gap-3 justify-center mt-2 transition-allhover:shadow-md"
                   >
                     <LogIn className="h-5 w-5 transform rotate-180" />
                     Sign Out

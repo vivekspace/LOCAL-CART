@@ -1,35 +1,125 @@
 import React, { useContext, useState } from "react";
 import { AuthContext } from "../../Context/Context";
+import { toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import {
   CreditCard,
   ShieldCheck,
   MapPin,
-  ChevronDown,
   ArrowLeft,
   CheckCircle,
   Truck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const Checkout = () => {
-  const { cartItems } = useContext(AuthContext);
+  const { cartItems: cart } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  const [formData, setFormData] = useState({
+    firstname: "",
+    lastname: "",
+    phone: "",
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    pincode: "",
+    email: "",
+    state: "Maharashtra",
+  });
+
   const [shippingMethod, setShippingMethod] = useState("standard");
-  
-  const handleShippingMethodChange = (method) => {
-    setShippingMethod(method);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Calculate totals
+  const subtotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+  const shippingCost = shippingMethod === "express" ? 100 : 50;
+  const totalPrice = subtotal + shippingCost;
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
- 
 
-  // Calculate total price (same as in cart)
-  const totalPrice = cartItems
-    ? (cartItems.reduce(
-        (sum, item) => sum + item.price * (item.quantity || 1),
-        0
-      ) + (shippingMethod === "express" ? 9.99 : 0))
-    : 0;
+  const validateForm = () => {
+    const requiredFields = [
+      "firstname",
+      "lastname",
+      "phone",
+      "addressLine1",
+      "city",
+      "pincode",
+      "email",
+    ];
 
+    for (const field of requiredFields) {
+      if (!formData[field]) {
+        toast.error(
+          `Please fill in ${field.replace(/([A-Z])/g, " $1").toLowerCase()}`
+        );
+        return false;
+      }
+    }
+
+    // Email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return false;
+    }
+
+    // Phone validation
+    if (!/^[0-9]{10}$/.test(formData.phone)) {
+      toast.error("Please enter a valid 10-digit phone number");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleContinueToPayment = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    if (!validateForm() || cart.length === 0) {
+      setIsSubmitting(false);
+      return;
+    }
+
+    const orderData = {
+      customerDetails: {
+        ...formData,
+        email: formData.email.toLowerCase().trim(),
+      },
+      cartItems: cart.map((item) => ({
+        productId: item.id || item._id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        seller: item.seller?._id || item.vendorId || item.sellerId,
+      })),
+      shippingMethod,
+      totalPrice: subtotal + (shippingMethod === "express" ? 100 : 50),
+      orderDate: new Date().toISOString(),
+    };
+
+    navigate("/payment", {
+      state: {
+        orderData,
+        formData,
+      },
+    });
+    setIsSubmitting(false);
+  };
   return (
     <div className="bg-gray-50 min-h-screen py-8">
+      <ToastContainer position="top-center" />
       <div className="container mx-auto px-4 max-w-6xl">
         <header className="mb-8">
           <div className="flex items-center">
@@ -70,7 +160,10 @@ const Checkout = () => {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <form
+          className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+          onSubmit={handleContinueToPayment}
+        >
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
               <div className="border-b border-gray-100 px-6 py-4 bg-gray-50">
@@ -118,6 +211,10 @@ const Checkout = () => {
                     <input
                       type="text"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                      name="firstname"
+                      value={formData.firstname}
+                      onChange={handleChange}
+                      required
                     />
                   </div>
                   <div>
@@ -127,6 +224,10 @@ const Checkout = () => {
                     <input
                       type="text"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                      name="lastname"
+                      value={formData.lastname}
+                      onChange={handleChange}
+                      required
                     />
                   </div>
                 </div>
@@ -139,6 +240,10 @@ const Checkout = () => {
                     type="text"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
                     placeholder="Street and number, P.O. Box, c/o"
+                    name="addressLine1"
+                    value={formData.addressLine1}
+                    onChange={handleChange}
+                    required
                   />
                 </div>
 
@@ -149,6 +254,10 @@ const Checkout = () => {
                   <input
                     type="text"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                    name="addressLine2"
+                    onChange={handleChange}
+                    value={formData.addressLine2}
+                    required
                   />
                 </div>
 
@@ -160,24 +269,27 @@ const Checkout = () => {
                     <input
                       type="text"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      required
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Country
+                      State
                     </label>
-                    <div className="relative">
-                      <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none appearance-none transition">
-                        <option>United States</option>
-                        <option>Canada</option>
-                        <option>United Kingdom</option>
-                      </select>
-                      <ChevronDown
-                        size={16}
-                        className="absolute right-3 top-3 text-gray-400"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleChange}
+                      disabled
+                      required
+                    />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       ZIP code
@@ -185,6 +297,10 @@ const Checkout = () => {
                     <input
                       type="text"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                      name="pincode"
+                      value={formData.pincode}
+                      onChange={handleChange}
+                      required
                     />
                   </div>
                 </div>
@@ -197,11 +313,27 @@ const Checkout = () => {
                     type="tel"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
                     placeholder="+1 (___) ___-____"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    required
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     For delivery questions only
                   </p>
                 </div>
+                <label className="text-sm font-semibold text-gray-700 " htmlFor="email">Email Address *</label>
+                <input
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                  type="email"
+                  id="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  name="email"
+                  required
+                  pattern="[^@\s]+@[^@\s]+\.[^@\s]+" // Basic email validation
+                />
+                <small>For order confirmation and tracking</small>
               </div>
             </div>
 
@@ -211,7 +343,7 @@ const Checkout = () => {
               </div>
               <div className="p-6">
                 <div
-                  onClick={() => handleShippingMethodChange("standard")}
+                  onClick={() => setShippingMethod("standard")}
                   className={`flex items-center justify-between p-4 border rounded-lg transition cursor-pointer mb-3 ${
                     shippingMethod === "standard"
                       ? "border-green-500 bg-green-50"
@@ -229,7 +361,7 @@ const Checkout = () => {
                 </div>
 
                 <div
-                  onClick={() => handleShippingMethodChange("express")}
+                  onClick={() => setShippingMethod("express")}
                   className={`flex items-center justify-between p-4 border rounded-lg transition cursor-pointer ${
                     shippingMethod === "express"
                       ? "border-green-500 bg-green-50"
@@ -257,8 +389,8 @@ const Checkout = () => {
 
               <div className="p-6">
                 <div className="space-y-4">
-                  {cartItems &&
-                    cartItems.map((item) => (
+                  {cart &&
+                    cart.map((item) => (
                       <div
                         key={item.id}
                         className="flex justify-between items-start"
@@ -286,8 +418,7 @@ const Checkout = () => {
                           </div>
                         </div>
                         <span className="text-sm font-medium">
-
-                          ${(item.price * item.quantity  || 1).toFixed(2)}
+                          ${(item.price * (item.quantity || 1)).toFixed(2)}
                         </span>
                       </div>
                     ))}
@@ -301,7 +432,9 @@ const Checkout = () => {
                     </div>
                     <div className="flex justify-between mb-2">
                       <span className="text-gray-600">Shipping</span>
-                      <span className="text-green-600 font-medium">Free</span>
+                      <span className="text-green-600 font-medium">
+                        {shippingMethod === "express" ? "$9.99" : "Free"}
+                      </span>
                     </div>
                     <div className="flex justify-between font-medium text-gray-700">
                       <span>Taxes</span>
@@ -318,11 +451,15 @@ const Checkout = () => {
                     </div>
                   </div>
                 </div>
-                <Link to={"/payment"}>
-                  <button className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg flex items-center justify-center font-medium transition">
-                    Continue to Payment
-                  </button>
-                </Link>
+                <button
+                  onClick={handleContinueToPayment}
+                  disabled={isSubmitting}
+                  className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg flex items-center justify-center font-medium transition"
+                  type="submit"
+                >
+                  <CreditCard size={16} className="mr-2" />
+                  Continue to Payment
+                </button>
                 <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
                   <ShieldCheck size={14} className="mr-1 text-green-600" />
                   Secure checkout
@@ -384,7 +521,7 @@ const Checkout = () => {
               </div>
             </div>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
