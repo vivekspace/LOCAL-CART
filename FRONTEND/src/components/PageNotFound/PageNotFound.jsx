@@ -216,13 +216,14 @@ const PageNotFound = () => {
               Need help? We're here for you!
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-              <button
-                onClick={() => alert("Navigate to Contact")}
-                className="text-white hover:text-green-200 transition-colors duration-300 flex items-center gap-2 underline decoration-dotted underline-offset-4"
-              >
-                <MessageCircle size={16} />
-                Contact Support
-              </button>
+              <Link to={"/contact"}>
+                <button
+                  className="text-white hover:text-green-200 transition-colors duration-300 flex items-center gap-2 underline decoration-dotted underline-offset-4"
+                >
+                  <MessageCircle size={16} />
+                  Contact Support
+                </button>
+              </Link>
               <span className="hidden sm:inline text-white/50">•</span>
               <button
                 onClick={() => alert("Navigate to Help")}

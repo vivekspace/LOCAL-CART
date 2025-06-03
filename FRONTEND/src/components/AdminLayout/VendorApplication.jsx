@@ -42,7 +42,7 @@ export default function VendorApplications() {
               key={tab}
               onClick={() => setSelectedTab(tab)}
               className={`px-4 py-2 rounded-md ${selectedTab === tab 
-                ? 'bg-indigo-600 text-white' 
+                ? 'bg-green-600 text-white' 
                 : 'bg-gray-200 hover:bg-gray-300'}`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}

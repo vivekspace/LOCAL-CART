@@ -1,9 +1,28 @@
 // UserRow.jsx
 import { useState } from 'react';
 
-export default function UserRow({ user, onToggleBlock }) {
+export default function UserRow({  onToggleBlock }) {
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [blockReason, setBlockReason] = useState('');
+  
+  const user = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    lastActive: user.lastActive || 'N/A',
+    transactions: user.transactions || 0,
+    status: user.status || 'active',
+  }
+  const isActive = user.status === 'active';
+  const isBlocked = user.status === 'blocked';
+  const isVendor = user.role === 'vendor';
+  const isAdmin = user.role === 'admin';
+  const isSuperAdmin = user.role === 'superadmin';
+  const isUser = user.role === 'user';
+  
+
+
 
   const handleBlock = () => {
     onToggleBlock(user.id);

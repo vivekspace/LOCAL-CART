@@ -122,8 +122,8 @@ const Footer = () => {
                 <div className="bg-green-800/50 p-2 rounded-full group-hover:bg-green-700 transition-colors duration-300 mr-3">
                   <FaEnvelope className="text-green-300 text-lg group-hover:text-white"/>
                 </div>
-                <a href="mailto:support@localcart.com" className="text-green-100 hover:text-white transition-colors hover:underline">
-                  support@localcart.com
+                <a href="mailto:localcarthelp@gmail.com" className="text-green-100 hover:text-white transition-colors hover:underline">
+                  localcarthelp@gmail.com
                 </a>
               </div>
               <div className="flex items-start group">

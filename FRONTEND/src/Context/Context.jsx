@@ -1,15 +1,14 @@
 import React, { createContext, useState, useContext } from "react";
 import { toast } from "react-toastify";
 import { login as apiLogin, register as apiRegister } from "/api";
-import { getAdminProfile, loginAdmin } from "/api";
 
 import { useEffect } from "react";
-
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [products, setProducts] = useState([]);
+  const [isOpen, setIsOpen] = useState(false);
 
   /**
    * Add product to cart with specified quantity
@@ -103,29 +102,15 @@ export const AuthProvider = ({ children }) => {
 
   const [admin, setAdmin] = useState(null);
 
-  useEffect(() => {
-    const loadAdmin = async () => {
-      try {
-        const { data } = await getAdminProfile();
-        setAdmin(data);
-      } catch (err) {
-        console.error("Not authenticated", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadAdmin();
-  }, []);
+  
 
-  const adminSignIn = async (credentials) => {
-    const { data } = await loginAdmin(credentials);
-    localStorage.setItem("adminToken", data.token);
-    setAdmin(data.admin);
-  };
-
+ 
   const adminSignOut = () => {
     localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminInfo");
+
     setAdmin(null);
+    toast.success("Admin logged out successfully");
   };
 
   useEffect(() => {
@@ -185,6 +170,31 @@ export const AuthProvider = ({ children }) => {
     setIsLoggedIn(false);
     toast.success("Logged out successfully");
   };
+  const [isDark, setIsDark] = useState(false);
+
+const toggleDarkMode = () => {
+  const html = document.documentElement;
+  const nowDark = !html.classList.contains("dark");
+
+  if (nowDark) {
+    html.classList.add("dark");
+  } else {
+    html.classList.remove("dark");
+  }
+
+  setIsDark(nowDark); // ✅ Update state
+  localStorage.setItem("theme", nowDark ? "dark" : "light");
+};
+
+// Optional: load theme from storage on first mount
+useEffect(() => {
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme === "dark") {
+    document.documentElement.classList.add("dark");
+    setIsDark(true); // ✅ Sync initial state
+  }
+}, []);
+
 
   return (
     <AuthContext.Provider
@@ -199,7 +209,8 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         register,
-        
+        isOpen,
+        setIsOpen,
 
         user,
         loading,
@@ -207,10 +218,12 @@ export const AuthProvider = ({ children }) => {
         products,
         isLoggedIn,
         setIsLoggedIn,
-        adminSignIn,
         adminSignOut,
         admin,
         setAdmin,
+        toggleDarkMode,
+        isDark,
+        setIsDark
       }}
     >
       {children}
@@ -225,3 +238,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthProvider;

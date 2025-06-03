@@ -5,69 +5,69 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'vendorSecret';
 
 exports.registerVendor = async (req, res) => {
-    try {
-        const { name, email, password, storeName, phone } = req.body;
+  try {
+    const { name, email, password, storeName, phone } = req.body;
 
-        const existing = await Vendor.findOne({ email });
-        if (existing) return res.status(400).json({ message: 'Email already registered' });
+    const existing = await Vendor.findOne({ email });
+    if (existing) return res.status(400).json({ message: 'Email already registered' });
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const vendor = new Vendor({ name, email, password: hashedPassword, storeName, phone });
-        await vendor.save();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const vendor = new Vendor({ name, email, password: hashedPassword, storeName, phone });
+    await vendor.save();
 
-        const token = jwt.sign({ id: vendor._id , role: 'vendor' }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ id: vendor._id, role: 'vendor' }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        res.status(201).json({
-            token,
-            user: {
-                id: vendor._id,
-                name: vendor.name,
-                email: vendor.email,
-                role: 'vendor',
-                storeName: vendor.storeName
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Registration failed', error: error.message });
-    }
+    res.status(201).json({
+      token,
+      user: {
+        id: vendor._id,
+        name: vendor.name,
+        email: vendor.email,
+        role: 'vendor',
+        storeName: vendor.storeName
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Registration failed', error: error.message });
+  }
 };
 
 exports.loginVendor = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Email and password are required' });
-        }
-
-        const vendor = await Vendor.findOne({ email: email.toLowerCase() });
-        if (!vendor) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        const isMatch = await bcrypt.compare(password, vendor.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ id: vendor._id , role: 'vendor' }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-        res.status(200).json({
-            token,
-            user: {  // Changed from 'vendor' to 'user' for consistency
-                id: vendor._id,
-                name: vendor.name,
-                email: vendor.email,
-                role: 'vendor',  // Explicitly adding role
-                storeName: vendor.storeName  // Add other vendor-specific fields if needed
-            }
-        });
-    } catch (error) {
-        const isDev = process.env.NODE_ENV === 'development';
-        res.status(500).json({
-            message: 'Login failed. Please try again later.',
-            ...(isDev && { error: error.message })
-        });
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
+
+    const vendor = await Vendor.findOne({ email: email.toLowerCase() });
+    if (!vendor) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, vendor.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: vendor._id, role: 'vendor' }, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+    res.status(200).json({
+      token,
+      user: {  // Changed from 'vendor' to 'user' for consistency
+        id: vendor._id,
+        name: vendor.name,
+        email: vendor.email,
+        role: 'vendor',  // Explicitly adding role
+        storeName: vendor.storeName  // Add other vendor-specific fields if needed
+      }
+    });
+  } catch (error) {
+    const isDev = process.env.NODE_ENV === 'development';
+    res.status(500).json({
+      message: 'Login failed. Please try again later.',
+      ...(isDev && { error: error.message })
+    });
+  }
 };
 
 exports.getVendorProfile = async (req, res) => {
@@ -94,14 +94,18 @@ exports.addProduct = async (req, res) => {
   try {
     const { name, description, price } = req.body;
 
+    console.log("req.vendor:", req.vendor); // Debug log
+    console.log("req.vendor._id:", req.vendor._id); // Debug log
+
     const product = new Product({
       name,
       description,
       price,
-      vendor: req.vendor._id // comes from protectVendor middleware
+      seller: req.vendor._id // This should work now
     });
 
     await product.save();
+    console.log("Saved product with vendor:", product.vendor); // Debug log
 
     res.status(201).json({ message: 'Product added successfully', product });
   } catch (err) {
@@ -109,4 +113,32 @@ exports.addProduct = async (req, res) => {
     res.status(500).json({ message: 'Failed to add product' });
   }
 };
+exports.getVendorProducts = async (req, res) => {
+  try {
+    // Change from 'vendor' to 'seller' to match your schema
+    const products = await Product.find({ seller: req.vendor._id });
 
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
+    });
+  }
+};
+
+exports.deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    res.status(200).json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

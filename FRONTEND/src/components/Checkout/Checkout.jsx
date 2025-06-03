@@ -395,7 +395,7 @@ const Checkout = () => {
                         key={item.id}
                         className="flex justify-between items-start"
                       >
-                        <div className="flex items-center">
+                        <div className="flex items-center h">
                           <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 h-12 w-12 flex-shrink-0 mr-3">
                             <img
                               src={`http://localhost:5000/uploads/${item.images[0]}`}

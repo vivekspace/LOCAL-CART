@@ -34,6 +34,7 @@ exports.protectVendor = async (req, res, next) => {
 
     // 4. Vendor existence check
     const vendor = await Vendor.findById(decoded.id).select('-password');
+
     if (!vendor) {
       return res.status(401).json({
         success: false,

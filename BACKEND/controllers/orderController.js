@@ -127,3 +127,49 @@ async function sendVendorEmail(to, { orderId, items, customer, paymentMethod }) 
 
     await transporter.sendMail(mailOptions);
 }
+
+exports.getVendorOrders = async (req, res) => {
+    try {
+        const vendorId = req.vendor._id; // from auth middleware
+        console.log(vendorId)
+
+        // Find all orders where any item is sold by this vendor
+        const orders = await Order.find({ 'cartItems.seller': vendorId }).sort({ createdAt: -1 });
+        console.log('Found orders:', orders.length); // Debug line
+        console.log('First order cartItems:', orders[0]?.cartItems); // Debug line
+
+        const vendorOrders = orders.map(order => {
+            const relevantItems = order.cartItems.filter(item =>
+                item.seller.toString() === vendorId.toString()
+            );
+
+            const subtotal = relevantItems.reduce(
+                (sum, item) => sum + item.price * item.quantity,
+                0
+            );
+
+            return {
+                orderId: order._id,
+                customer: `${order.customerDetails.firstname} ${order.customerDetails.lastname}`,
+                date: order.createdAt,
+                items: relevantItems.map(item => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                    total: item.quantity * item.price,
+                    status: order.status // Optionally make this per-item
+                })),
+                subtotal,
+                shipping: 0, // static or calculated
+                total: subtotal,
+                paymentMethod: order.paymentDetails.method,
+                paymentStatus: order.paymentDetails.status
+            };
+        });
+
+        res.status(200).json(vendorOrders);
+    } catch (error) {
+        console.error('Error fetching vendor orders:', error);
+        res.status(500).json({ message: 'Failed to fetch vendor orders' });
+    }
+};

@@ -7,6 +7,7 @@ const ShoppingPage = () => {
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [nearbyProducts, setNearbyProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeResultIndex, setActiveResultIndex] = useState(-1);
   const { products, addToCart } = useContext(AuthContext);
@@ -33,6 +34,32 @@ const ShoppingPage = () => {
     }, 800);
     return () => clearTimeout(timer);
   }, []);
+
+  // Fetch nearby products only once when component mounts
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        fetch(
+          `http://localhost:5000/api/products/nearby?lat=${lat}&lng=${lng}&distance=10`
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            console.log("Nearby Products Data:", data);
+            setNearbyProducts(data.data?.products || []);
+          })
+          .catch((error) => {
+            console.error("API Error:", error);
+          });
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        alert("Please allow location access to see nearby products");
+      }
+    );
+  }, []); // Empty dependency array means this runs only once on mount
 
   // Safe filtering with null checks
   const filteredProducts =
@@ -98,26 +125,7 @@ const ShoppingPage = () => {
     e.stopPropagation();
     addToCart(productId);
   };
-
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
-
-      // Call your API
-      fetch(`http://localhost:5000/api/products/nearby?lat=${lat}&lng=${lng}&distance=10`)
-        .then((res) => res.json())
-        .then((data) => {
-          console.log("Nearby Products:", data);
-          // setState to show in UI
-        });
-    },
-    (error) => {
-      console.error("Geolocation error:", error);
-      alert("Please allow location access to see nearby products");
-    }
-  );
-
+  console.log("Nearby Products:", nearbyProducts);
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
       <HeroSlider />
@@ -373,7 +381,6 @@ const ShoppingPage = () => {
             </div>
           </div>
         </div>
-
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
@@ -395,7 +402,7 @@ const ShoppingPage = () => {
           </div>
         ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((product, idx) => (
+            {nearbyProducts.map((product, idx) => (
               <div
                 key={product._id || idx}
                 className="bg-white/60 backdrop-blur-md rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 group relative"
@@ -560,7 +567,7 @@ const ShoppingPage = () => {
                       {product.originalPrice && (
                         <p className="text-xs text-green-600 font-medium">
                           Save $
-                          {(product.originalPrice - product.price ).toFixed(2)}
+                          {(product.originalPrice - product.price).toFixed(2)}
                         </p>
                       )}
                     </div>
@@ -570,7 +577,7 @@ const ShoppingPage = () => {
                       onClick={(e) => {
                         e.preventDefault();
                         handleAddToCart(e, product._id);
-                        navigate('/cart');
+                        navigate("/cart");
                       }}
                     >
                       <svg

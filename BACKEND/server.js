@@ -8,6 +8,9 @@ const vendorRoutes = require('./routes/vendorRoutes');
 const path = require('path');
 const bodyParser = require('body-parser');
 const orderRoutes = require('./routes/orderRoutes');
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
+ 
+
 
 
 dotenv.config();
@@ -18,10 +21,6 @@ const app = express();
 app.use(express.json());
 app.use(morgan('dev'));
 
-// -----------------------------------------------------
-// Modify Helmet configuration
-// Disable crossOriginResourcePolicy as it often clashes with CORS for images
-// -----------------------------------------------------
 app.use(helmet({
   crossOriginResourcePolicy: false, // <--- Add this line
 }));
@@ -45,6 +44,12 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/vendor', vendorRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/admin', adminAuthRoutes); // Admin auth routes
+app.use('/api', orderRoutes)
+
+// Add this to your routes temporarily
+
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
