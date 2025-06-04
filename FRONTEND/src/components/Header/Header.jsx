@@ -239,7 +239,7 @@ const Header = () => {
               <Leaf className="h-5 w-5" />
               <span>Products</span>
             </NavLink>
-            <ThemeToggle/>
+            <ThemeToggle />
 
             {isLoggedIn ? (
               <div className="relative ml-1">
@@ -318,7 +318,6 @@ const Header = () => {
                 {cartItems.length}
               </span>
             </NavLink>
-
           </div>
 
           {/* Mobile menu button */}
@@ -354,15 +353,12 @@ const Header = () => {
           menuOpen ? "opacity-100 visible" : "opacity-0 invisible"
         }`}
       >
-        {/* Overlay */}
         <div
           className={`absolute inset-0 bg-black/30 transition-opacity duration-500 ${
             menuOpen ? "opacity-100" : "opacity-0"
           }`}
           onClick={toggleMenu}
         />
-
-        {/* Menu panel */}
         <div
           className={`absolute right-0 top-0 h-screen w-80 bg-white shadow-xl transform transition-transform duration-500 ease-in-out ${
             menuOpen ? "translate-x-0" : "translate-x-full"
