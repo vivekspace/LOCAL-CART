@@ -28,10 +28,15 @@ app.use(helmet({
   crossOriginResourcePolicy: false, // Allows serving images/files from 'uploads'
 }));
 
-// CORS Configuration
+// CORS Configuration - UPDATED
 const corsOptions = {
-  origin: process.env.CLIENT_URL, // Your Vite frontend URL
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  origin: [
+    'http://localhost:3000',           // React dev server
+    'http://localhost:5173',           // Vite dev server
+    'https://localcart.netlify.app',   // Your Netlify deployment
+    process.env.CLIENT_URL             // Keep your env variable for flexibility
+  ].filter(Boolean), // Remove any undefined values
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
@@ -53,14 +58,21 @@ app.use('/api/vendor', vendorRoutes); // Assuming vendorRoutes handles /vendor, 
 // So, router.get('/') becomes GET /api/orders
 // and router.get('/:orderId') becomes GET /api/orders/:orderId
 app.use('/api/orders', orderRoutes);
-app.use('/api/vendor', vendorRoutes); // This will make the route /api/vendor/orders
-
-
+app.use('/api/vendor', vendorRoutes); // This will make the route /api/vendor/orders  
 app.use('/api/admin', adminAuthRoutes); // Admin auth routes
 
 // Optional: A basic root route for API status check
 app.get('/api', (req, res) => {
   res.json({ message: 'LocalCart API is running!' });
+});
+
+// Add a root route to handle the 404 we saw earlier
+app.get('/', (req, res) => {
+  res.json({
+    message: 'LocalCart Backend API is running!',
+    status: 'Active',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Error handling middleware (should be the last middleware)
