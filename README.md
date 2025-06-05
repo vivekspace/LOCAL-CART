@@ -1,8 +1,10 @@
 # 🛒 LocalCart
 
-**LocalCart** is a modern, hyperlocal marketplace that connects neighborhood buyers and sellers through an intuitive, seamless platform. Designed to empower local commerce, LocalCart brings your nearby shops online — making daily shopping faster, smarter, and easier.
+**LocalCart** is a modern, hyperlocal marketplace connecting neighborhood buyers and sellers through an intuitive, seamless platform. Empowering local commerce, LocalCart brings your nearby shops online — making daily shopping faster, smarter, and easier.
 
 ![LocalCart Banner](https://your-image-url.com/banner.png) <!-- Optional: Add a custom banner here -->
+
+---
 
 ## 🌟 Features
 
@@ -11,36 +13,48 @@
 - ⚡ Modern, responsive UI optimized for all devices
 - 🧾 Smart cart management and smooth checkout
 - 🎯 Personalized recommendations (coming soon)
-- 🔐 Secure authentication and real-time chat (backend upcoming)
+- 🔐 Secure authentication and real-time chat
 
-## 🚧 Project Status
+---
 
-🚀 **Frontend:** In progress (MERN Stack - React.js + TailwindCSS)  
-🧠 **Backend:** Planned (Node.js + Express.js + MongoDB)
+## 🚦 Project Status
+
+- 🚀 **Frontend:** In progress (MERN Stack - React.js + TailwindCSS)
+- 🧠 **Backend:** Complete (Node.js + Express.js + MongoDB)
+
+---
 
 ## 📸 Screenshots
 
 <!-- Replace with actual screenshots -->
-| Home Page | Product Details | Checkout |
-|----------|-----------------|----------|
+
+| Home Page                                    | Product Details                                    | Checkout                                             |
+| -------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------- |
 | ![Home](https://your-image-url.com/home.png) | ![Product](https://your-image-url.com/product.png) | ![Checkout](https://your-image-url.com/checkout.png) |
+
+---
 
 ## 🧰 Tech Stack
 
-**Frontend**  
-- ⚛️ React.js (with Vite)  
-- 💨 TailwindCSS  
-- 🌐 React Router  
+**Frontend**
+
+- ⚛️ React.js (with Vite)
+- 💨 TailwindCSS
+- 🌐 React Router
 - 🗂️ Redux Toolkit (for global state management)
 
-**Backend (Planned)**  
-- 🟢 Node.js  
-- 🚂 Express.js  
-- 🍃 MongoDB + Mongoose  
-- 🔐 JWT Authentication  
-- 📩 Socket.IO for real-time chat
+**Backend**
 
-## 🚀 Getting Started (Frontend)
+- 🟢 Node.js
+- 🚂 Express.js
+- 🍃 MongoDB + Mongoose
+- 🔐 JWT Authentication
+- 📩 Socket.IO for real-time chat
+- 🧪 Jest & Supertest (for backend testing)
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -60,16 +74,37 @@ npm run dev
 
 1. Create a `.env` file in the root directory
 2. Add the following variables:
+
 ```env
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5000/api
 VITE_PUBLIC_URL=http://localhost:5173
 ```
 
+For backend, add a `.env` in `/server`:
+
+```env
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+```
+
+---
+
 ## 🧪 Running Tests
+
+Frontend:
 
 ```bash
 npm run test
 ```
+
+Backend:
+
+```bash
+cd server
+npm run test
+```
+
+---
 
 ## 📝 Contributing
 
@@ -79,6 +114,9 @@ npm run test
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+

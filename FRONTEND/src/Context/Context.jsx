@@ -102,9 +102,6 @@ export const AuthProvider = ({ children }) => {
 
   const [admin, setAdmin] = useState(null);
 
-  
-
- 
   const adminSignOut = () => {
     localStorage.removeItem("adminToken");
     localStorage.removeItem("adminInfo");
@@ -116,7 +113,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/products");
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/products`
+        );
 
         console.log("Response status:", response.status);
 
@@ -170,31 +169,6 @@ export const AuthProvider = ({ children }) => {
     setIsLoggedIn(false);
     toast.success("Logged out successfully");
   };
-  const [isDark, setIsDark] = useState(false);
-
-const toggleDarkMode = () => {
-  const html = document.documentElement;
-  const nowDark = !html.classList.contains("dark");
-
-  if (nowDark) {
-    html.classList.add("dark");
-  } else {
-    html.classList.remove("dark");
-  }
-
-  setIsDark(nowDark); // ✅ Update state
-  localStorage.setItem("theme", nowDark ? "dark" : "light");
-};
-
-// Optional: load theme from storage on first mount
-useEffect(() => {
-  const savedTheme = localStorage.getItem("theme");
-  if (savedTheme === "dark") {
-    document.documentElement.classList.add("dark");
-    setIsDark(true); // ✅ Sync initial state
-  }
-}, []);
-
 
   return (
     <AuthContext.Provider
@@ -221,9 +195,6 @@ useEffect(() => {
         adminSignOut,
         admin,
         setAdmin,
-        toggleDarkMode,
-        isDark,
-        setIsDark
       }}
     >
       {children}

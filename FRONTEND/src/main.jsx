@@ -23,7 +23,6 @@ import VendorDashboard from "./components/VendorDashboard/VendorDashboard.jsx";
 import UserDashboard from "./components/UserDashboard/UserDashboard.jsx";
 import Reward from "./components/Reward/Reward.jsx";
 import ContactUs from "./components/ContactUs/ContactUs.jsx";
-// import AdminLayout from "./components/AdminLayout/AdminLayout.jsx";
 import VendorApplication from "./components/AdminLayout/VendorApplication.jsx";
 import UserManagement from "./components/AdminLayout/UserManagement.jsx";
 import VendorSellPage from "./components/VendorSellPage/VendorSellPage.jsx";
@@ -40,7 +39,8 @@ import UserRow from "./components/AdminLayout/UserRow.jsx";
 import VendorProductsPage from "./components/VendorProducts/VendorProducts.jsx";
 import VendorAnalytics from "./components/VendorAnalytics/VendorAnalytics.jsx";
 import OrderPage from "./components/VendorOrder/VendorOrder.jsx";
-// import Dashboard from "./components/AdminLayout/Dashboard.jsx";
+import OrderedItemsPage from "./components/CustomerOrders/CustomerOrders.jsx";
+import Orders from "./components/Orders/Orders.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -55,18 +55,19 @@ const router = createBrowserRouter(
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/product-info/:productId" element={<ProductCardPage />} />
       <Route path="/payment" element={<PaymentPage />} />
+      <Route path="/orders/:orderId" element={<OrderedItemsPage />} />
       <Route path="/vendors" element={<VendorPage />} />
       <Route path="/vendor/dashboard" element={<VendorDashboard />} />
+      <Route path="orders" element={<Orders />} />
       <Route path="/user-dashboard" element={<UserDashboard />} />
       <Route path="/vendor-sell" element={<VendorSellPage />} />
       <Route path="/contact" element={<ContactUs />} />
       <Route path="/rewards" element={<Reward />} />
-      {/* <Route path="/admin" element={<AdminLayout />} /> */}
       <Route path="applications" element={<VendorApplication />} />
       <Route path="users" element={<UserManagement />} />
       <Route path="/vendor/register" element={<VendorRegister />} />
       <Route path="vendor/login" element={<VendorLogin />} />
-      <Route path="/vendor/orders" element={<OrderPage/>}/>
+      <Route path="/vendor/orders" element={<OrderPage />} />
       <Route path="vendor/analytics" element={<VendorAnalytics />} />
       <Route path="/profile" element={<UserProfile />} />
       <Route path="vendor/products" element={<VendorProductsPage />} />
