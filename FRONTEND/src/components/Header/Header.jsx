@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, NavLink } from "react-router-dom";
 import {
   Menu,
@@ -15,11 +15,11 @@ import {
   UserCog,
   MapPin,
   ChevronRight,
+  Navigation,
 } from "lucide-react";
 import { useContext } from "react";
 import { AuthContext } from "../../Context/Context.jsx";
 import logo from "/src/assets/logo.svg";
-import ThemeToggle from "../ToggleThemeBtn/ToggleThemeBtn.jsx";
 
 const Header = () => {
   const { cartItems, logout, isLoggedIn, setIsLoggedIn } =
@@ -31,6 +31,10 @@ const Header = () => {
   const [currentLocation, setCurrentLocation] = useState("Nearby");
   const [locationLoading, setLocationLoading] = useState(false);
 
+  // Refs for click outside functionality
+  const locationDropdownRef = useRef(null);
+  const userDropdownRef = useRef(null);
+
   // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
@@ -40,57 +44,146 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Get user's current location
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        locationDropdownRef.current &&
+        !locationDropdownRef.current.contains(event.target)
+      ) {
+        setLocationDropdownOpen(false);
+      }
+      if (
+        userDropdownRef.current &&
+        !userDropdownRef.current.contains(event.target)
+      ) {
+        setUserDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close all dropdowns when menu state changes
+  useEffect(() => {
+    if (!menuOpen) {
+      setLocationDropdownOpen(false);
+      setUserDropdownOpen(false);
+    }
+  }, [menuOpen]);
+
+  // Get user's current location with better error handling
   const getCurrentLocation = () => {
     setLocationLoading(true);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          )
-            .then((res) => res.json())
-            .then((data) => {
-              if (data && data.display_name) {
-                setCurrentLocation(data.address.city);
-                localStorage.setItem(
-                  "userLocation",
-                  JSON.stringify({
-                    latitude,
-                    longitude,
-                    city: data.address.city || "Current Location",
-                  })
-                );
-              } else {
-                setCurrentLocation("Current Location");
-              }
-              setLocationLoading(false);
-            })
-            .catch(() => {
-              setCurrentLocation("Current Location");
-              setLocationLoading(false);
-            });
+    setCurrentLocation("Locating...");
 
-          // Here you would typically reverse geocode to get a human-readable address
-          // For now, we'll just show "Current Location"
+    if (!navigator.geolocation) {
+      setCurrentLocation("Location not supported");
+      setLocationLoading(false);
+      return;
+    }
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000, // 5 minutes cache
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
+          );
+          const data = await response.json();
+
+          if (data && data.address) {
+            const city =
+              data.address.city ||
+              data.address.town ||
+              data.address.village ||
+              data.address.county ||
+              "Current Location";
+
+            setCurrentLocation(city);
+
+            // Store location in localStorage with better structure
+            const locationData = {
+              latitude,
+              longitude,
+              city,
+              timestamp: Date.now(),
+              fullAddress: data.display_name,
+            };
+
+            try {
+              localStorage.setItem(
+                "userLocation",
+                JSON.stringify(locationData)
+              );
+            } catch (error) {
+              console.warn("Could not save location to localStorage:", error);
+            }
+          } else {
+            setCurrentLocation("Current Location");
+          }
+        } catch (error) {
+          console.error("Geocoding error:", error);
           setCurrentLocation("Current Location");
-          setLocationLoading(false);
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          setCurrentLocation("Nearby");
+        } finally {
           setLocationLoading(false);
         }
-      );
-    } else {
-      setCurrentLocation("Nearby");
-      setLocationLoading(false);
-    }
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        let errorMessage = "Nearby";
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location access denied";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location unavailable";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location timeout";
+            break;
+          default:
+            errorMessage = "Nearby";
+            break;
+        }
+
+        setCurrentLocation(errorMessage);
+        setLocationLoading(false);
+      },
+      options
+    );
   };
 
+  // Load saved location on component mount
   useEffect(() => {
-    // Set default location to "Nearby" on component mount
+    try {
+      const savedLocation = localStorage.getItem("userLocation");
+      if (savedLocation) {
+        const locationData = JSON.parse(savedLocation);
+        // Check if location data is not too old (24 hours)
+        const isRecent =
+          locationData.timestamp &&
+          Date.now() - locationData.timestamp < 24 * 60 * 60 * 1000;
+
+        if (isRecent && locationData.city) {
+          setCurrentLocation(locationData.city);
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn("Could not load saved location:", error);
+    }
+
+    // If no valid saved location, try to get current location
     getCurrentLocation();
   }, []);
 
@@ -99,13 +192,54 @@ const Header = () => {
     logout();
     setMenuOpen(false);
     setUserDropdownOpen(false);
-    localStorage.removeItem("userLocation");
+    setLocationDropdownOpen(false);
+
+    try {
+      localStorage.removeItem("userLocation");
+    } catch (error) {
+      console.warn("Could not remove location from localStorage:", error);
+    }
+  };
+
+  const handleLocationSelect = (option) => {
+    if (option === "Current Location") {
+      getCurrentLocation();
+    } else {
+      setCurrentLocation(option);
+      // Save selected location to localStorage
+      try {
+        const locationData = {
+          city: option,
+          timestamp: Date.now(),
+          isManualSelection: true,
+        };
+        localStorage.setItem("userLocation", JSON.stringify(locationData));
+      } catch (error) {
+        console.warn("Could not save location to localStorage:", error);
+      }
+    }
+
+    // Always close dropdown after selection
+    setLocationDropdownOpen(false);
   };
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
-  const toggleUserDropdown = () => setUserDropdownOpen(!userDropdownOpen);
-  const toggleLocationDropdown = () =>
+
+  const toggleUserDropdown = () => {
+    setUserDropdownOpen(!userDropdownOpen);
+    // Close location dropdown when opening user dropdown
+    if (!userDropdownOpen) {
+      setLocationDropdownOpen(false);
+    }
+  };
+
+  const toggleLocationDropdown = () => {
     setLocationDropdownOpen(!locationDropdownOpen);
+    // Close user dropdown when opening location dropdown
+    if (!locationDropdownOpen) {
+      setUserDropdownOpen(false);
+    }
+  };
 
   const navItemClasses = ({ isActive }) =>
     `px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${
@@ -147,16 +281,23 @@ const Header = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
             {/* Location Selector */}
-            <div className="relative mr-2">
+            <div className="relative mr-2" ref={locationDropdownRef}>
               <button
                 onClick={toggleLocationDropdown}
+                disabled={locationLoading}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-300 ${
                   locationDropdownOpen
                     ? "bg-green-50 text-green-600"
                     : "hover:bg-gray-50 text-gray-700 hover:text-green-600"
-                }`}
+                } ${locationLoading ? "opacity-75 cursor-not-allowed" : ""}`}
               >
-                <MapPin className="h-5 w-5 text-green-600" />
+                {locationLoading ? (
+                  <div className="animate-spin h-5 w-5">
+                    <Navigation className="h-5 w-5 text-green-600" />
+                  </div>
+                ) : (
+                  <MapPin className="h-5 w-5 text-green-600" />
+                )}
                 <span className="max-w-[120px] truncate">
                   {currentLocation}
                 </span>
@@ -168,65 +309,41 @@ const Header = () => {
               </button>
 
               <div
-                className={`absolute left-0 mt-1 w-56 bg-white rounded-lg shadow-xl py-1 z-50 border border-gray-100 transition-all duration-300 origin-top p-2 overflow-y-scroll max-h-[200px] overflow-x-hidden ${
+                className={`absolute left-0 mt-1 w-56 bg-white rounded-lg shadow-xl py-1 z-50 border border-gray-100 transition-all duration-300 origin-top p-2 overflow-y-auto max-h-[300px] ${
                   locationDropdownOpen
                     ? "opacity-100 scale-100"
                     : "opacity-0 scale-95 pointer-events-none"
                 }`}
               >
-                <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider ">
+                <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 mb-2">
                   Select Location
                 </div>
                 {locationOptions.map((option) => (
                   <button
                     key={option}
-                    onClick={() => {
-                      if (option === "Current Location") {
-                        setLocationLoading(true);
-                        setCurrentLocation("Locating...");
-                        getCurrentLocation();
-                      } else {
-                        setCurrentLocation(option);
-                      }
-                      setLocationDropdownOpen(false);
-                    }}
-                    className={`w-full px-4 py-2.5 text-sm text-left font-semibold rounded-md flex items-center justify-between ${
+                    onClick={() => handleLocationSelect(option)}
+                    disabled={locationLoading && option === "Current Location"}
+                    className={`w-full px-4 py-2.5 text-sm text-left font-medium rounded-md flex items-center justify-between transition-colors ${
                       currentLocation === option
                         ? "bg-green-50 text-green-600"
-                        : "text-gray-700 hover:bg-green-50"
+                        : "text-gray-700 hover:bg-green-50 hover:text-green-600"
+                    } ${
+                      locationLoading && option === "Current Location"
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
                     }`}
                   >
-                    <span>{option}</span>
+                    <span className="flex items-center gap-2">
+                      {option === "Current Location" && (
+                        <Navigation className="h-4 w-4" />
+                      )}
+                      {option}
+                    </span>
                     {currentLocation === option && (
-                      <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                      <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></span>
                     )}
                   </button>
                 ))}
-                {locationLoading && (
-                  <div className="px-4 py-2 text-sm text-gray-500 flex items-center justify-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-green-500"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Locating...
-                  </div>
-                )}
               </div>
             </div>
 
@@ -239,10 +356,9 @@ const Header = () => {
               <Leaf className="h-5 w-5" />
               <span>Products</span>
             </NavLink>
-            <ThemeToggle />
 
             {isLoggedIn ? (
-              <div className="relative ml-1">
+              <div className="relative ml-1" ref={userDropdownRef}>
                 <button
                   onClick={toggleUserDropdown}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-300 ${
@@ -254,7 +370,7 @@ const Header = () => {
                   <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
                     <User className="h-5 w-5" />
                   </div>
-                  <span> Account</span>
+                  <span>Account</span>
                   <ChevronDown
                     className={`h-4 w-4 transition-transform duration-200 ${
                       userDropdownOpen ? "transform rotate-180" : ""
@@ -272,22 +388,25 @@ const Header = () => {
                   <Link
                     to="/profile"
                     className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors rounded-md flex items-center gap-2"
-                    onClick={toggleUserDropdown}
+                    onClick={() => setUserDropdownOpen(false)}
                   >
-                    <UserCog className="h-5 w-5" /> My Profile
+                    <UserCog className="h-5 w-5" />
+                    My Profile
                   </Link>
                   <Link
                     to="/orders"
                     className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors rounded-md flex items-center gap-2"
-                    onClick={toggleUserDropdown}
+                    onClick={() => setUserDropdownOpen(false)}
                   >
-                    <ShoppingBag className="h-5 w-5" /> My Orders
+                    <ShoppingBag className="h-5 w-5" />
+                    My Orders
                   </Link>
                   <button
                     onClick={handleLogOut}
                     className="w-full px-4 py-2.5 text-sm text-center bg-red-50 rounded-md text-red-600 font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-2 mt-1"
                   >
-                    <Power className="h-5 w-5" /> Sign Out
+                    <Power className="h-5 w-5" />
+                    Sign Out
                   </button>
                 </div>
               </div>
@@ -386,12 +505,23 @@ const Header = () => {
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-green-600" />
-                  <span className="font-medium">{currentLocation}</span>
+                  {locationLoading ? (
+                    <div className="animate-spin">
+                      <Navigation className="h-5 w-5 text-green-600" />
+                    </div>
+                  ) : (
+                    <MapPin className="h-5 w-5 text-green-600" />
+                  )}
+                  <span className="font-medium truncate flex-1">
+                    {currentLocation}
+                  </span>
                 </div>
                 <button
                   onClick={toggleLocationDropdown}
-                  className="text-gray-500 hover:text-green-600"
+                  disabled={locationLoading}
+                  className={`text-gray-500 hover:text-green-600 transition-colors ${
+                    locationLoading ? "opacity-50" : ""
+                  }`}
                 >
                   <ChevronDown
                     className={`h-5 w-5 transition-transform ${
@@ -402,25 +532,33 @@ const Header = () => {
               </div>
 
               {locationDropdownOpen && (
-                <div className="mt-2 bg-white rounded-lg shadow-inner p-2 space-y-1 overflow-y-auto max-h-[200px]">
+                <div className="mt-2 bg-white rounded-lg shadow-inner p-2 space-y-1 overflow-y-auto max-h-[200px] border border-gray-100">
+                  <div className="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Select Location
+                  </div>
                   {locationOptions.map((option) => (
                     <button
                       key={option}
-                      onClick={() => {
-                        if (option === "Current Location") {
-                          getCurrentLocation();
-                        } else {
-                          setCurrentLocation(option);
-                        }
-                        setLocationDropdownOpen(false);
-                      }}
-                      className={`w-full px-3 py-2.5 text-sm rounded-md flex items-center justify-between ${
+                      onClick={() => handleLocationSelect(option)}
+                      disabled={
+                        locationLoading && option === "Current Location"
+                      }
+                      className={`w-full px-3 py-2.5 text-sm rounded-md flex items-center justify-between transition-colors ${
                         currentLocation === option
                           ? "bg-green-50 text-green-600"
-                          : "text-gray-700 hover:bg-gray-50"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                      } ${
+                        locationLoading && option === "Current Location"
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
                       }`}
                     >
-                      <span>{option}</span>
+                      <span className="flex items-center gap-2">
+                        {option === "Current Location" && (
+                          <Navigation className="h-4 w-4" />
+                        )}
+                        {option}
+                      </span>
                       {currentLocation === option && (
                         <ChevronRight className="h-4 w-4 text-green-500" />
                       )}
