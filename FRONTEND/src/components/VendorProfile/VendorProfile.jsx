@@ -24,10 +24,10 @@ const VendorProfile = () => {
     const fetchProfile = async () => {
       try {
         const token = JSON.parse(localStorage.getItem("token")); // Assuming token is stored in localStorage
-        
-         // adjust based on your storage
+
+        // adjust based on your storage
         const res = await axios.get(
-          "http://localhost:5000/api/vendors/profile",
+          `${import.meta.env.VITE_API_URL}/api/vendors/profile`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -44,8 +44,6 @@ const VendorProfile = () => {
   }, []);
 
   if (!vendor) return <p>Loading...</p>;
-
-
 
   const addToCart = (product) => {
     setCart([...cart, product]);

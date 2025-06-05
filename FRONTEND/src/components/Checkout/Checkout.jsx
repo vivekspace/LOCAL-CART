@@ -322,7 +322,12 @@ const Checkout = () => {
                     For delivery questions only
                   </p>
                 </div>
-                <label className="text-sm font-semibold text-gray-700 " htmlFor="email">Email Address *</label>
+                <label
+                  className="text-sm font-semibold text-gray-700 "
+                  htmlFor="email"
+                >
+                  Email Address *
+                </label>
                 <input
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
                   type="email"
@@ -398,12 +403,12 @@ const Checkout = () => {
                         <div className="flex items-center h">
                           <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 h-12 w-12 flex-shrink-0 mr-3">
                             <img
-                              src={`http://localhost:5000/uploads/${item.images[0]}`}
+                              src={`${import.meta.env.VITE_API_URL}/uploads/${item.images[0]}`}
                               alt={item.name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.target.src =
-                                  "http://localhost:5000/uploads/default-product.png";
+                                  `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
                                 e.target.onerror = null;
                               }}
                             />

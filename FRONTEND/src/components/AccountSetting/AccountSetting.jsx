@@ -28,7 +28,7 @@ export default function AccountSettings() {
     const fetchUserData = async () => {
       try {
         const token = localStorage.getItem("token");
-        const response = await axios.get("http://localhost:5000/api/users/me", {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -95,7 +95,7 @@ export default function AccountSettings() {
         }),
       };
 
-      const response = await axios.put("/api/users/update", updateData, {
+      const response = await axios.put(`${import.meta.env.VITE_API_URL}/api/users/update`, updateData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

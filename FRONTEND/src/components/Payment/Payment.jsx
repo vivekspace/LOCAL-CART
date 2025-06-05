@@ -133,7 +133,6 @@ const PaymentPage = () => {
 
   // 11. Main Payment Handler
   const handlePayment = async () => {
-
     // Validation checks
     if (!orderData || !formData || !cartItems.length) {
       toast.error("Missing order information");
@@ -152,7 +151,7 @@ const PaymentPage = () => {
       const orderResponse = await createOrder(paymentResult, "processing");
 
       // Vendor notification (non-blocking)
-     
+
       clearCart();
       navigate("/order-confirmation", {
         state: { orderId: orderResponse.orderId },
@@ -274,21 +273,15 @@ const PaymentPage = () => {
       orderStatus,
     };
 
-    const response = await axios.post(
-      "http://localhost:5000/api/orders",
-      orderPayload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      }
-    );
+    const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/orders`, orderPayload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
 
     return response.data;
   };
-
-
 
   // Loading state
   if (!orderData || !formData || !cartItems.length) {
@@ -524,14 +517,14 @@ const PaymentPage = () => {
                           <img
                             src={
                               item.images && item.images.length > 0
-                                ? `http://localhost:5000/uploads/${item.images[0]}`
-                                : "http://localhost:5000/uploads/default-product.png"
+                                ? `${import.meta.env.VITE_API_URL}/uploads/${item.images[0]}`
+                                : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
                             }
                             alt={item.name}
                             className="w-full h-full object-contain"
                             onError={(e) => {
                               e.target.src =
-                                "http://localhost:5000/uploads/default-product.png"; // Full URL from backend
+                                `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; // Full URL from backend
                             }}
                           />
                         </div>

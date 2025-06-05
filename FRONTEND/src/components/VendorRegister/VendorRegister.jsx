@@ -1,4 +1,4 @@
-import { useState , useContext} from "react";
+import { useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { User, Mail, Lock, Eye, EyeOff, Store, Phone } from "lucide-react";
 import { AuthContext } from "../../Context/Context";
@@ -30,7 +30,7 @@ export default function VendorRegister() {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/vendor/register",
+        `${import.meta.env.VITE_API_URL}/api/vendor/register`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

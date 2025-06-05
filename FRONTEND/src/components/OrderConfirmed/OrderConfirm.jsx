@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 const OrderConfirmation = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
-  const { orderId, paymentDetails, amount, items } = state || {};
+  const { orderId, paymentDetails, amount } = state || {};
 
   // Redirect if accessed without order data
   useEffect(() => {
@@ -61,7 +61,7 @@ const OrderConfirmation = () => {
           {/* Action Buttons */}
           <div className="flex flex-col space-y-3">
             <button
-              onClick={() => navigate("/account/orders")}
+              onClick={() => navigate("/orders")}
               className="flex items-center justify-center gap-2 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition"
             >
               <ShoppingBag className="w-5 h-5" />

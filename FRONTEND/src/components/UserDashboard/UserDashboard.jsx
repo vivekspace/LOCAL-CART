@@ -50,29 +50,7 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      {/* <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">My Account</h1>
-          <div className="flex items-center space-x-4">
-            <Link 
-              to="/notifications" 
-              className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 relative"
-            >
-              <span className="absolute top-0 right-0 h-3 w-3 bg-red-500 rounded-full"></span>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </Link>
-            <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold mr-2">
-                {userData.name.charAt(0)}
-              </div>
-              <span className="font-medium">{userData.name}</span>
-            </div>
-          </div>
-        </div>
-      </header> */}
+    
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Welcome Section */}

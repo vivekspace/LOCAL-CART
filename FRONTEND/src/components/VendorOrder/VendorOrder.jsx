@@ -31,9 +31,12 @@ const OrderPage = () => {
     try {
       if (showRefresh) setRefreshing(true);
       const vendorToken = localStorage.getItem("vendorToken");
-      const response = await fetch("http://localhost:5000/api/vendor/orders", {
-        headers: { Authorization: `Bearer ${vendorToken}` },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/vendor/orders`,
+        {
+          headers: { Authorization: `Bearer ${vendorToken}` },
+        }
+      );
       const data = await response.json();
       setOrders(data);
     } catch (err) {

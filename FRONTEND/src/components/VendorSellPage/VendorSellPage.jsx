@@ -122,13 +122,16 @@ const AddProduct = () => {
       formDataToSend.append("city", city);
       images.forEach((image) => formDataToSend.append("productImages", image));
 
-      const response = await fetch("http://localhost:5000/api/products", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${vendorToken}`,
-        },
-        body: formDataToSend,
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/products`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${vendorToken}`,
+          },
+          body: formDataToSend,
+        }
+      );
 
       const data = await response.json();
 

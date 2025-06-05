@@ -1,4 +1,3 @@
-// ApplicationCard.jsx
 import { useState } from 'react';
 
 export default function ApplicationCard({ application, onStatusChange }) {

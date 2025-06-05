@@ -123,14 +123,14 @@ const CartPage = () => {
                         <img
                           src={
                             item.images && item.images.length > 0
-                              ? `http://localhost:5000/uploads/${item.images[0]}`
-                              : "http://localhost:5000/uploads/default-product.png"
+                              ? `${import.meta.env.VITE_API_URL}/uploads/${item.images[0]}`
+                              : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
                           }
                           alt={item.name}
                           className="w-full h-full object-contain"
                           onError={(e) => {
                             e.target.src =
-                              "http://localhost:5000/uploads/default-product.png"; // Full URL from backend
+                              `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; // Full URL from backend
                           }}
                         />
                       </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   HomeIcon,
   CubeIcon,
@@ -19,6 +20,7 @@ const VendorNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const user = JSON.parse(localStorage.getItem("user"));
+  const navigate = useNavigate();
 
   const handleSignOut = () => {
     // Clear local storage
@@ -27,7 +29,7 @@ const VendorNavbar = () => {
     localStorage.removeItem("user");
 
     // Navigate to login page
-    window.location.href = "/vendor/login";
+    navigate("/vendor/login");
   };
 
   return (

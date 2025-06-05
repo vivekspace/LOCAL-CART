@@ -43,7 +43,7 @@ const ShoppingPage = () => {
         const lng = position.coords.longitude;
 
         fetch(
-          `http://localhost:5000/api/products/nearby?lat=${lat}&lng=${lng}&distance=10`
+          `${import.meta.env.VITE_API_URL}/api/products/nearby?lat=${lat}&lng=${lng}&distance=10`
         )
           .then((res) => res.json())
           .then((data) => {
@@ -235,12 +235,12 @@ const ShoppingPage = () => {
                           <div className="w-8 h-8 mr-3 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                             {product.images && product.images.length > 0 ? (
                               <img
-                                src={`http://localhost:5000/uploads/${product.images[0]}`}
+                                src={`${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`}
                                 alt={product.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.target.src =
-                                    "http://localhost:5000/uploads/default-product.png";
+                                    "VITE_API_URL/uploads/default-product.png";
                                   e.target.onerror = null;
                                 }}
                               />
@@ -429,14 +429,13 @@ const ShoppingPage = () => {
                   <img
                     src={
                       product.images && product.images.length > 0
-                        ? `http://localhost:5000/uploads/${product.images[0]}`
-                        : "http://localhost:5000/uploads/default-product.png"
+                        ? `${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`
+                        : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
                     }
                     alt={product.name || "Product"}
                     className="absolute h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => {
-                      e.target.src =
-                        "http://localhost:5000/uploads/default-product.png";
+                      e.target.src = "VITE_API_URL/uploads/default-product.png";
                       e.target.onerror = null;
                     }}
                   />

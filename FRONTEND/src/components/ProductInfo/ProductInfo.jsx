@@ -16,13 +16,11 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
   // Use actual product images from the database
   const productImages = useMemo(() => {
     if (product?.images?.length > 0) {
-      return product.images.map((img) => `http://localhost:5000/uploads/${img}`);
+      return product.images.map((img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`);
     }
     // Fallback to placeholder if no images exist
-    return ["/placeholder-product.jpg"];
+    return [`${import.meta.env.VITE_API_URL}/uploads/default-product.png`];
   }, [product]);
-
-  
 
   return (
     <div className="md:w-1/2 p-6">
@@ -68,7 +66,7 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
                 alt={`${product.name} thumbnail ${index + 1}`}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.target.src = "/placeholder-thumbnail.jpg";
+                  e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
                   e.target.className =
                     "w-full h-full object-contain bg-gray-100 p-2";
                 }}

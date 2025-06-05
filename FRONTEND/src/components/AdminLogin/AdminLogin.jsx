@@ -1,5 +1,5 @@
 // src/pages/AdminLogin.js
-import { useState , useContext} from "react";
+import { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import { AuthContext } from "../../Context/Context";
@@ -27,7 +27,7 @@ const AdminLogin = () => {
 
     try {
       const response = await axios.post(
-        `http://localhost:5000/api/admin/login`,
+        `${import.meta.env.VITE_API_URL}/api/admin/login`,
         {
           email: email.trim().toLowerCase(),
           password,
@@ -40,7 +40,7 @@ const AdminLogin = () => {
           timeout: 10000,
         }
       );
-     setAdmin(response.data);
+      setAdmin(response.data);
 
       if (
         !response.data.success ||

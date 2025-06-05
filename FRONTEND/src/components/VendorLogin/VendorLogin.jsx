@@ -3,7 +3,7 @@ import { AuthContext } from "../../Context/Context.jsx";
 import { Link, useNavigate } from "react-router-dom";
 import { Lock, Mail, Eye, EyeOff, ShoppingBasket } from "lucide-react";
 
-const VendorLogin = () =>{
+const VendorLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -18,7 +18,7 @@ const VendorLogin = () =>{
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/vendor/login", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/vendor/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -182,6 +182,6 @@ const VendorLogin = () =>{
       </div>
     </div>
   );
-}
+};
 
 export default VendorLogin;

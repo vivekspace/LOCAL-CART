@@ -57,7 +57,7 @@ const Dashboard = () => {
         };
 
         const response = await axios.get(
-          "http://localhost:5000/api/vendor/dashboard",
+          `${import.meta.env.VITE_API_URL}/api/vendor/dashboard`,
           config
         );
 
@@ -258,14 +258,14 @@ const Dashboard = () => {
                       className=" rounded-full object-cover"
                       src={
                         product.images?.[0]
-                          ? `http://localhost:5000/uploads/${product.images[0]}`
-                          : "http://localhost:5000/uploads/default-product.png"
+                          ? `${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`
+                          : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
                       }
                       alt={product.name}
                       onError={(e) => {
                         console.log("Image failed to load:", e.target.src);
                         e.target.src =
-                          "http://localhost:5000/uploads/default-product.png";
+                          `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
                       }}
                     />
                   </div>

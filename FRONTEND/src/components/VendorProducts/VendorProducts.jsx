@@ -22,7 +22,7 @@ const VendorProductsPage = () => {
         }
 
         const response = await axios.get(
-          "http://localhost:5000/api/vendor/products",
+          `${import.meta.env.VITE_API_URL}/api/vendor/products`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -62,7 +62,7 @@ const VendorProductsPage = () => {
       }
 
       await axios.delete(
-        `http://localhost:5000/api/vendor/products/${productId}`,
+        `${import.meta.env.VITE_API_URL}/api/vendor/products/${productId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -209,8 +209,12 @@ const VendorProductsPage = () => {
                             className="rounded-full object-cover "
                             src={
                               product.images?.[0]
-                                ? `http://localhost:5000/uploads/${product.images[0]}` // Construct full path
-                                : "http://localhost:5000/uploads/default-product.png"
+                                ? `${import.meta.env.VITE_API_URL}/uploads/${
+                                    product.images[0]
+                                  }` // Construct full path
+                                : `${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/default-product.png`
                             }
                             alt={product.name}
                             onError={(e) => {
@@ -218,7 +222,8 @@ const VendorProductsPage = () => {
                                 "Image failed to load:",
                                 e.target.src
                               );
-                              e.target.src = "http://localhost:5000/uploads/default-product.png";
+                              e.target.src =
+                                `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
                             }}
                           />
                         </div>

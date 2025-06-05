@@ -10,7 +10,6 @@ const AdminTopbar = () => {
   const adminSignOut = useContext(AuthProvider);
 
   const admin = JSON.parse(localStorage.getItem("adminInfo"));
- 
 
   const handleProfileClick = () => {
     navigate("/admin/profile");
@@ -61,14 +60,13 @@ const AdminTopbar = () => {
               src={
                 admin.avatar
                   ? admin.avatar
-                  : "http://localhost:5000/uploads/default-product.png"
+                  : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
               }
               alt={`${admin.name ? admin.name : "Admin"}'s profile`}
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-emerald-500 dark:border-emerald-400"
               onError={(e) => {
                 e.target.onerror = null;
-                e.target.src =
-                  "http://localhost:5000/uploads/default-product.png";
+                e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
               }}
             />
             <div className="hidden sm:block">
@@ -102,7 +100,7 @@ const AdminTopbar = () => {
                   src={
                     admin.avatar
                       ? admin.avatar
-                      : "http://localhost:5000/uploads/default-product.png"
+                      : "VITE_API_URL/uploads/default-product.png"
                   }
                   alt={`${admin.name ? admin.name : "Admin"}'s avatar`}
                   className="w-10 h-10 rounded-full object-cover border border-emerald-500 dark:border-emerald-400"

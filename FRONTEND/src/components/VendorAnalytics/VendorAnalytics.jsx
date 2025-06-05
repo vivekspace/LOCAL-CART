@@ -81,72 +81,72 @@ const VendorAnalytics = () => {
   }, []);
 
   // Safe chart configuration with null checks
-  const salesChartOptions = {
-    chart: {
-      type: "area",
-      height: 350,
-      toolbar: {
-        show: false,
-      },
-    },
-    colors: ["#10B981"],
-    dataLabels: {
-      enabled: false,
-    },
-    stroke: {
-      curve: "smooth",
-    },
-    xaxis: {
-      type: "datetime",
-      categories: (analyticsData.salesTrend || []).map((item) => item.date),
-    },
-    tooltip: {
-      x: {
-        format: "dd MMM yyyy",
-      },
-    },
-  };
+  // const salesChartOptions = {
+  //   chart: {
+  //     type: "area",
+  //     height: 350,
+  //     toolbar: {
+  //       show: false,
+  //     },
+  //   },
+  //   colors: ["#10B981"],
+  //   dataLabels: {
+  //     enabled: false,
+  //   },
+  //   stroke: {
+  //     curve: "smooth",
+  //   },
+  //   xaxis: {
+  //     type: "datetime",
+  //     categories: (analyticsData.salesTrend || []).map((item) => item.date),
+  //   },
+  //   tooltip: {
+  //     x: {
+  //       format: "dd MMM yyyy",
+  //     },
+  //   },
+  // };
 
-  const salesChartSeries = [
-    {
-      name: "Sales",
-      data: (analyticsData.salesTrend || []).map((item) => item.amount),
-    },
-  ];
+  // const salesChartSeries = [
+  //   {
+  //     name: "Sales",
+  //     data: (analyticsData.salesTrend || []).map((item) => item.amount),
+  //   },
+  // ];
 
-  const productChartOptions = {
-    chart: {
-      type: "bar",
-      height: 350,
-      toolbar: {
-        show: false,
-      },
-    },
-    colors: ["#3B82F6"],
-    plotOptions: {
-      bar: {
-        borderRadius: 4,
-        horizontal: true,
-      },
-    },
-    dataLabels: {
-      enabled: false,
-    },
-    xaxis: {
-      categories: (analyticsData.popularProducts || []).map(
-        (product) => product.name
-      ),
-    },
-  };
+  // const productChartOptions = {
+  //   chart: {
+  //     type: "bar",
+  //     height: 350,
+  //     toolbar: {
+  //       show: false,
+  //     },
+  //   },
+  //   colors: ["#3B82F6"],
+  //   plotOptions: {
+  //     bar: {
+  //       borderRadius: 4,
+  //       horizontal: true,
+  //     },
+  //   },
+  //   dataLabels: {
+  //     enabled: false,
+  //   },
+  //   xaxis: {
+  //     categories: (analyticsData.popularProducts || []).map(
+  //       (product) => product.name
+  //     ),
+  //   },
+  // };
 
-  const productChartSeries = [
-    {
-      name: "Orders",
-      data: (analyticsData.popularProducts || []).map(
-        (product) => product.orders
-      ),
-    },
-  ];
+  // const productChartSeries = [
+  //   {
+  //     name: "Orders",
+  //     data: (analyticsData.popularProducts || []).map(
+  //       (product) => product.orders
+  //     ),
+  //   },
+  // ];
 
   if (loading) {
     return (

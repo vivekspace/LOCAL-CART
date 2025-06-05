@@ -63,7 +63,7 @@ const AdminPanel = () => {
     const fetchProducts = async () => {
       setLoading(true);
       try {
-        const { data } = await axios.get("http://localhost:5000/api/products");
+        const { data } = await axios.get("VITE_API_URL/api/products");
         setProducts(data.products);
       } catch (error) {
         console.error("Error fetching products:", error);
@@ -78,7 +78,7 @@ const AdminPanel = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/products/${id}`);
+        await axios.delete(`VITE_API_URL/api/products/${id}`);
         setProducts(products.filter((product) => product._id !== id));
       } catch (error) {
         console.error("Error deleting product:", error);
