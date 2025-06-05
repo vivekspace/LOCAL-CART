@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../../Context/Context";
+import { ToastContainer } from "react-toastify";
 
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
@@ -105,6 +106,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4">
+      <ToastContainer/>
       {/* Decorative elements */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
       <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
