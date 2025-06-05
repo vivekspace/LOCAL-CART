@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const Product = require('../models/Product'); // Add this import at the top
 
+
 const {
     registerVendor,
     loginVendor,
@@ -12,6 +13,7 @@ const {
 } = require('../controllers/vendorController');
 const { getVendorDashboard } = require('../controllers/dashboardController');
 const { protectVendor } = require('../middleware/vendorAuth');
+const orderController = require('../controllers/orderController');
 
 // Vendor Auth Routes
 router.post('/register', registerVendor);
@@ -21,6 +23,7 @@ router.post('/login', loginVendor);
 router.post('/products', protectVendor, addProduct);
 router.get('/products', protectVendor, getVendorProducts); // This uses the controller
 router.delete('/products/:id', protectVendor, deleteProduct);
+router.get('/orders', protectVendor, orderController.getVendorOrders);
 
 // Dashboard Route
 router.get('/dashboard', protectVendor, getVendorDashboard);
