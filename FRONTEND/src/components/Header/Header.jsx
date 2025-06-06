@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { Link, NavLink } from "react-router-dom";
 import {
   Menu,
@@ -17,25 +17,47 @@ import {
   ChevronRight,
   Navigation,
 } from "lucide-react";
-import { useContext } from "react";
-import { AuthContext } from "../../Context/Context.jsx";
+import { AuthContext } from "../../Context/Context.jsx"; // Correct path to your AuthContext
 import logo from "/src/assets/logo.svg";
 
+// REMOVED: LOCATION_TYPE_CURRENT, LOCATION_TYPE_PRODUCT_BASED, USER_LOCATION_KEY
+// These constants are now sourced from AuthContext
+
 const Header = () => {
-  const { cartItems, logout, isLoggedIn, setIsLoggedIn } =
-    useContext(AuthContext);
+  // Destructure relevant values from AuthContext
+  const {
+    cartItems,
+    logout,
+    isLoggedIn,
+    setIsLoggedIn, // Assuming setIsLoggedIn is needed here for local UI updates on logout
+    selectedLocation, // <--- GET selectedLocation FROM CONTEXT
+    updateUserLocation, // <--- GET updateUserLocation FUNCTION FROM CONTEXT
+    LOCATION_TYPE_CURRENT, // <--- GET constants FROM CONTEXT
+    LOCATION_TYPE_PRODUCT_BASED, // <--- GET constants FROM CONTEXT
+    // No need to get USER_LOCATION_KEY here as localStorage interaction is in context
+  } = useContext(AuthContext);
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState("Nearby");
+  // currentLocationDisplayName will now be derived from selectedLocation from context
+  const [currentLocationDisplayName, setCurrentLocationDisplayName] = useState(
+    "Loading Location..."
+  );
   const [locationLoading, setLocationLoading] = useState(false);
 
-  // Refs for click outside functionality
+  // REMOVED: selectedLocation state and setSelectedLocation setter
+  // REMOVED: initialLocationFetchRef
+
+  // State to hold dynamically extracted product locations (remains local to Header)
+  const [productLocations, setProductLocations] = useState([]);
+
+  // Refs for click outside functionality (remain local to Header for UI control)
   const locationDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
 
-  // Handle scroll effect
+  // Handle scroll effect (remains local)
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -44,7 +66,7 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Handle click outside to close dropdowns
+  // Handle click outside to close dropdowns (remains local)
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -65,7 +87,7 @@ const Header = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close all dropdowns when menu state changes
+  // Close all dropdowns when menu state changes (remains local)
   useEffect(() => {
     if (!menuOpen) {
       setLocationDropdownOpen(false);
@@ -73,171 +95,141 @@ const Header = () => {
     }
   }, [menuOpen]);
 
-  // Get user's current location with better error handling
-  const getCurrentLocation = () => {
-    setLocationLoading(true);
-    setCurrentLocation("Locating...");
+  // REMOVED: reverseGeocode helper
+  // REMOVED: getCurrentGeolocation helper
 
-    if (!navigator.geolocation) {
-      setCurrentLocation("Location not supported");
-      setLocationLoading(false);
-      return;
-    }
+  // Function to fetch products and extract unique locations (remains local to Header)
+  // This is for populating the dropdown options, not setting the global selected location.
+  const fetchAndExtractProductLocations = async () => {
+    try {
+      console.log(
+        "Header: Attempting to fetch products for location options from:",
+        `${import.meta.env.VITE_API_URL}/api/products`
+      );
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/products`
+      );
 
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 300000, // 5 minutes cache
-    };
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `Header: Product API HTTP error! Status: ${response.status}, Message: ${errorText}`
+        );
+        throw new Error(`Failed to fetch products: ${response.status}`);
+      }
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
+      const rawData = await response.json();
+      console.log("Header: Raw product API response for locations:", rawData);
 
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
-          );
-          const data = await response.json();
+      const products = rawData?.data?.products;
 
-          if (data && data.address) {
-            const city =
-              data.address.city ||
-              data.address.town ||
-              data.address.village ||
-              data.address.county ||
-              "Current Location";
+      if (!products || !Array.isArray(products)) {
+        console.warn(
+          "Header: Products array not found or not an array in API response:",
+          products
+        );
+        return [];
+      }
 
-            setCurrentLocation(city);
+      const uniqueLocations = new Map();
 
-            // Store location in localStorage with better structure
-            const locationData = {
-              latitude,
-              longitude,
-              city,
-              timestamp: Date.now(),
-              fullAddress: data.display_name,
-            };
+      products.forEach((product) => {
+        if (
+          product.location &&
+          product.city &&
+          product.location.coordinates &&
+          Array.isArray(product.location.coordinates) &&
+          product.location.coordinates.length === 2
+        ) {
+          const city = product.city;
+          const lat = product.location.coordinates[1];
+          const lng = product.location.coordinates[0];
 
-            try {
-              localStorage.setItem(
-                "userLocation",
-                JSON.stringify(locationData)
-              );
-            } catch (error) {
-              console.warn("Could not save location to localStorage:", error);
-            }
-          } else {
-            setCurrentLocation("Current Location");
+          if (!uniqueLocations.has(city)) {
+            uniqueLocations.set(city, {
+              name: city,
+              lat: lat,
+              lng: lng,
+              type: LOCATION_TYPE_PRODUCT_BASED,
+            });
           }
-        } catch (error) {
-          console.error("Geocoding error:", error);
-          setCurrentLocation("Current Location");
-        } finally {
-          setLocationLoading(false);
+        } else {
+          console.warn(
+            "Header: Product skipped due to incomplete or malformed location data:",
+            product.name,
+            "Location:",
+            product.location,
+            "City:",
+            product.city
+          );
         }
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        let errorMessage = "Nearby";
+      });
 
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "Location access denied";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location unavailable";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location timeout";
-            break;
-          default:
-            errorMessage = "Nearby";
-            break;
-        }
-
-        setCurrentLocation(errorMessage);
-        setLocationLoading(false);
-      },
-      options
-    );
+      const extractedLocations = Array.from(uniqueLocations.values());
+      return extractedLocations;
+    } catch (error) {
+      console.error(
+        "Header: Error during product location fetch and extraction:",
+        error
+      );
+      return [];
+    }
   };
 
-  // Load saved location on component mount
+  // Initial fetch of product locations for the dropdown (remains local to Header)
   useEffect(() => {
-    try {
-      const savedLocation = localStorage.getItem("userLocation");
-      if (savedLocation) {
-        const locationData = JSON.parse(savedLocation);
-        // Check if location data is not too old (24 hours)
-        const isRecent =
-          locationData.timestamp &&
-          Date.now() - locationData.timestamp < 24 * 60 * 60 * 1000;
+    fetchAndExtractProductLocations().then((locations) => {
+      setProductLocations(locations);
+    });
+  }, []); // Run only once on mount to populate the dropdown options
 
-        if (isRecent && locationData.city) {
-          setCurrentLocation(locationData.city);
-          return;
-        }
-      }
-    } catch (error) {
-      console.warn("Could not load saved location:", error);
+  // REMOVED: Main effect to set up initial location on load.
+  // This is now handled by AuthContext's useEffect.
+
+  // Effect to update display name when selectedLocation from context changes
+  useEffect(() => {
+    if (selectedLocation) {
+      setCurrentLocationDisplayName(selectedLocation.name);
     }
+  }, [selectedLocation]); // Dependency on selectedLocation from context
 
-    // If no valid saved location, try to get current location
-    getCurrentLocation();
-  }, []);
+  // Handle location selection from dropdown
+  const handleLocationSelect = async (locationData) => {
+    console.log("Header: handleLocationSelect triggered with:", locationData);
+    setLocationLoading(true);
+
+    // Call the context function to update the global selected location
+    await updateUserLocation(locationData); // <--- Use the context function
+
+    setLocationLoading(false);
+    setLocationDropdownOpen(false); // Close dropdown after selection
+  };
 
   const handleLogOut = () => {
-    setIsLoggedIn(false);
-    logout();
+    setIsLoggedIn(false); // Update local state for immediate UI change
+    logout(); // Call context logout, which should handle clearing localStorage
     setMenuOpen(false);
     setUserDropdownOpen(false);
     setLocationDropdownOpen(false);
 
-    try {
-      localStorage.removeItem("userLocation");
-    } catch (error) {
-      console.warn("Could not remove location from localStorage:", error);
-    }
-  };
-
-  const handleLocationSelect = (option) => {
-    if (option === "Current Location") {
-      getCurrentLocation();
-    } else {
-      setCurrentLocation(option);
-      // Save selected location to localStorage
-      try {
-        const locationData = {
-          city: option,
-          timestamp: Date.now(),
-          isManualSelection: true,
-        };
-        localStorage.setItem("userLocation", JSON.stringify(locationData));
-      } catch (error) {
-        console.warn("Could not save location to localStorage:", error);
-      }
-    }
-
-    // Always close dropdown after selection
-    setLocationDropdownOpen(false);
+    // REMOVED: localStorage.removeItem(USER_LOCATION_KEY);
+    // This is now handled by the 'logout' function provided by AuthContext,
+    // assuming it takes care of all relevant localStorage clearing.
   };
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
 
   const toggleUserDropdown = () => {
     setUserDropdownOpen(!userDropdownOpen);
-    // Close location dropdown when opening user dropdown
     if (!userDropdownOpen) {
-      setLocationDropdownOpen(false);
+      setLocationDropdownOpen(false); // Close location dropdown when opening user dropdown
     }
   };
 
   const toggleLocationDropdown = () => {
     setLocationDropdownOpen(!locationDropdownOpen);
-    // Close user dropdown when opening location dropdown
     if (!locationDropdownOpen) {
-      setUserDropdownOpen(false);
+      setUserDropdownOpen(false); // Close user dropdown when opening location dropdown
     }
   };
 
@@ -248,18 +240,20 @@ const Header = () => {
         : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
     }`;
 
-  const locationOptions = [
-    "Current Location",
-    "City Center",
-    "Downtown",
-    "Uptown",
-    "Suburbs",
-    "Countryside",
-    "Beachside",
-    "Mountain Area",
-    "Rural Area",
-    "Urban Area",
-    "Industrial Area",
+  // Combined location options for the dropdown (Current Location + Product-based Locations)
+  // The 'Current Location' option's name is dynamically set by selectedLocation from context
+  const combinedLocationOptions = [
+    {
+      name:
+        selectedLocation?.type === LOCATION_TYPE_CURRENT &&
+        selectedLocation.name
+          ? selectedLocation.name
+          : "Current Location",
+      type: LOCATION_TYPE_CURRENT,
+      lat: selectedLocation?.lat, // Pass current coordinates from context for consistency
+      lng: selectedLocation?.lng,
+    },
+    ...productLocations.sort((a, b) => a.name.localeCompare(b.name)), // Sort product locations alphabetically
   ];
 
   return (
@@ -299,7 +293,7 @@ const Header = () => {
                   <MapPin className="h-5 w-5 text-green-600" />
                 )}
                 <span className="max-w-[120px] truncate">
-                  {currentLocation}
+                  {currentLocationDisplayName}
                 </span>
                 <ChevronDown
                   className={`h-4 w-4 transition-transform duration-200 ${
@@ -318,30 +312,37 @@ const Header = () => {
                 <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 mb-2">
                   Select Location
                 </div>
-                {locationOptions.map((option) => (
+                {combinedLocationOptions.map((option, index) => (
                   <button
-                    key={option}
+                    key={
+                      option.type === LOCATION_TYPE_CURRENT
+                        ? option.type
+                        : option.name || `product-loc-${index}`
+                    }
                     onClick={() => handleLocationSelect(option)}
-                    disabled={locationLoading && option === "Current Location"}
+                    disabled={
+                      locationLoading && option.type === LOCATION_TYPE_CURRENT
+                    }
                     className={`w-full px-4 py-2.5 text-sm text-left font-medium rounded-md flex items-center justify-between transition-colors ${
-                      currentLocation === option
+                      selectedLocation && selectedLocation.name === option.name
                         ? "bg-green-50 text-green-600"
                         : "text-gray-700 hover:bg-green-50 hover:text-green-600"
                     } ${
-                      locationLoading && option === "Current Location"
+                      locationLoading && option.type === LOCATION_TYPE_CURRENT
                         ? "opacity-50 cursor-not-allowed"
                         : ""
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      {option === "Current Location" && (
+                      {option.type === LOCATION_TYPE_CURRENT && (
                         <Navigation className="h-4 w-4" />
                       )}
-                      {option}
+                      {option.name}
                     </span>
-                    {currentLocation === option && (
-                      <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></span>
-                    )}
+                    {selectedLocation &&
+                      selectedLocation.name === option.name && (
+                        <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></span>
+                      )}
                   </button>
                 ))}
               </div>
@@ -482,6 +483,7 @@ const Header = () => {
           className={`absolute right-0 top-0 h-screen w-80 bg-white shadow-xl transform transition-transform duration-500 ease-in-out ${
             menuOpen ? "translate-x-0" : "translate-x-full"
           }`}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="h-full flex flex-col">
             {/* Menu header */}
@@ -513,7 +515,7 @@ const Header = () => {
                     <MapPin className="h-5 w-5 text-green-600" />
                   )}
                   <span className="font-medium truncate flex-1">
-                    {currentLocation}
+                    {currentLocationDisplayName}
                   </span>
                 </div>
                 <button
@@ -536,32 +538,38 @@ const Header = () => {
                   <div className="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Select Location
                   </div>
-                  {locationOptions.map((option) => (
+                  {combinedLocationOptions.map((option, index) => (
                     <button
-                      key={option}
+                      key={
+                        option.type === LOCATION_TYPE_CURRENT
+                          ? option.type
+                          : option.name || `product-loc-${index}`
+                      }
                       onClick={() => handleLocationSelect(option)}
                       disabled={
-                        locationLoading && option === "Current Location"
+                        locationLoading && option.type === LOCATION_TYPE_CURRENT
                       }
                       className={`w-full px-3 py-2.5 text-sm rounded-md flex items-center justify-between transition-colors ${
-                        currentLocation === option
+                        selectedLocation &&
+                        selectedLocation.name === option.name
                           ? "bg-green-50 text-green-600"
                           : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                       } ${
-                        locationLoading && option === "Current Location"
+                        locationLoading && option.type === LOCATION_TYPE_CURRENT
                           ? "opacity-50 cursor-not-allowed"
                           : ""
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        {option === "Current Location" && (
+                        {option.type === LOCATION_TYPE_CURRENT && (
                           <Navigation className="h-4 w-4" />
                         )}
-                        {option}
+                        {option.name}
                       </span>
-                      {currentLocation === option && (
-                        <ChevronRight className="h-4 w-4 text-green-500" />
-                      )}
+                      {selectedLocation &&
+                        selectedLocation.name === option.name && (
+                          <ChevronRight className="h-4 w-4 text-green-500" />
+                        )}
                     </button>
                   ))}
                 </div>

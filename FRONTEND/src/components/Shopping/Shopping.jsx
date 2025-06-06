@@ -1,7 +1,8 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { AuthContext } from "../../Context/Context";
+import { AuthContext } from "../../Context/Context"; // Assuming AuthContext provides user login status and now selectedLocation
 import { useNavigate } from "react-router-dom";
+import { HeroSlider } from "../HeroSlider/HeroSlider";
 
 const ShoppingPage = () => {
   const [categories, setCategories] = useState([]);
@@ -10,7 +11,17 @@ const ShoppingPage = () => {
   const [nearbyProducts, setNearbyProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeResultIndex, setActiveResultIndex] = useState(-1);
-  const { products, addToCart } = useContext(AuthContext);
+
+  // Consume necessary values from AuthContext
+  const {
+    addToCart,
+    isLoggedIn,
+    selectedLocation, // <--- GET selectedLocation FROM CONTEXT
+    LOCATION_TYPE_CURRENT, // <--- GET constants FROM CONTEXT
+    LOCATION_TYPE_PRODUCT_BASED, // <--- GET constants FROM CONTEXT
+    updateUserLocation, // Add this if available in context
+  } = useContext(AuthContext);
+
   const navigate = useNavigate();
 
   const mockCategories = [
@@ -28,47 +39,75 @@ const ShoppingPage = () => {
   ];
 
   useEffect(() => {
+    // Simulate fetching categories
     const timer = setTimeout(() => {
       setCategories(mockCategories);
-      setIsLoading(false);
     }, 800);
     return () => clearTimeout(timer);
   }, []);
 
-  // Fetch nearby products only once when component mounts
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
+    if (!selectedLocation) {
+      // Wait for initial location to be set by context.
+      // This ensures we don't try to fetch products before we know the location.
+      console.log("ShoppingPage: Waiting for selectedLocation from context...");
+      return;
+    }
 
-        fetch(
-          `${import.meta.env.VITE_API_URL}/api/products/nearby?lat=${lat}&lng=${lng}&distance=10`
-        )
-          .then((res) => res.json())
-          .then((data) => {
-            console.log("Nearby Products Data:", data);
-            setNearbyProducts(data.data?.products || []);
-          })
-          .catch((error) => {
-            console.error("API Error:", error);
-          });
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        alert("Please allow location access to see nearby products");
-      }
-    );
-  }, []); // Empty dependency array means this runs only once on mount
+    setIsLoading(true);
+    let apiUrl = "";
 
-  // Safe filtering with null checks
+    // Determine API URL based on the selectedLocation's type and coordinates
+    // We expect selectedLocation to always have a type and potentially lat/lng
+    if (selectedLocation.lat && selectedLocation.lng) {
+      // For any location with coordinates (Current, Product-based, or Fallback)
+      apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby?lat=${
+        selectedLocation.lat
+      }&lng=${selectedLocation.lng}&distance=10`; // Assuming 10km radius
+    } else {
+      // If coordinates are missing for some reason (e.g., denied geolocation, or a product entry without coordinates)
+      console.warn(
+        `ShoppingPage: Selected location (${selectedLocation.name}) has no coordinates. Fetching all products as fallback.`
+      );
+      apiUrl = `${import.meta.env.VITE_API_URL}/api/products`; // Fallback to fetching all products
+    }
+
+    console.log("ShoppingPage: Fetching products from:", apiUrl);
+    fetch(apiUrl)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("ShoppingPage: Products Data received:", data);
+        setNearbyProducts(data.data?.products || []);
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error(
+          "ShoppingPage: API Error fetching products for location:",
+          error
+        );
+        setNearbyProducts([]); // Clear products on error
+        setIsLoading(false);
+        // Only show alert if it's not a normal "no products nearby" scenario
+        if (!error.message.includes("404")) {
+          // Example: don't alert for a missing endpoint if you expect it
+          // alert("Failed to load products for this location. Please try another or refresh.");
+        }
+      });
+  }, [selectedLocation, LOCATION_TYPE_CURRENT, LOCATION_TYPE_PRODUCT_BASED]); // Re-run when selectedLocation or its types change
+
+  // Safe filtering with null checks - uses nearbyProducts now
   const filteredProducts =
-    products?.filter((product) => {
+    nearbyProducts?.filter((product) => {
       if (!product || !product.name) return false;
 
       const matchesSearch =
         product.name.toLowerCase().includes(search.toLowerCase()) ||
-        (product.vendor &&
+        (product.vendor && // Assuming product might have a vendor name
           product.vendor.toLowerCase().includes(search.toLowerCase()));
 
       const matchesCategory =
@@ -82,11 +121,25 @@ const ShoppingPage = () => {
     }) || [];
 
   const filteredSearch =
-    products?.filter((product) =>
+    nearbyProducts?.filter((product) =>
       product && product.name
         ? product.name.toLowerCase().includes(search.trim().toLowerCase())
         : false
     ) || [];
+
+  // Get unique vendors from filtered products
+  const uniqueVendors = filteredProducts.reduce((vendors, product) => {
+    if (product.vendor && !vendors.find((v) => v.name === product.vendor)) {
+      vendors.push({
+        name: product.vendor,
+        productCount: filteredProducts.filter(
+          (p) => p.vendor === product.vendor
+        ).length,
+        // You can add more vendor details here if available in your product data
+      });
+    }
+    return vendors;
+  }, []);
 
   const handleKeyDown = (e) => {
     if (e.key === "ArrowDown") {
@@ -103,7 +156,6 @@ const ShoppingPage = () => {
         const selectedProduct = filteredSearch[activeResultIndex];
         setSearch(selectedProduct.name);
         setActiveResultIndex(-1);
-        // Add the product to cart and navigate to product page
         addToCart(selectedProduct._id);
         navigate(`/product-info/${selectedProduct._id}`);
       } else if (search && search.length >= 2) {
@@ -117,21 +169,43 @@ const ShoppingPage = () => {
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
-    setActiveResultIndex(-1); // Reset active index when typing
+    setActiveResultIndex(-1);
   };
 
   const handleAddToCart = (e, productId) => {
-    e.preventDefault(); // Prevent navigation when clicking add to cart
+    e.preventDefault();
     e.stopPropagation();
     addToCart(productId);
   };
-  console.log("Nearby Products:", nearbyProducts);
+
+  const handleResetFiltersAndLocation = async () => {
+    setSearch("");
+    setSelectedCategory("All");
+    setActiveResultIndex(-1);
+
+    // If updateUserLocation is available in context, try to get current location
+    if (updateUserLocation) {
+      try {
+        await updateUserLocation({ type: LOCATION_TYPE_CURRENT });
+      } catch (error) {
+        console.error("Failed to update location:", error);
+      }
+    }
+  };
+
+  console.log("ShoppingPage: Nearby Products for display:", nearbyProducts);
+  console.log(
+    "ShoppingPage: Selected Location from Context:",
+    selectedLocation
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
       <HeroSlider />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
+          {/* Search Bar */}
           <div className="relative mb-8 max-w-2xl mx-auto">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl blur opacity-10 group-hover:opacity-20 transition duration-300"></div>
 
@@ -159,20 +233,19 @@ const ShoppingPage = () => {
                 value={search}
                 onChange={handleSearchChange}
                 onKeyDown={handleKeyDown}
-                onMouseEnter={() => setActiveResultIndex(-1)}
-                onMouseLeave={() => setActiveResultIndex(-1)}
-                onBlur={() => setActiveResultIndex(-1)}
-                onFocus={() => setActiveResultIndex(-1)}
+                // Adjusted blur/focus for better UX with search results
+                onFocus={() =>
+                  search && search.length > 1 && setActiveResultIndex(-1)
+                }
+                onBlur={() => setTimeout(() => setActiveResultIndex(-1), 100)} // Delay to allow click on search result
               />
 
               <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                 {search ? (
                   <button
                     onClick={() => {
-                      setTimeout(() => {
-                        setSearch("");
-                        setActiveResultIndex(-1);
-                      }, 100);
+                      setSearch("");
+                      setActiveResultIndex(-1);
                     }}
                     className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200 rounded-full hover:bg-gray-100"
                   >
@@ -235,12 +308,15 @@ const ShoppingPage = () => {
                           <div className="w-8 h-8 mr-3 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                             {product.images && product.images.length > 0 ? (
                               <img
-                                src={`${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`}
+                                src={`${import.meta.env.VITE_API_URL}/uploads/${
+                                  product.images[0]
+                                }`}
                                 alt={product.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  e.target.src =
-                                    "VITE_API_URL/uploads/default-product.png";
+                                  e.target.src = `${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/default-product.png`;
                                   e.target.onerror = null;
                                 }}
                               />
@@ -312,14 +388,14 @@ const ShoppingPage = () => {
                 <button
                   key={category}
                   className={`
-                    px-4 py-2 rounded-full transition-all duration-300 flex items-center
-                    transform hover:scale-105 relative overflow-hidden
-                    ${
-                      selectedCategory === category
-                        ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium shadow-md shadow-green-200"
-                        : "bg-white text-gray-700 hover:bg-gray-50 hover:text-green-600 shadow-sm border border-gray-200"
-                    }
-                  `}
+                                        px-4 py-2 rounded-full transition-all duration-300 flex items-center
+                                        transform hover:scale-105 relative overflow-hidden
+                                        ${
+                                          selectedCategory === category
+                                            ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium shadow-md shadow-green-200"
+                                            : "bg-white text-gray-700 hover:bg-gray-50 hover:text-green-600 shadow-sm border border-gray-200"
+                                        }
+                                    `}
                   onClick={() => setSelectedCategory(category)}
                 >
                   {selectedCategory === category && (
@@ -381,7 +457,7 @@ const ShoppingPage = () => {
             </div>
           </div>
         </div>
-        {isLoading ? (
+        {isLoading && !nearbyProducts.length ? ( // Show skeleton only if truly loading and no products yet
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
               <div
@@ -401,198 +477,219 @@ const ShoppingPage = () => {
             ))}
           </div>
         ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {nearbyProducts.map((product, idx) => (
-              <div
-                key={product._id || idx}
-                className="bg-white/60 backdrop-blur-md rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 group relative"
-              >
-                {/* Badges */}
-                {product.discount && (
-                  <div className="absolute top-3 left-3 z-10">
-                    <div className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                      {product.discount}% OFF
-                    </div>
-                  </div>
-                )}
-
-                {product.isNew && (
-                  <div className="absolute top-3 right-3 z-10">
-                    <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                      NEW
-                    </div>
-                  </div>
-                )}
-
-                {/* Product Image */}
-                <div className="relative pb-[75%] overflow-hidden">
-                  <img
-                    src={
-                      product.images && product.images.length > 0
-                        ? `${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`
-                        : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
-                    }
-                    alt={product.name || "Product"}
-                    className="absolute h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    onError={(e) => {
-                      e.target.src = "VITE_API_URL/uploads/default-product.png";
-                      e.target.onerror = null;
-                    }}
-                  />
-
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between p-4">
-                    <Link
-                      to={`/product-info/${product._id}`}
-                      className="text-white font-medium text-sm bg-black/50 hover:bg-black/70 px-4 py-2 rounded-full transition-all duration-200 backdrop-blur-sm flex items-center shadow-lg"
-                    >
-                      <svg
-                        className="w-4 h-4 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        ></path>
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        ></path>
-                      </svg>
-                      Quick View
-                    </Link>
-
-                    <div className="flex space-x-1">
-                      <button className="text-white p-2 rounded-full bg-black/50 hover:bg-black/70 transition-all duration-200 backdrop-blur-sm shadow-lg">
-                        <svg
-                          className="w-4 h-4"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Product Info */}
-                <div className="p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <Link
-                      to={`/product-info/${product._id}`}
-                      className="block flex-1"
-                    >
-                      <h3 className="text-lg font-semibold text-gray-800 line-clamp-1 hover:text-green-600 transition-colors group-hover:text-green-600">
-                        {product.name || "Unnamed Product"}
-                      </h3>
-                    </Link>
-                    {product.category && (
-                      <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full whitespace-nowrap font-medium ml-2">
-                        {product.category}
-                      </span>
+          <>
+            <p className="text-sm font-bold text-gray-500 mt-2 mb-4">
+              Displaying products for:{" "}
+              <span className="font-medium text-green-600">
+                {selectedLocation?.name || "Unknown Location"}
+              </span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredProducts.map(
+                (
+                  product,
+                  idx // Use filteredProducts here
+                ) => (
+                  <div
+                    key={product._id || idx}
+                    className="bg-white/60 backdrop-blur-md rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 group relative"
+                  >
+                    {/* Badges */}
+                    {product.discount && (
+                      <div className="absolute top-3 left-3 z-10">
+                        <div className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                          {product.discount}% OFF
+                        </div>
+                      </div>
                     )}
-                  </div>
 
-                  {product.vendor && (
-                    <div className="flex items-center text-gray-500 text-sm mb-3">
-                      <svg
-                        className="w-4 h-4 mr-1 text-green-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                        ></path>
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                        ></path>
-                      </svg>
-                      <span className="hover:text-green-600 transition-colors cursor-pointer">
-                        {product.vendor}
-                      </span>
-                    </div>
-                  )}
+                    {product.isNew && (
+                      <div className="absolute top-3 right-3 z-10">
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                          NEW
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Rating */}
-                  <div className="flex items-center mb-3">
-                    <div className="flex mr-2">
-                      {[...Array(5)].map((_, i) => (
-                        <svg
-                          key={i}
-                          className={`w-4 h-4 ${
-                            i < (product.rating || 4)
-                              ? "text-yellow-400"
-                              : "text-gray-300"
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
+                    {/* Product Image */}
+                    <div className="relative pb-[75%] overflow-hidden">
+                      <img
+                        src={
+                          product.images && product.images.length > 0
+                            ? `${import.meta.env.VITE_API_URL}/uploads/${
+                                product.images[0]
+                              }`
+                            : `${
+                                import.meta.env.VITE_API_URL
+                              }/uploads/default-product.png`
+                        }
+                        alt={product.name || "Product"}
+                        className="absolute h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        onError={(e) => {
+                          e.target.src = `${
+                            import.meta.env.VITE_API_URL
+                          }/uploads/default-product.png`;
+                          e.target.onerror = null;
+                        }}
+                      />
+
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between p-4">
+                        <Link
+                          to={`/product-info/${product._id}`}
+                          className="text-white font-medium text-sm bg-black/50 hover:bg-black/70 px-4 py-2 rounded-full transition-all duration-200 backdrop-blur-sm flex items-center shadow-lg"
                         >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      ({product.reviewCount || "0"} reviews)
-                    </span>
-                  </div>
+                          <svg
+                            className="w-4 h-4 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            ></path>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            ></path>
+                          </svg>
+                          Quick View
+                        </Link>
 
-                  {/* Price and Add to Cart */}
-                  <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-                    <div>
-                      <div className="flex items-center">
-                        <p className="text-green-600 font-bold text-lg">
-                          ${product.price || "0.00"}
-                        </p>
-                        {product.originalPrice && (
-                          <p className="text-gray-400 text-sm line-through ml-2">
-                            ${product.originalPrice}
-                          </p>
+                        <div className="flex space-x-1">
+                          <button className="text-white p-2 rounded-full bg-black/50 hover:bg-black/70 transition-all duration-200 backdrop-blur-sm shadow-lg">
+                            <svg
+                              className="w-4 h-4"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Product Info */}
+                    <div className="p-5">
+                      <div className="flex justify-between items-start mb-2">
+                        <Link
+                          to={`/product-info/${product._id}`}
+                          className="block flex-1"
+                        >
+                          <h3 className="text-lg font-semibold text-gray-800 line-clamp-1 hover:text-green-600 transition-colors group-hover:text-green-600">
+                            {product.name || "Unnamed Product"}
+                          </h3>
+                        </Link>
+                        {product.category && (
+                          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full whitespace-nowrap font-medium ml-2">
+                            {product.category}
+                          </span>
                         )}
                       </div>
-                      {product.originalPrice && (
-                        <p className="text-xs text-green-600 font-medium">
-                          Save $
-                          {(product.originalPrice - product.price).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
 
-                    <button
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white p-3 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center transform hover:scale-105 group"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleAddToCart(e, product._id);
-                        navigate("/cart");
-                      }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 group-hover:animate-bounce"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                      </svg>
-                    </button>
+                      {product.vendor && (
+                        <div className="flex items-center text-gray-500 text-sm mb-3">
+                          <svg
+                            className="w-4 h-4 mr-1 text-green-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                            ></path>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                            ></path>
+                          </svg>
+                          <span className="hover:text-green-600 transition-colors cursor-pointer">
+                            {product.vendor}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Rating */}
+                      <div className="flex items-center mb-3">
+                        <div className="flex mr-2">
+                          {[...Array(5)].map((_, i) => (
+                            <svg
+                              key={i}
+                              className={`w-4 h-4 ${
+                                i < (product.rating || 4)
+                                  ? "text-yellow-400"
+                                  : "text-gray-300"
+                              }`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          ({product.reviewCount || "0"} reviews)
+                        </span>
+                      </div>
+
+                      {/* Price and Add to Cart */}
+                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
+                        <div>
+                          <div className="flex items-center">
+                            <p className="text-green-600 font-bold text-lg">
+                              ${product.price || "0.00"}
+                            </p>
+                            {product.originalPrice && (
+                              <p className="text-gray-400 text-sm line-through ml-2">
+                                ${product.originalPrice}
+                              </p>
+                            )}
+                          </div>
+                          {product.originalPrice && (
+                            <p className="text-xs text-green-600 font-medium">
+                              Save $
+                              {(product.originalPrice - product.price).toFixed(
+                                2
+                              )}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white p-3 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center transform hover:scale-105 group"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleAddToCart(e, product._id);
+                            navigate("/cart");
+                          }}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 group-hover:animate-bounce"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                )
+              )}
+            </div>
+          </>
         ) : (
           <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-md border border-gray-100 overflow-hidden">
             <div className="text-center py-16 px-6">
@@ -616,11 +713,12 @@ const ShoppingPage = () => {
                   No products found
                 </h3>
                 <p className="mt-3 text-gray-500 text-lg">
-                  We couldn't find any products matching your search criteria.
+                  We couldn't find any products matching your current location
+                  or selected criteria.
                 </p>
                 <p className="mt-1 text-gray-500">
-                  Try adjusting your search or filter to find what you're
-                  looking for.
+                  Try adjusting your location, search, or filter to find what
+                  you're looking for.
                 </p>
                 <div className="mt-6">
                   <button
@@ -628,10 +726,11 @@ const ShoppingPage = () => {
                       setSearch("");
                       setSelectedCategory("All");
                       setActiveResultIndex(-1);
+                      // Trigger re-fetch of current location if possible, or set a default
                     }}
                     className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-md text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105"
                   >
-                    Reset Filters
+                    Reset Filters & Location
                     <svg
                       className="ml-2 -mr-1 w-5 h-5"
                       fill="none"
@@ -652,8 +751,8 @@ const ShoppingPage = () => {
           </div>
         )}
 
-        {/* Featured Vendors Section */}
-        {!isLoading && filteredProducts.length > 0 && (
+        {/* Featured Vendors Section - Only show if products are loaded and there's a selected location */}
+        {!isLoading && filteredProducts.length > 0 && selectedLocation && (
           <div className="mt-16">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800 flex items-center">
@@ -680,259 +779,8 @@ const ShoppingPage = () => {
                 </svg>
               </a>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-              {[
-                "Farm Fresh",
-                "Bakery Delight",
-                "Honey Haven",
-                "Dairy King",
-                "Organic Greens",
-              ].map((vendor, index) => (
-                <div
-                  key={index}
-                  className="bg-white/60 backdrop-blur-md p-5 rounded-xl shadow-md border border-gray-100 hover:shadow-lg hover:border-green-200 transition-all duration-200 flex flex-col items-center group"
-                >
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-500/10 to-emerald-600/10 p-1 mb-3 overflow-hidden relative shadow-inner">
-                    <img
-                      src={`/api/placeholder/128/128`}
-                      alt={vendor}
-                      className="w-full h-full object-cover rounded-full group-hover:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 rounded-full ring-2 ring-white/30"></div>
-                  </div>
-                  <h4 className="text-base font-medium text-gray-800 text-center">
-                    {vendor}
-                  </h4>
-                  <div className="flex mt-2">
-                    {[...Array(5)].map((_, i) => (
-                      <svg
-                        key={i}
-                        className={`w-4 h-4 ${
-                          i < 4 ? "text-yellow-400" : "text-gray-300"
-                        } transition-all duration-300 ${
-                          i === 3 && "group-hover:text-yellow-400"
-                        }`}
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">(42 products)</p>
-                </div>
-              ))}
-            </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-};
-
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-
-export const HeroSlider = () => {
-  const slides = [
-    {
-      title: "Farm Fresh Delivered to You",
-      highlight: "Delivered",
-      description:
-        "Discover the freshest local produce and artisanal goods from trusted farmers in your community.",
-      bgFrom: "from-green-600",
-      bgTo: "to-emerald-700",
-      buttons: [
-        { text: "Shop Now", variant: "primary" },
-        { text: "Meet Our Farmers", variant: "secondary" },
-      ],
-      floatingItems: [
-        { name: "apple", label: "Fresh Apples" },
-        { name: "bread", label: "Artisan Bread" },
-        { name: "milk", label: "Organic Milk" },
-        { name: "honey", label: "Local Honey" },
-        { name: "eggs", label: "Farm Eggs" },
-      ],
-    },
-    {
-      title: "Seasonal Specials",
-      highlight: "Specials",
-      description:
-        "Enjoy limited-time offers on seasonal fruits and vegetables at their peak freshness.",
-      bgFrom: "from-amber-500",
-      bgTo: "to-orange-600",
-      buttons: [
-        { text: "View Offers", variant: "primary" },
-        { text: "Learn More", variant: "secondary" },
-      ],
-      floatingItems: [
-        { name: "strawberry", label: "Summer Berries" },
-        { name: "pumpkin", label: "Autumn Pumpkins" },
-        { name: "citrus", label: "Winter Citrus" },
-        { name: "asparagus", label: "Spring Asparagus" },
-      ],
-    },
-    {
-      title: "Organic & Sustainable",
-      highlight: "Sustainable",
-      description:
-        "Products grown with care for the environment and your health.",
-      bgFrom: "from-teal-500",
-      bgTo: "to-cyan-600",
-      buttons: [
-        { text: "Browse Organic", variant: "primary" },
-        { text: "Our Practices", variant: "secondary" },
-      ],
-      floatingItems: [
-        { name: "milk", label: "Organic Milk" },
-        { name: "honey", label: "Raw Honey" },
-        { name: "eggs", label: "Free-range Eggs" },
-        { name: "vegetables", label: "Fresh Veggies" },
-      ],
-    },
-  ];
-
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
-
-  // Auto-advance slides
-  useEffect(() => {
-    let interval;
-    if (isAutoPlaying) {
-      interval = setInterval(() => {
-        setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
-      }, 5000);
-    }
-    return () => clearInterval(interval);
-  }, [isAutoPlaying, slides.length]);
-
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
-    setIsAutoPlaying(false);
-    setTimeout(() => setIsAutoPlaying(true), 10000);
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
-    setIsAutoPlaying(false);
-    setTimeout(() => setIsAutoPlaying(true), 10000);
-  };
-
-  const goToSlide = (index) => {
-    setCurrentSlide(index);
-    setIsAutoPlaying(false);
-    setTimeout(() => setIsAutoPlaying(true), 10000);
-  };
-
-  return (
-    <div className="relative h-screen max-h-[600px] overflow-hidden mb-8 flex justify-center">
-      <div
-        className="flex transition-transform duration-700 ease-in-out w-full"
-        style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-      >
-        {slides.map((slide, index) => (
-          <div
-            key={index}
-            className={`w-full flex-shrink-0 relative bg-gradient-to-r ${slide.bgFrom} ${slide.bgTo} h-full`}
-          >
-            {/* Decorative elements (consistent across all slides) */}
-            <div className="absolute top-0 left-0 w-full h-full opacity-10">
-              <div className="absolute top-20 left-10 w-24 h-24 rounded-full bg-white"></div>
-              <div className="absolute bottom-10 right-20 w-32 h-32 rounded-full bg-white"></div>
-              <div className="absolute top-1/2 left-1/4 w-16 h-16 rounded-full bg-white"></div>
-            </div>
-
-            {/* Content (consistent structure) */}
-            <div className="container mx-auto h-full flex flex-col justify-center items-center text-center relative z-10 py-12 px-6 md:px-12 lg:px-24">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 md:mb-6 leading-tight">
-                {slide.title.split(slide.highlight)[0]}
-                <span className="text-yellow-300"> {slide.highlight}</span>
-                {slide.title.split(slide.highlight)[1]}
-              </h2>
-              <p className="text-base md:text-lg lg:text-xl text-white/90 max-w-xl lg:max-w-2xl mx-auto mb-6 md:mb-8">
-                {slide.description}
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                {slide.buttons.map((button, i) => (
-                  <button
-                    key={i}
-                    className={`${
-                      button.variant === "primary"
-                        ? "bg-white text-green-700 hover:bg-gray-100"
-                        : "bg-transparent border-2 border-white text-white hover:bg-white/10"
-                    } font-semibold py-2 px-6 md:py-3 md:px-8 rounded-full shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center`}
-                  >
-                    {button.text}
-                    <svg
-                      className="ml-2 w-4 h-4 md:w-5 md:h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M13 5l7 7-7 7M5 5l7 7-7 7"
-                      ></path>
-                    </svg>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Floating products (consistent styling) */}
-            <div className="absolute bottom-6 left-0 w-full flex justify-center items-end">
-              <div className="flex space-x-3 md:space-x-6 lg:space-x-8">
-                {slide.floatingItems.map((item, i) => (
-                  <div key={i} className="flex flex-col items-center group">
-                    <div className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 bg-white rounded-full shadow-lg flex items-center justify-center transform hover:-translate-y-2 transition-transform duration-300 mb-1">
-                      <img
-                        src={`/api/placeholder/48/48`}
-                        alt={item.name}
-                        className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 object-contain"
-                        loading="lazy"
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Navigation controls (consistent across all slides) */}
-      <button
-        onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/30 hover:bg-white/50 text-white p-2 rounded-full shadow-lg z-10 transition-all"
-        aria-label="Previous slide"
-      >
-        <FiChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
-      </button>
-      <button
-        onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/30 hover:bg-white/50 text-white p-2 rounded-full shadow-lg z-10 transition-all"
-        aria-label="Next slide"
-      >
-        <FiChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-      </button>
-
-      {/* Pagination (consistent across all slides) */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
-        {slides.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => goToSlide(index)}
-            className={`h-3 rounded-full transition-all ${
-              currentSlide === index ? "bg-white w-6" : "bg-white/50 w-3"
-            }`}
-            aria-label={`Go to slide ${index + 1}`}
-          />
-        ))}
       </div>
     </div>
   );

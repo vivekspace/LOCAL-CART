@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from "react";
+import React, { createContext, useState, useContext, useRef } from "react";
 import { toast } from "react-toastify";
 import { login as apiLogin, register as apiRegister } from "/api";
 
@@ -169,6 +169,177 @@ export const AuthProvider = ({ children }) => {
     setIsLoggedIn(false);
     toast.success("Logged out successfully");
   };
+  // AuthContext.jsx (Add these parts to your existing AuthContext file)
+
+  // Assuming you already have 'useNavigate' and other imports for your AuthContext
+
+  // --- START: NEW LOCATION RELATED CODE TO ADD TO AUTHCONTEXT ---
+
+  // Location Constants (MOVED FROM HEADER)
+  const USER_LOCATION_KEY = "user_preferred_location_v2";
+  const LOCATION_TYPE_CURRENT = "current_location";
+  const LOCATION_TYPE_PRODUCT_BASED = "product_location"; // Renamed for clarity
+
+  // Default fallback location (MOVED FROM HEADER)
+  const DEFAULT_FALLBACK_LOCATION = {
+    name: "Mumbai, Maharashtra",
+    lat: 19.076, // Mumbai latitude
+    lng: 72.8777, // Mumbai longitude
+    type: "default_fallback", // A new type to indicate it's a hardcoded default
+  };
+
+  // --- Location States and Refs (MOVED FROM HEADER) ---
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const initialLocationFetchRef = useRef(false); // To run initial location setup only once
+
+  // --- Location Helper Functions (MOVED FROM HEADER) ---
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`
+      );
+      const data = await response.json();
+      return (
+        data.address?.city ||
+        data.address?.town ||
+        data.address?.village ||
+        data.display_name ||
+        "Unknown Location"
+      );
+    } catch (error) {
+      console.error("Context: Reverse geocoding failed:", error);
+      return "Current Location"; // Fallback name
+    }
+  };
+
+  const getCurrentGeolocation = async () => {
+    return new Promise((resolve, reject) => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              type: LOCATION_TYPE_CURRENT,
+            });
+          },
+          (error) => {
+            console.error("Context: Geolocation error:", error);
+            reject(error);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000, // Use cached position if less than 1 min old
+          }
+        );
+      } else {
+        reject(new Error("Geolocation is not supported by this browser."));
+      }
+    });
+  };
+
+  // --- Core Location Setup Logic (MOVED FROM HEADER useEffect) ---
+  useEffect(() => {
+    const setupInitialLocation = async () => {
+      if (initialLocationFetchRef.current) return; // Ensure it runs only once
+      initialLocationFetchRef.current = true;
+
+      let userLoc = null;
+
+      // 1. Try to load saved location from localStorage
+      const savedLoc = localStorage.getItem(USER_LOCATION_KEY);
+      if (savedLoc) {
+        try {
+          userLoc = JSON.parse(savedLoc);
+          // If it was a 'current_location', try to re-acquire for accuracy, but use saved as fallback
+          if (userLoc.type === LOCATION_TYPE_CURRENT) {
+            try {
+              const newCoords = await getCurrentGeolocation();
+              const newName = await reverseGeocode(
+                newCoords.lat,
+                newCoords.lng
+              );
+              userLoc = {
+                ...newCoords,
+                name: `Current Location (${newName})`,
+                type: LOCATION_TYPE_CURRENT,
+              };
+              localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc)); // Update with fresh data
+            } catch (geoError) {
+              console.warn(
+                "Context: Could not re-acquire current location, using saved:",
+                geoError
+              );
+              if (!userLoc.lat || !userLoc.lng) {
+                userLoc = null; // Invalidate if it's truly empty
+              }
+            }
+          }
+        } catch (e) {
+          console.error(
+            "Context: Failed to parse saved location, clearing:",
+            e
+          );
+          localStorage.removeItem(USER_LOCATION_KEY); // Clear invalid entry
+        }
+      }
+
+      // 2. If no saved location, try to get current location
+      if (!userLoc) {
+        try {
+          const coords = await getCurrentGeolocation();
+          const name = await reverseGeocode(coords.lat, coords.lng);
+          userLoc = { ...coords, name: `Current Location (${name})` };
+          localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc)); // Save for future
+        } catch (error) {
+          console.warn(
+            "Context: Geolocation denied or failed, using fallback:",
+            error
+          );
+          userLoc = DEFAULT_FALLBACK_LOCATION; // Fallback if geolocation fails
+          localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc)); // Save fallback
+        }
+      }
+      setSelectedLocation(userLoc); // Set the initial selected location in context state
+      console.log("Context: Initial selected location set to:", userLoc);
+    };
+
+    setupInitialLocation();
+  }, []); // Empty dependency array means this runs once on AuthProvider mount
+
+  // --- Function to update selected location (MOVED/ADAPTED from Header.jsx's handleLocationSelect) ---
+  const updateUserLocation = async (locationData) => {
+    let newSelectedLoc = null;
+    if (locationData.type === LOCATION_TYPE_CURRENT) {
+      try {
+        const coords = await getCurrentGeolocation();
+        const name = await reverseGeocode(coords.lat, coords.lng);
+        newSelectedLoc = {
+          ...coords,
+          name: `Current Location (${name})`,
+          type: LOCATION_TYPE_CURRENT,
+        };
+      } catch (error) {
+        console.error(
+          "Context: Geolocation error on re-acquire for 'Current Location' type:",
+          error
+        );
+        // Fallback to a default if re-acquiring current location fails
+        newSelectedLoc = {
+          ...DEFAULT_FALLBACK_LOCATION,
+          name: "Current Location (Denied/Failed)", // Update name for UI clarity
+        };
+      }
+    } else {
+      // For product-based locations, directly use the provided data
+      newSelectedLoc = locationData;
+    }
+
+    setSelectedLocation(newSelectedLoc);
+    localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(newSelectedLoc));
+    console.log("Context: User location updated to:", newSelectedLoc);
+  };
 
   return (
     <AuthContext.Provider
@@ -195,6 +366,12 @@ export const AuthProvider = ({ children }) => {
         adminSignOut,
         admin,
         setAdmin,
+        selectedLocation, // The globally available selected location
+        updateUserLocation, // Function to update the selected location from any component
+        LOCATION_TYPE_CURRENT, // Expose constants for consumers
+        LOCATION_TYPE_PRODUCT_BASED,
+        USER_LOCATION_KEY,
+        DEFAULT_FALLBACK_LOCATION,
       }}
     >
       {children}
