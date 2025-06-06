@@ -7,6 +7,8 @@ const OrderConfirmation = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { orderId, paymentDetails, amount } = state || {};
+  console.log(orderId, paymentDetails , amount)
+  
 
   // Redirect if accessed without order data
   useEffect(() => {

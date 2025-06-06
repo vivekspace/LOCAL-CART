@@ -17,6 +17,10 @@ const OrderedItemsPage = () => {
 
   useEffect(() => {
     const fetchOrder = async () => {
+      // Set loading to true immediately when fetching starts
+      setLoading(true);
+      setError(null); // Clear previous errors
+
       if (!orderId) {
         setError("Order ID is required");
         setLoading(false);
@@ -26,11 +30,20 @@ const OrderedItemsPage = () => {
       console.log("Fetching order:", orderId);
 
       try {
+        // Retrieve the authentication token from localStorage
+        const token = localStorage.getItem("token");
+
+        // Validate the token (client-side check)
+        if (!token) {
+          throw new Error("Authentication token not found. Please login.");
+        }
+
         const response = await axios.get(
           `${import.meta.env.VITE_API_URL}/api/orders/${orderId}`,
           {
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`, // <<< CRITICAL FIX: Add Authorization header
             },
           }
         );
@@ -50,34 +63,65 @@ const OrderedItemsPage = () => {
         setOrder(orderData);
       } catch (err) {
         console.error("Error fetching order:", err);
-        setError(
-          err.response?.data?.message ||
-            err.response?.data?.error ||
-            err.message ||
-            "Failed to fetch order"
-        );
+
+        // Improved error message extraction, similar to your other useEffect
+        let errorMessage = "Failed to fetch order";
+
+        if (err.response) {
+          // Server responded with an error status (e.g., 401, 404, 500)
+          switch (err.response.status) {
+            case 401:
+              errorMessage =
+                "Session expired or not authorized. Please login again.";
+              break;
+            case 404:
+              errorMessage = "Order not found or you don't have access to it.";
+              break;
+            case 500:
+              errorMessage = "Server error. Please try again later.";
+              break;
+            default:
+              errorMessage =
+                err.response.data?.message ||
+                err.response.data?.error ||
+                errorMessage;
+          }
+        } else if (err.request) {
+          // The request was made but no response was received (e.g., network issue)
+          errorMessage = "Network error. Please check your connection.";
+        } else {
+          // Something else happened in setting up the request that triggered an Error
+          errorMessage = err.message || errorMessage;
+        }
+
+        setError(errorMessage);
+
+        // Optional: Auto-refresh on 401
+        if (err.response?.status === 401) {
+          setTimeout(() => window.location.reload(), 2000);
+        }
       } finally {
-        setLoading(false);
+        setLoading(false); // Ensure loading is false after fetch completes (success or failure)
       }
     };
 
     fetchOrder();
-  }, [orderId]);
+  }, [orderId]); // Dependency array: Re-run if orderId changes
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "processing":
-        return <ShoppingBagIcon className="w-5 h-5" />;
-      case "shipped":
-        return <TruckIcon className="w-5 h-5" />;
-      case "delivered":
-        return <CheckCircleIcon className="w-5 h-5" />;
-      case "cancelled":
-        return <ExclamationCircleIcon className="w-5 h-5" />;
-      default:
-        return <ClockIcon className="w-5 h-5" />;
-    }
-  };
+  // const getStatusIcon = (status) => {
+  //   switch (status) {
+  //     case "processing":
+  //       return <ShoppingBagIcon className="w-5 h-5" />;
+  //     case "shipped":
+  //       return <TruckIcon className="w-5 h-5" />;
+  //     case "delivered":
+  //       return <CheckCircleIcon className="w-5 h-5" />;
+  //     case "cancelled":
+  //       return <ExclamationCircleIcon className="w-5 h-5" />;
+  //     default:
+  //       return <ClockIcon className="w-5 h-5" />;
+  //   }
+  // };
 
   const getStatusProgress = (status) => {
     switch (status) {

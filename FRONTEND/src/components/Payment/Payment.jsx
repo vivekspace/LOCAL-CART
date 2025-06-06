@@ -154,7 +154,11 @@ const PaymentPage = () => {
 
       clearCart();
       navigate("/order-confirmation", {
-        state: { orderId: orderResponse.orderId },
+        state: {
+          orderId: orderResponse.orderId,
+          paymentDetails: paymentResult,
+          amount: finalTotal,
+        },
       });
     } catch (error) {
       toast.error(error.message || "Payment failed. Please try again.");
@@ -273,12 +277,16 @@ const PaymentPage = () => {
       orderStatus,
     };
 
-    const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/orders`, orderPayload, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_URL}/api/orders`,
+      orderPayload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      }
+    );
 
     return response.data;
   };
@@ -517,14 +525,19 @@ const PaymentPage = () => {
                           <img
                             src={
                               item.images && item.images.length > 0
-                                ? `${import.meta.env.VITE_API_URL}/uploads/${item.images[0]}`
-                                : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
+                                ? `${import.meta.env.VITE_API_URL}/uploads/${
+                                    item.images[0]
+                                  }`
+                                : `${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/default-product.png`
                             }
                             alt={item.name}
                             className="w-full h-full object-contain"
                             onError={(e) => {
-                              e.target.src =
-                                `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; // Full URL from backend
+                              e.target.src = `${
+                                import.meta.env.VITE_API_URL
+                              }/uploads/default-product.png`; // Full URL from backend
                             }}
                           />
                         </div>
