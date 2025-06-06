@@ -17,38 +17,50 @@ const transporter = nodemailer.createTransport({
 });
 
 // Get all orders (for customers)
-exports.getAllOrders = async (req, res) => {
+// In your orderController.js - rename the function
+exports.getCustomerOrders = async (req, res) => {  // ✅ Changed from getAllOrders
     try {
-        // If you have user authentication, filter by user ID
-        // const userId = req.user._id; // from auth middleware
-        // For now, getting all orders (you should add user filtering)
-        const orders = await Order.find().sort({ createdAt: -1 });
+        // 1. ENFORCE AUTHENTICATION - MUST come from protect middleware
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: "Not authorized - please login"
+            });
+        }
 
-        // Transform orders for frontend
+        // 2. DATA ISOLATION - Only get orders for the current user
+        const orders = await Order.find({
+            customerId: req.user._id // Critical security filter
+        }).sort({ createdAt: -1 });
+
+        // 3. TRANSFORM DATA - Only include what's needed
         const transformedOrders = orders.map(order => ({
             _id: order._id,
-            orderNumber: order._id.toString(),
+            orderNumber: order._id.toString().slice(-8).toUpperCase(),
             status: order.status,
             createdAt: order.createdAt,
-            customerName: `${order.customerDetails.firstname} ${order.customerDetails.lastname}`,
-            customerEmail: order.customerDetails.email,
-            totalAmount: order.totalAmount || order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            totalAmount: order.totalAmount ||
+                order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
             itemCount: order.cartItems.length,
             paymentMethod: order.paymentDetails.method,
             paymentStatus: order.paymentDetails.status
         }));
 
-        res.status(200).json(transformedOrders);
+        res.status(200).json({
+            success: true,
+            count: transformedOrders.length,
+            orders: transformedOrders
+        });
+
     } catch (error) {
-        console.error('Error fetching all orders:', error);
+        console.error('Error fetching orders:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to fetch orders',
-            error: error.message
+            message: 'Failed to fetch your orders',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
-
 // Get orders by customer email (if you don't have user auth)
 exports.getOrdersByEmail = async (req, res) => {
     try {
@@ -88,67 +100,87 @@ exports.getOrdersByEmail = async (req, res) => {
 // Create new order
 exports.createOrder = async (req, res) => {
     try {
-        const { customerDetails, cartItems, paymentDetails, shippingAddress } = req.body;
-
-        // Validate required fields
-        if (!customerDetails || !cartItems || cartItems.length === 0) {
-            return res.status(400).json({
+        // ADD THIS AUTHENTICATION CHECK (ensure protect middleware is active on route)
+        if (!req.user) {
+            return res.status(401).json({
                 success: false,
-                error: 'Missing required order information'
+                message: "Not authorized - please login"
             });
         }
 
-        // Calculate totals
-        const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const tax = subtotal * 0.08; // 8% tax rate, adjust as needed
-        const shippingCost = subtotal > 50 ? 0 : 10; // Free shipping over $50
-        const discount = 0; // Add discount logic if needed
-        const totalAmount = subtotal + tax + shippingCost - discount;
+        // Destructure `shipping` from req.body, which contains the nested address
+        const { customerDetails, cartItems, paymentDetails, shipping, pricing, orderStatus } = req.body;
 
-        // Normalize cart items
+        // Validate required fields
+        if (!customerDetails || !cartItems || cartItems.length === 0 || !shipping || !shipping.address) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required order information, including shipping address'
+            });
+        }
+
+        // Backend calculations (your existing logic)
+        const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const tax = subtotal * 0.08;
+        const shippingCost = subtotal > 50 ? 0 : 10; // This might be overridden by frontend's `shipping.cost`
+        const discount = 0;
+        const totalAmount = subtotal + tax + shippingCost - discount; // Use your backend calculation
+
+        // Normalize cart items (your existing logic)
         const normalizedItems = cartItems.map(item => {
             let sellerId;
-            // Handle cases where seller might be an object or a string
             if (typeof item.seller === 'object' && (item.seller._id || item.seller.id)) {
                 sellerId = item.seller._id || item.seller.id;
             } else {
-                sellerId = item.seller; // Assume it's already a string ID
+                sellerId = item.seller;
             }
 
-            // CRITICAL FIX: Explicitly convert sellerId to ObjectId if it's a valid string ID
-            // This ensures it's saved as an ObjectId in MongoDB, matching the schema.
             const finalSellerId = mongoose.Types.ObjectId.isValid(sellerId)
                 ? new mongoose.Types.ObjectId(sellerId)
-                : sellerId; // If not a valid ObjectId string, keep as is (e.g., if it's null/undefined or an invalid format)
+                : sellerId;
 
             return {
                 ...item,
-                seller: finalSellerId // Assign the converted ObjectId
+                seller: finalSellerId
             };
         });
 
+        // Construct the shippingAddress object for the Order model
+        // directly from the frontend's 'shipping.address' structure
+        const finalShippingAddress = {
+            street: shipping.address.line1, // Map frontend line1 to backend street
+            city: shipping.address.city,
+            state: shipping.address.state,
+            zip: shipping.address.pincode,  // Map frontend pincode to backend zip
+            country: shipping.address.country || 'India', // Ensure country is saved
+            // Include line2 if your Order model has it
+            // line2: shipping.address.line2 || ''
+        };
+
         // Create and save the order
         const newOrder = new Order({
-            customerDetails,
+            customerId: req.user._id,
+            customerDetails: {
+                firstname: customerDetails.firstname,
+                lastname: customerDetails.lastname,
+                email: customerDetails.email,
+                phone: customerDetails.phone,
+                // Do NOT include address fields here if they are now in shippingAddress
+            },
             cartItems: normalizedItems,
             paymentDetails,
-            shippingAddress: shippingAddress || {
-                street: customerDetails.address || '',
-                city: customerDetails.city || '',
-                state: customerDetails.state || '',
-                zip: customerDetails.zip || '',
-                country: customerDetails.country || 'India'
-            },
+            shippingAddress: finalShippingAddress, // <<< Use the newly mapped address here
+
+            // Use backend calculated values or frontend values if reliable
             subtotal,
             tax,
-            shippingCost,
+            shippingCost: shipping.cost, // Use frontend's provided shipping cost if reliable, or your backend calculation
             discount,
-            totalAmount,
-            status: 'processing'
+            totalAmount: pricing?.total || totalAmount, // Use frontend total if sent, otherwise backend calculated
+            status: orderStatus || 'processing'
         });
 
         const savedOrder = await newOrder.save();
-
         // Group items by vendor
         const vendorItemsMap = normalizedItems.reduce((map, item) => {
             // Ensure the key is a string for the map, as map keys are strings
@@ -306,6 +338,14 @@ exports.getVendorOrders = async (req, res) => {
 
 exports.getOrderDetails = async (req, res) => {
     try {
+        // ADD AUTHENTICATION CHECK
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: "Not authorized - please login"
+            });
+        }
+
         const { orderId } = req.params;
         console.log('Fetching order details for:', orderId);
 
@@ -317,7 +357,12 @@ exports.getOrderDetails = async (req, res) => {
             });
         }
 
-        const order = await Order.findById(orderId);
+        // ✅ CRITICAL SECURITY FIX: Only get orders for the authenticated user
+        const order = await Order.findOne({
+            _id: orderId,
+            customerId: req.user._id  // Only user's own orders
+        });
+
         if (!order) {
             return res.status(404).json({
                 success: false,
@@ -325,14 +370,13 @@ exports.getOrderDetails = async (req, res) => {
             });
         }
 
-        // Calculate totals if not stored
+        // Rest of your existing transformation logic...
         const subtotal = order.subtotal || order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const tax = order.tax || 0;
         const shippingCost = order.shippingCost || 0;
         const discount = order.discount || 0;
         const total = order.totalAmount || (subtotal + tax + shippingCost - discount);
 
-        // Transform data for frontend
         const response = {
             orderNumber: order._id.toString(),
             createdAt: order.createdAt,

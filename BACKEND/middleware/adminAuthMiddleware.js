@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 
-exports.protect = async (req, res, next) => {
+exports.protectAdmin = async (req, res, next) => {
   try {
     // 1. Get token from header
     const token = req.header('Authorization')?.replace('Bearer ', '');

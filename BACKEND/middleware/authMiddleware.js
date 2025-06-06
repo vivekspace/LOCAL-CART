@@ -1,53 +1,35 @@
-exports.createProduct = async (req, res) => {
-  try {
-    // 1. Basic validation
-    if (!req.body.name || !req.body.price || !req.body.description || !req.body.category) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Product name, price, description, and category are required'
-      });
-    }
-    
-    // 2. Check for duplicate product
-    const existingProduct = await Product.findOne({
-      name: req.body.name,
-      seller: req.seller.id  // Changed from req.user.id to req.vendor.id
-    });
-    
-    if (existingProduct) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'You already have a product with this name'
-      });
-    }
-    
-    // 3. Create product
-    const product = await Product.create({
-      ...req.body,
-      seller: req.vendor.id  // Changed from req.user.id to req.vendor.id
-    });
-    
-    // 4. Send response
-    res.status(201).json({
-      status: 'success',
-      data: {
-        product
+// Example: ../middleware/authMiddleware.js
+const jwt = require('jsonwebtoken');
+const User = require('../models/User'); // Assuming you have a User model
+
+const protect = async (req, res, next) => {
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      // Get token from header
+      token = req.headers.authorization.split(' ')[1];
+
+      // Verify token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET); // Make sure JWT_SECRET is set
+
+      // Find user by ID from token payload and attach to req.user
+      req.user = await User.findById(decoded.id).select('-password'); // Adjust 'id' to your token payload key
+
+      if (!req.user) {
+        return res.status(401).json({ message: 'Not authorized, user not found' });
       }
-    });
-  } catch (err) {
-    console.error('Error creating product:', err);
-    
-    // Handle duplicate key errors (MongoDB unique constraint)
-    if (err.code === 11000) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Product with this name already exists'
-      });
+
+      next(); // Proceed to the next middleware/controller
+    } catch (error) {
+      console.error('Auth middleware error:', error.message);
+      return res.status(401).json({ message: 'Not authorized, token failed' });
     }
-    
-    res.status(400).json({
-      status: 'error',
-      message: process.env.NODE_ENV === 'development' ? err.message : 'Invalid data'
-    });
+  }
+
+  if (!token) {
+    return res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
+
+module.exports = { protect };
