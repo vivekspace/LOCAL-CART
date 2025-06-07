@@ -108,20 +108,7 @@ const OrderedItemsPage = () => {
     fetchOrder();
   }, [orderId]); // Dependency array: Re-run if orderId changes
 
-  // const getStatusIcon = (status) => {
-  //   switch (status) {
-  //     case "processing":
-  //       return <ShoppingBagIcon className="w-5 h-5" />;
-  //     case "shipped":
-  //       return <TruckIcon className="w-5 h-5" />;
-  //     case "delivered":
-  //       return <CheckCircleIcon className="w-5 h-5" />;
-  //     case "cancelled":
-  //       return <ExclamationCircleIcon className="w-5 h-5" />;
-  //     default:
-  //       return <ClockIcon className="w-5 h-5" />;
-  //   }
-  // };
+
 
   const getStatusProgress = (status) => {
     switch (status) {

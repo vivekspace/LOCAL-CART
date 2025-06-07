@@ -1,4 +1,4 @@
-import React, {
+import {
   useContext,
   useEffect,
   useState,
@@ -7,44 +7,67 @@ import React, {
 } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AuthContext } from "../../Context/Context";
-import { toast } from "react-toastify";
-import { ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import axios from "axios"; // Import axios for API calls
 
-// Extracted ProductImageGallery component
+// --- Extracted ProductImageGallery component ---
 const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
-  // Use actual product images from the database
   const productImages = useMemo(() => {
     if (product?.images?.length > 0) {
-      return product.images.map((img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`);
+      // Ensure image paths are absolute URLs
+      return product.images.map(
+        (img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`
+      );
     }
-    // Fallback to placeholder if no images exist
     return [`${import.meta.env.VITE_API_URL}/uploads/default-product.png`];
   }, [product]);
+
+  // Define consistent dimensions for images
+  const mainImageWidth = 600; // Adjust based on your design
+  const mainImageHeight = 450; // Adjust based on your design (e.g., 4:3 aspect ratio)
+  const thumbnailWidth = 80;
+  const thumbnailHeight = 60;
 
   return (
     <div className="md:w-1/2 p-6">
       {/* Main Image Display */}
       <div className="relative h-96 w-full mb-4 rounded-xl overflow-hidden">
-        <img
-          src={productImages[selectedImage]}
-          alt={product.name}
-          className="w-full h-full object-cover transition-opacity duration-300"
-          onError={(e) => {
-            e.target.src = "/placeholder-product.jpg";
-            e.target.className = "w-full h-full object-contain bg-gray-100 p-4";
-          }}
-        />
+        {/* Using <picture> for Main Image */}
+        <picture>
+          {/* WebP source (replace with actual different sizes if available) */}
+          <source
+            srcSet={`${productImages[selectedImage]}`} // Assumes your server generates .webp versions
+            type="image/webp"
+          />
+          {/* Fallback source (original format) */}
+          <img
+            src={productImages[selectedImage]}
+            alt={product.name}
+            className="w-full h-full object-cover transition-opacity duration-300"
+            loading="eager" // Main product image is LCP candidate, so eager load
+            decoding="async" // Allow async decoding
+            width={mainImageWidth}
+            height={mainImageHeight}
+            onError={(e) => {
+              // Fallback to default image if error occurs
+              e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+              e.target.onerror = null; // Prevent infinite loop
+              e.target.className = "w-full h-full object-contain bg-gray-100 p-4"; // Adjust styling for default
+            }}
+          />
+        </picture>
 
-        {/* Product Badges */}
-        {product.isNew && (
+        {/* Product Badges (ensure these fields exist on your product object) */}
+        {product.isNew && ( // Assuming 'isNew' is a boolean field
           <div className="absolute top-4 left-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
             NEW ARRIVAL
           </div>
         )}
-        {product.discount && (
+        {product.discountPrice && product.price < product.discountPrice && ( // Use discountPrice from backend
           <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-            {product.discount}% OFF
+            {/* Calculate discount percentage dynamically if needed */}
+            {Math.round(((product.price - product.discountPrice) / product.discountPrice) * -100)}% OFF
           </div>
         )}
       </div>
@@ -65,8 +88,13 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
                 src={img}
                 alt={`${product.name} thumbnail ${index + 1}`}
                 className="w-full h-full object-cover"
+                loading="lazy" // Thumbnails can be lazy-loaded
+                decoding="async"
+                width={thumbnailWidth} // Add width for thumbnails
+                height={thumbnailHeight} // Add height for thumbnails
                 onError={(e) => {
                   e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                  e.target.onerror = null;
                   e.target.className =
                     "w-full h-full object-contain bg-gray-100 p-2";
                 }}
@@ -78,24 +106,26 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
     </div>
   );
 };
-// Extracted ProductPrice component
+
+// --- Extracted ProductPrice component ---
 const ProductPrice = ({ product, quantity = 1 }) => {
-  // Ensure quantity is at least 1
   const safeQuantity = Math.max(1, quantity);
+
+  // Use 'discountPrice' if available, otherwise just 'price'
+  const finalPrice = product.discountPrice || product.price;
 
   return (
     <div className="mb-6">
-      {product.originalPrice ? (
+      {product.discountPrice ? ( // If discountPrice exists, show both
         <div className="flex items-center">
           <p className="text-3xl font-bold text-green-600 mr-3">
-            ${(product.price * safeQuantity).toFixed(2)}
+            ${(finalPrice * safeQuantity).toFixed(2)}
           </p>
           <p className="text-xl text-gray-400 line-through">
-            ${(product.originalPrice * safeQuantity).toFixed(2)}
+            ${(product.price * safeQuantity).toFixed(2)} {/* Original price comes from 'price' */}
           </p>
           <span className="ml-3 bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
-            Save {Math.round((1 - product.price / product.originalPrice) * 100)}
-            %
+            Save {Math.round((1 - finalPrice / product.price) * 100)}%
           </span>
         </div>
       ) : (
@@ -107,16 +137,20 @@ const ProductPrice = ({ product, quantity = 1 }) => {
   );
 };
 
-// Extracted QuantitySelector component
-const QuantitySelector = ({ quantity, onIncrease, onDecrease }) => {
+// --- Extracted QuantitySelector component ---
+const QuantitySelector = ({ quantity, onIncrease, onDecrease, maxStock }) => {
+  const isIncreaseDisabled = quantity >= maxStock;
+  const isDecreaseDisabled = quantity <= 1;
+
   return (
     <div className="flex items-center justify-between mb-4">
       <span className="text-gray-700 font-medium">Quantity:</span>
       <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
         <button
           onClick={onDecrease}
-          className="bg-gray-50 text-gray-600 hover:bg-gray-100 px-4 py-2 transition-colors"
+          className="bg-gray-50 text-gray-600 hover:bg-gray-100 px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
+          disabled={isDecreaseDisabled}
         >
           −
         </button>
@@ -125,8 +159,9 @@ const QuantitySelector = ({ quantity, onIncrease, onDecrease }) => {
         </span>
         <button
           onClick={onIncrease}
-          className="bg-gray-50 text-gray-600 hover:bg-gray-100 px-4 py-2 transition-colors"
+          className="bg-gray-50 text-gray-600 hover:bg-gray-100 px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
+          disabled={isIncreaseDisabled}
         >
           +
         </button>
@@ -135,28 +170,24 @@ const QuantitySelector = ({ quantity, onIncrease, onDecrease }) => {
   );
 };
 
+// --- ProductCardPage Component ---
 const ProductCardPage = () => {
   const { productId } = useParams();
   const [foundProduct, setFoundProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
-  const { addToCart, updateCartItemQuantity, products } =
+  const { addToCart, updateCartItemQuantity, products: cartProducts } = // Renamed 'products' to 'cartProducts' to avoid confusion
     useContext(AuthContext);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [wishlist, setWishlist] = useState("transparent");
-  console.log("Product ID:", productId);
-  console.log(
-    "Products:",
-    products.find((item) => item._id === productId.toString())
-  );
 
   // Get the current quantity from cart if product exists in cart
   const getInitialQuantity = useCallback(() => {
-    const cartItem = products.find(
+    const cartItem = cartProducts.find(
       (item) => item._id === productId?.toString()
     );
     return cartItem?.quantity || 1; // Default to 1 if not found
-  }, [products, productId]);
+  }, [cartProducts, productId]);
 
   const [quantity, setQuantity] = useState(getInitialQuantity());
 
@@ -164,50 +195,67 @@ const ProductCardPage = () => {
     setQuantity(getInitialQuantity());
   }, [foundProduct, getInitialQuantity]);
 
-  useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => {
-      const foundedProduct = products.find(
-        (product) => product._id === productId.toString()
-      );
-      if (foundedProduct) {
-        setFoundProduct(foundedProduct);
-        // Set initial quantity based on cart
-        setQuantity(getInitialQuantity());
 
-        // Simulate finding related products
-        const related = products
-          .filter(
-            (p) =>
-              p.category === foundedProduct.category &&
-              p.id !== foundedProduct.id
-          )
-          .slice(0, 4);
-        setRelatedProducts(related);
-      } else {
-        setFoundProduct(null);
+  // --- Crucial Change: Fetch product details directly from the backend API ---
+  useEffect(() => {
+    const fetchProduct = async () => {
+      console.log('Product Id is :', productId)
+    setLoading(true);
+    try {
+      const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/products/${productId}` // Corrected template literal
+      );
+      const fetchedProduct = response.data.data.product; // Assuming API structure { data: { product: ... } }
+      setFoundProduct(fetchedProduct);
+        setSelectedImage(0); // Reset selected image when a new product is loaded
+        setQuantity(getInitialQuantity()); // Set initial quantity based on cart for this specific product
+
+      
+        const relatedRes = await axios.get(
+            `${import.meta.env.VITE_API_URL}/api/products?category=${fetchedProduct.category}&limit=4&exclude=${productId}`
+        );
+        setRelatedProducts(relatedRes.data.data.products.filter(p => p._id !== productId)); // Filter out the current product
+
+      } catch (error) {
+        console.error("Failed to fetch product:", error);
+        setFoundProduct(null); // Explicitly set to null on error
+        toast.error("Failed to load product details.", {
+          position: "top-center",
+        });
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [productId, products, getInitialQuantity]);
+    };
+
+    if (productId) {
+      fetchProduct();
+    }
+  }, [productId, getInitialQuantity]); // Depend on productId to refetch when route changes
 
   const handleIncrease = useCallback(() => {
+    if (!foundProduct) return;
     const newQuantity = (quantity || 1) + 1;
-    setQuantity(newQuantity);
-    if (foundProduct) {
-      updateCartItemQuantity(foundProduct._id, newQuantity);
+    // Prevent increasing beyond stock
+    if (foundProduct.stock !== undefined && newQuantity > foundProduct.stock) {
+      toast.warn(`Cannot add more than ${foundProduct.stock} items to cart (stock limit).`, {
+        position: "top-center",
+        autoClose: 2000,
+      });
+      return;
     }
+    setQuantity(newQuantity);
+    updateCartItemQuantity(foundProduct._id, newQuantity);
   }, [quantity, foundProduct, updateCartItemQuantity]);
+
   const handleDecrease = useCallback(() => {
+    if (!foundProduct) return;
     const newQuantity = Math.max(1, (quantity || 1) - 1);
     setQuantity(newQuantity);
-    if (foundProduct) {
-      updateCartItemQuantity(foundProduct._id, newQuantity);
-    }
+    updateCartItemQuantity(foundProduct._id, newQuantity);
   }, [quantity, foundProduct, updateCartItemQuantity]);
 
   const handleWishlist = useCallback(() => {
+    if (!foundProduct) return;
     if (wishlist === "transparent") {
       setWishlist("red");
       toast.success(`${foundProduct.name} added to wishlist!`, {
@@ -229,6 +277,15 @@ const ProductCardPage = () => {
     if (!foundProduct) return;
 
     const qty = quantity || 1;
+    // Check if adding this quantity exceeds available stock
+    if (foundProduct.stock !== undefined && qty > foundProduct.stock) {
+      toast.error(`Cannot add ${qty} items. Only ${foundProduct.stock} available in stock.`, {
+        position: "top-center",
+        autoClose: 3000,
+      });
+      return;
+    }
+
     addToCart(foundProduct._id, qty);
     toast.success(
       `${qty} ${foundProduct.name}${qty > 1 ? "s" : ""} added to cart!`,
@@ -244,7 +301,17 @@ const ProductCardPage = () => {
   }, [foundProduct, quantity, addToCart]);
 
   const handleBuyNow = useCallback(() => {
+    if (!foundProduct) return;
+    // Similar stock check for buy now
+    if (foundProduct.stock !== undefined && quantity > foundProduct.stock) {
+      toast.error(`Cannot proceed. Only ${foundProduct.stock} available in stock.`, {
+        position: "top-center",
+        autoClose: 3000,
+      });
+      return;
+    }
     addToCart(foundProduct._id, quantity);
+    // Redirect to payment page after adding to cart
   }, [foundProduct, quantity, addToCart]);
 
   if (loading) {
@@ -299,6 +366,13 @@ const ProductCardPage = () => {
       </div>
     );
   }
+
+  // Determine stock status
+  const stockStatus = foundProduct.stock > 0
+    ? foundProduct.stock <= 5
+      ? `Only ${foundProduct.stock} left in stock!`
+      : "In Stock"
+    : "Out of Stock";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -409,7 +483,9 @@ const ProductCardPage = () => {
                     <svg
                       key={star}
                       className={`w-5 h-5 ${
-                        star <= 4 ? "text-yellow-400" : "text-gray-300"
+                        star <= foundProduct.ratingsAverage // Use actual ratingsAverage
+                          ? "text-yellow-400"
+                          : "text-gray-300"
                       }`}
                       fill="currentColor"
                       viewBox="0 0 20 20"
@@ -419,7 +495,7 @@ const ProductCardPage = () => {
                   ))}
                 </div>
                 <span className="text-gray-500 text-sm ml-2">
-                  (24 customer reviews)
+                  ({foundProduct.ratingsQuantity} customer reviews) {/* Use actual ratingsQuantity */}
                 </span>
               </div>
 
@@ -444,12 +520,20 @@ const ProductCardPage = () => {
                   />
                 </svg>
                 Sold by:{" "}
-                <Link to="#" className="text-green-600 hover:underline ml-1">
-                  {foundProduct.vendor}
+                <Link to={`/vendor/${foundProduct.seller._id}`} className="text-green-600 hover:underline ml-1">
+                  {foundProduct.seller.name} {/* Access seller.name from populated field */}
                 </Link>
+                {foundProduct.city && ( // Display city if available
+                  <span className="ml-2 text-gray-500">({foundProduct.city})</span>
+                )}
               </p>
 
               <ProductPrice product={foundProduct} quantity={quantity} />
+
+              {/* Stock Status */}
+              <p className={`text-sm mb-4 font-semibold ${foundProduct.stock > 0 ? (foundProduct.stock <= 5 ? 'text-orange-500' : 'text-green-600') : 'text-red-600'}`}>
+                {stockStatus}
+              </p>
 
               <p className="text-gray-700 mb-6 leading-relaxed">
                 {foundProduct.description ||
@@ -461,32 +545,33 @@ const ProductCardPage = () => {
                   quantity={quantity}
                   onIncrease={handleIncrease}
                   onDecrease={handleDecrease}
+                  maxStock={foundProduct.stock} // Pass max stock to quantity selector
                 />
 
                 <div className="space-y-3">
-                  <Link to={"/cart"}>
-                    <button
-                      onClick={handleAddToCart}
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold py-3 px-6 rounded-lg shadow hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer"
-                      type="button"
+                  <button
+                    onClick={handleAddToCart}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold py-3 px-6 rounded-lg shadow hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    type="button"
+                    disabled={foundProduct.stock === 0} // Disable if out of stock
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-2"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 mr-2"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                      </svg>
-                      Add to Cart
-                    </button>
-                  </Link>
+                      <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                    </svg>
+                    Add to Cart
+                  </button>
 
-                  <Link to="/payment">
+                  <Link to="/payment"> {/* Consider redirecting to payment page after buy now logic */}
                     <button
-                      className="w-full bg-white border border-green-600 text-green-600 font-semibold py-3 px-6 rounded-lg shadow-sm hover:bg-green-50 transition-colors duration-300 flex items-center justify-center mt-2 cursor-pointer"
+                      className="w-full bg-white border border-green-600 text-green-600 font-semibold py-3 px-6 rounded-lg shadow-sm hover:bg-green-50 transition-colors duration-300 flex items-center justify-center mt-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={handleBuyNow}
                       type="button"
+                      disabled={foundProduct.stock === 0} // Disable if out of stock
                     >
                       <svg
                         className="w-5 h-5 mr-2"
@@ -537,7 +622,7 @@ const ProductCardPage = () => {
                 Description
               </button>
               <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                Reviews (24)
+                Reviews ({foundProduct.ratingsQuantity}) {/* Updated review count */}
               </button>
               <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
                 Shipping & Returns
@@ -548,6 +633,7 @@ const ProductCardPage = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Product Details
             </h3>
+            {/* These list items are hardcoded; ideally, they would come from `foundProduct.description` or a separate `features` array if available */}
             <ul className="list-disc pl-5 space-y-2 text-gray-700">
               <li>100% organic and locally sourced</li>
               <li>Harvested at peak freshness</li>
@@ -567,15 +653,23 @@ const ProductCardPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {relatedProducts.map((product) => (
                 <div
-                  key={product.id}
+                  key={product._id} /* Use product._id for key */
                   className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
                 >
-                  <Link to={`/product-info/${product.id}`} className="block">
+                  <Link to={`/product-info/${product._id}`} className="block"> {/* Use product._id for Link */}
                     <div className="relative pb-[75%] overflow-hidden">
                       <img
-                        src={product.image}
+                        src={`${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`} /* Use product.images[0] */
                         alt={product.name}
                         className="absolute h-full w-full object-cover hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                        decoding="async"
+                        width="200" // Example width for related products
+                        height="150" // Example height for related products
+                        onError={(e) => {
+                          e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                          e.target.onerror = null;
+                        }}
                       />
                     </div>
                     <div className="p-4">
@@ -583,10 +677,10 @@ const ProductCardPage = () => {
                         {product.name}
                       </h4>
                       <p className="text-gray-500 text-sm mb-2">
-                        {product.vendor}
+                        By: {product.seller.name} {/* Access seller name from populated field */}
                       </p>
                       <p className="text-gray-900 font-bold">
-                        ${product.price}
+                        ${product.discountPrice || product.price} {/* Display discount price if available */}
                       </p>
                     </div>
                   </Link>

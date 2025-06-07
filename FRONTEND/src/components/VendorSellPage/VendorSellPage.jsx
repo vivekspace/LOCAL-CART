@@ -117,6 +117,7 @@ const AddProduct = () => {
         JSON.stringify({
           type: "Point",
           coordinates: [geoLocation.lng, geoLocation.lat],
+          city: city
         })
       );
       formDataToSend.append("city", city);

@@ -15,7 +15,6 @@ const ShoppingPage = () => {
   // Consume necessary values from AuthContext
   const {
     addToCart,
-    isLoggedIn,
     selectedLocation, // <--- GET selectedLocation FROM CONTEXT
     LOCATION_TYPE_CURRENT, // <--- GET constants FROM CONTEXT
     LOCATION_TYPE_PRODUCT_BASED, // <--- GET constants FROM CONTEXT
@@ -48,8 +47,6 @@ const ShoppingPage = () => {
 
   useEffect(() => {
     if (!selectedLocation) {
-      // Wait for initial location to be set by context.
-      // This ensures we don't try to fetch products before we know the location.
       console.log("ShoppingPage: Waiting for selectedLocation from context...");
       return;
     }
@@ -306,38 +303,63 @@ const ShoppingPage = () => {
                           }`}
                         >
                           <div className="w-8 h-8 mr-3 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
-                            {product.images && product.images.length > 0 ? (
-                              <img
-                                src={`${import.meta.env.VITE_API_URL}/uploads/${
-                                  product.images[0]
-                                }`}
-                                alt={product.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = `${
-                                    import.meta.env.VITE_API_URL
-                                  }/uploads/default-product.png`;
-                                  e.target.onerror = null;
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                                <svg
-                                  className="w-4 h-4 text-gray-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="1"
-                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                  ></path>
-                                </svg>
-                              </div>
-                            )}
-                          </div>
+  {product.images && product.images.length > 0 ? (
+    <picture>
+      <source
+        media="(min-width: 1024px)" /* For large screens */
+        srcSet={`${
+          import.meta.env.VITE_API_URL
+        }/uploads/${product.images[0]}-large.webp`}
+        type="image/webp"
+      />
+      <source
+        media="(min-width: 640px)" /* For medium screens */
+        srcSet={`${
+          import.meta.env.VITE_API_URL
+        }/uploads/${product.images[0]}-medium.webp`}
+        type="image/webp"
+      />
+      <source
+        srcSet={`${
+          import.meta.env.VITE_API_URL
+        }/uploads/${product.images[0]}-small.webp`} /* Default for small screens */
+        type="image/webp"
+      />
+      {/* Fallback JPEG images */}
+      <source
+        media="(min-width: 1024px)"
+        srcSet={`${
+          import.meta.env.VITE_API_URL
+        }/uploads/${product.images[0]}-large.jpg`}
+        type="image/jpeg"
+      />
+      <source
+        media="(min-width: 640px)"
+        srcSet={`${
+          import.meta.env.VITE_API_URL
+        }/uploads/${product.images[0]}-medium.jpg`}
+        type="image/jpeg"
+      />
+      <img
+        src={`${
+          import.meta.env.VITE_API_URL
+        }/uploads/${product.images[0]}.jpg`} /* Default src */
+        alt={product.name}
+        className="w-full h-full object-cover"
+        loading="lazy"
+        decoding="async"
+        width="200" // Actual dimensions
+        height="150" // Actual dimensions
+        onError={(e) => {
+          e.target.src = `${
+            import.meta.env.VITE_API_URL
+          }/uploads/default-product.png`;
+          e.target.onerror = null;
+        }}
+      />
+    </picture>
+  ) : null}
+</div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">
                               {product.name}
@@ -388,14 +410,14 @@ const ShoppingPage = () => {
                 <button
                   key={category}
                   className={`
-                                        px-4 py-2 rounded-full transition-all duration-300 flex items-center
-                                        transform hover:scale-105 relative overflow-hidden
-                                        ${
-                                          selectedCategory === category
-                                            ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium shadow-md shadow-green-200"
-                                            : "bg-white text-gray-700 hover:bg-gray-50 hover:text-green-600 shadow-sm border border-gray-200"
-                                        }
-                                    `}
+                                  px-4 py-2 rounded-full transition-all duration-300 flex items-center
+                                  transform hover:scale-105 relative overflow-hidden
+                                  ${
+                                    selectedCategory === category
+                                      ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium shadow-md shadow-green-200"
+                                      : "bg-white text-gray-700 hover:bg-gray-50 hover:text-green-600 shadow-sm border border-gray-200"
+                                  }
+                                `}
                   onClick={() => setSelectedCategory(category)}
                 >
                   {selectedCategory === category && (
@@ -782,6 +804,7 @@ const ShoppingPage = () => {
           </div>
         )}
       </div>
+      <div></div>
     </div>
   );
 };

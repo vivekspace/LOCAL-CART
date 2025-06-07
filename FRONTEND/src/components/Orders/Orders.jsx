@@ -11,7 +11,13 @@ import {
   Calendar,
   IndianRupee,
 } from "lucide-react";
-import { MagnifyingGlassCircleIcon , FunnelIcon ,CalendarIcon, ShoppingBagIcon , CurrencyRupeeIcon } from "@heroicons/react/24/outline";
+import {
+  MagnifyingGlassCircleIcon,
+  FunnelIcon,
+  CalendarIcon,
+  ShoppingBagIcon,
+  CurrencyRupeeIcon,
+} from "@heroicons/react/24/outline";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -143,10 +149,12 @@ const Orders = () => {
 
   // Filter and sort orders
   const filteredOrders = orders
-    .filter(order => {
-      const matchesSearch = order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    .filter((order) => {
+      const matchesSearch =
+        order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.status?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = filterStatus === "all" || order.status?.toLowerCase() === filterStatus;
+      const matchesFilter =
+        filterStatus === "all" || order.status?.toLowerCase() === filterStatus;
       return matchesSearch && matchesFilter;
     })
     .sort((a, b) => {
@@ -166,19 +174,8 @@ const Orders = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center h-96">
-            <div className="text-center">
-              <div className="relative">
-                <div className="animate-spin rounded-full h-16 w-16 border-4 border-emerald-100 border-t-emerald-600 mx-auto"></div>
-                <div className="absolute inset-0 rounded-full h-16 w-16 border-4 border-transparent border-r-emerald-300 animate-pulse"></div>
-              </div>
-              <p className="mt-6 text-lg font-medium text-gray-700">Loading your orders...</p>
-              <p className="mt-2 text-sm text-gray-500">Please wait while we fetch your order history</p>
-            </div>
-          </div>
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
       </div>
     );
   }
@@ -191,7 +188,9 @@ const Orders = () => {
             <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
               <div className="flex items-center">
                 <AlertCircle className="h-8 w-8 text-white mr-3" />
-                <h3 className="text-xl font-bold text-white">Unable to Load Orders</h3>
+                <h3 className="text-xl font-bold text-white">
+                  Unable to Load Orders
+                </h3>
               </div>
             </div>
             <div className="p-6">
@@ -215,8 +214,12 @@ const Orders = () => {
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="text-center py-16 bg-white rounded-2xl shadow-xl">
             <AlertCircle className="mx-auto h-16 w-16 text-gray-400" />
-            <h3 className="mt-6 text-xl font-bold text-gray-900">Invalid Data Format</h3>
-            <p className="mt-3 text-gray-600">The server returned an unexpected response format.</p>
+            <h3 className="mt-6 text-xl font-bold text-gray-900">
+              Invalid Data Format
+            </h3>
+            <p className="mt-3 text-gray-600">
+              The server returned an unexpected response format.
+            </p>
           </div>
         </div>
       </div>
@@ -244,12 +247,15 @@ const Orders = () => {
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full mb-8">
               <ShoppingBag className="h-10 w-10 text-gray-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">No Orders Yet</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              No Orders Yet
+            </h3>
             <p className="text-gray-600 mb-8 max-w-sm mx-auto">
-              You haven't placed any orders yet. Start exploring our products and make your first purchase!
+              You haven't placed any orders yet. Start exploring our products
+              and make your first purchase!
             </p>
             <button
-              onClick={() => alert('Navigate to products page')}
+              onClick={() => alert("Navigate to products page")}
               className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
             >
               <ShoppingBag className="w-5 h-5 mr-2" />
@@ -310,7 +316,9 @@ const Orders = () => {
                   <p className="text-sm text-gray-600">
                     Showing {filteredOrders.length} of {orders.length} orders
                     {searchTerm && <span> matching "{searchTerm}"</span>}
-                    {filterStatus !== "all" && <span> with status "{filterStatus}"</span>}
+                    {filterStatus !== "all" && (
+                      <span> with status "{filterStatus}"</span>
+                    )}
                   </p>
                 </div>
               )}
@@ -332,40 +340,49 @@ const Orders = () => {
                             {getStatusIcon(order.status)}
                           </div>
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3 mb-2">
                             <h2 className="text-xl font-bold text-gray-900">
                               Order #{order._id.slice(-8).toUpperCase()}
                             </h2>
                             <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(order.status)}`}
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(
+                                order.status
+                              )}`}
                             >
                               {order.status
-                                ? order.status.charAt(0).toUpperCase() + order.status.slice(1)
+                                ? order.status.charAt(0).toUpperCase() +
+                                  order.status.slice(1)
                                 : "Unknown"}
                             </span>
                           </div>
-                          
+
                           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
                             <div className="flex items-center">
                               <CalendarIcon className="w-4 h-4 mr-1" />
-                              {new Date(order.createdAt).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
+                              {new Date(order.createdAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
                             </div>
                             <div className="flex items-center">
                               <ShoppingBagIcon className="w-4 h-4 mr-1" />
-                              {order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? "s" : ""}
+                              {order.items?.length || 0} item
+                              {(order.items?.length || 0) !== 1 ? "s" : ""}
                             </div>
                             {order.paymentMethod && (
                               <div className="flex items-center">
                                 <CurrencyRupeeIcon className="w-4 h-4 mr-1" />
-                                <span className="capitalize">{order.paymentMethod} payment</span>
+                                <span className="capitalize">
+                                  {order.paymentMethod} payment
+                                </span>
                               </div>
                             )}
                           </div>
@@ -378,7 +395,9 @@ const Orders = () => {
                                   : "text-amber-800 bg-amber-100 border-amber-200"
                               }`}
                             >
-                              Payment {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                              Payment{" "}
+                              {order.paymentStatus.charAt(0).toUpperCase() +
+                                order.paymentStatus.slice(1)}
                             </span>
                           )}
                         </div>
@@ -391,7 +410,7 @@ const Orders = () => {
                               ₹{(order.totalAmount || 0).toFixed(2)}
                             </p>
                           </div>
-                          
+
                           <div className="flex items-center text-emerald-600 group-hover:text-emerald-700 font-semibold">
                             <span className="text-sm">View Details</span>
                             <svg
@@ -421,8 +440,10 @@ const Orders = () => {
               <div className="mt-12 text-center">
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
                   <p className="text-gray-600 mb-6">
-                    Showing {filteredOrders.length} order{filteredOrders.length !== 1 ? "s" : ""}
-                    {filteredOrders.length !== orders.length && ` of ${orders.length} total`}
+                    Showing {filteredOrders.length} order
+                    {filteredOrders.length !== 1 ? "s" : ""}
+                    {filteredOrders.length !== orders.length &&
+                      ` of ${orders.length} total`}
                   </p>
                   <button className="inline-flex items-center px-8 py-4 border-2 border-emerald-500 text-emerald-600 font-semibold rounded-xl hover:bg-emerald-50 transition-all duration-200 transform hover:scale-105">
                     Load More Orders

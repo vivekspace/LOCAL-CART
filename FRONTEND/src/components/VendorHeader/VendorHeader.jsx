@@ -14,7 +14,9 @@ import {
 } from "@heroicons/react/24/outline";
 import { NavLink } from "react-router-dom";
 import logo from "/src/assets/logo.svg";
-import { Power, Settings, User } from "lucide-react";
+import { Power, Settings, Store, User } from "lucide-react";
+import { FaSellsy } from "react-icons/fa";
+import { SiPicartodottv } from "react-icons/si";
 
 const VendorNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -93,7 +95,7 @@ const VendorNavbar = () => {
                 </span>
               </NavLink>
               <NavLink
-                to="/vendor/customers"
+                to="/vendor-sell"
                 className={({ isActive }) =>
                   (isActive
                     ? "bg-green-100 text-green-700 shadow"
@@ -101,8 +103,8 @@ const VendorNavbar = () => {
                   " transition-all duration-150 flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm"
                 }
               >
-                <UsersIcon className="h-5 w-5" />
-                Customers
+                <Store className="h-5 w-5" />
+                Sell
               </NavLink>
               <NavLink
                 to="/vendor/analytics"
@@ -280,7 +282,7 @@ const VendorNavbar = () => {
               </span>
             </NavLink>
             <NavLink
-              to="/vendor/customers"
+              to="/vendor-sell"
               onClick={() => setIsMobileMenuOpen(false)}
               className={({ isActive }) =>
                 (isActive
@@ -289,8 +291,8 @@ const VendorNavbar = () => {
                 " flex items-center px-3 py-2 rounded-md text-base font-medium"
               }
             >
-              <UsersIcon className="h-5 w-5 mr-2" />
-              Customers
+              <Store className="h-5 w-5 mr-2" />
+              Sell
             </NavLink>
             <NavLink
               to="/vendor/analytics"

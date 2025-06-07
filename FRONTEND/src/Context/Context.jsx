@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [products, setProducts] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [availableLocations, setAvailableLocations] = useState([]); // <-- Keep this here
 
   /**
    * Add product to cart with specified quantity
@@ -110,77 +111,12 @@ export const AuthProvider = ({ children }) => {
     toast.success("Admin logged out successfully");
   };
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/products`
-        );
-
-        console.log("Response status:", response.status);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const products = data.data.products;
-
-        setProducts(Array.isArray(products) ? products : []);
-      } catch (error) {
-        console.error("Fetch error: Failed to fetch products", error);
-      }
-    };
-
-    fetchProducts();
-  }, []);
-
-  const register = async (userData) => {
-    try {
-      const { data } = await apiRegister(userData);
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
-      setIsLoggedIn(true);
-      toast.success("Registration successful");
-    } catch (error) {
-      console.log("register:", error);
-      toast.error(error.response.data.message);
-    }
-  };
-
-  const login = async (credentials) => {
-    try {
-      const { data } = await apiLogin(credentials);
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
-      setIsLoggedIn(true);
-      toast.success("Login successful");
-    } catch (error) {
-      toast.error(error.response.data.message);
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-    setIsLoggedIn(false);
-    toast.success("Logged out successfully");
-  };
-  // AuthContext.jsx (Add these parts to your existing AuthContext file)
-
-  // Assuming you already have 'useNavigate' and other imports for your AuthContext
-
-  // --- START: NEW LOCATION RELATED CODE TO ADD TO AUTHCONTEXT ---
-
-  // Location Constants (MOVED FROM HEADER)
+  // Location Constants
   const USER_LOCATION_KEY = "user_preferred_location_v2";
   const LOCATION_TYPE_CURRENT = "current_location";
   const LOCATION_TYPE_PRODUCT_BASED = "product_location"; // Renamed for clarity
 
-  // Default fallback location (MOVED FROM HEADER)
+  // Default fallback location
   const DEFAULT_FALLBACK_LOCATION = {
     name: "Mumbai, Maharashtra",
     lat: 19.076, // Mumbai latitude
@@ -188,11 +124,11 @@ export const AuthProvider = ({ children }) => {
     type: "default_fallback", // A new type to indicate it's a hardcoded default
   };
 
-  // --- Location States and Refs (MOVED FROM HEADER) ---
+  // Location States and Refs
   const [selectedLocation, setSelectedLocation] = useState(null);
   const initialLocationFetchRef = useRef(false); // To run initial location setup only once
 
-  // --- Location Helper Functions (MOVED FROM HEADER) ---
+  // Location Helper Functions
   const reverseGeocode = async (lat, lng) => {
     try {
       const response = await fetch(
@@ -239,7 +175,80 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  // --- Core Location Setup Logic (MOVED FROM HEADER useEffect) ---
+  // --- Products Fetch and Available Locations Logic ---
+  useEffect(() => {
+    const fetchProductsAndSetLocations = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/products`
+        );
+
+        console.log("Response status:", response.status);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const fetchedProducts = data.data.products; // Renamed to avoid conflict
+
+        setProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
+
+        // --- Logic to extract and set availableLocations ---
+        const uniqueLocations = new Set();
+        if (Array.isArray(fetchedProducts)) {
+          fetchedProducts.forEach((product) => {
+            if (
+              product.location &&
+              product.location.name &&
+              product.location.lat &&
+              product.location.lng
+            ) {
+              const locationKey = JSON.stringify({
+                name: product.location.name,
+                lat: product.location.lat,
+                lng: product.location.lng,
+                type: LOCATION_TYPE_PRODUCT_BASED,
+              });
+              uniqueLocations.add(locationKey);
+            }
+          });
+        }
+
+        const extractedLocations = Array.from(uniqueLocations).map(
+          (locString) => JSON.parse(locString)
+        );
+
+        // Add the 'Current Location' option if it's not already in the list
+        // This ensures the user can always select their current location
+        const hasCurrentLocationOption = extractedLocations.some(
+          (loc) => loc.type === LOCATION_TYPE_CURRENT
+        );
+        if (!hasCurrentLocationOption) {
+          extractedLocations.unshift({
+            name: "Current Location",
+            lat: null, // Placeholder, actual coords fetched on selection
+            lng: null, // Placeholder
+            type: LOCATION_TYPE_CURRENT,
+          });
+        }
+
+        setAvailableLocations(extractedLocations); // Set the extracted locations
+        console.log("Context: Available locations set:", extractedLocations);
+        // --- End of availableLocations logic ---
+      } catch (error) {
+        console.error(
+          "Fetch error: Failed to fetch products or set locations",
+          error
+        );
+        toast.error("Failed to load products or locations.");
+      }
+    };
+
+    fetchProductsAndSetLocations();
+  }, []); // Empty dependency array means this runs once on AuthProvider mount
+
+  // --- Core Initial Location Setup Logic (Runs once on mount) ---
   useEffect(() => {
     const setupInitialLocation = async () => {
       if (initialLocationFetchRef.current) return; // Ensure it runs only once
@@ -308,7 +317,42 @@ export const AuthProvider = ({ children }) => {
     setupInitialLocation();
   }, []); // Empty dependency array means this runs once on AuthProvider mount
 
-  // --- Function to update selected location (MOVED/ADAPTED from Header.jsx's handleLocationSelect) ---
+  const register = async (userData) => {
+    try {
+      const { data } = await apiRegister(userData);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+      setIsLoggedIn(true);
+      toast.success("Registration successful");
+    } catch (error) {
+      console.log("register:", error);
+      toast.error(error.response.data.message);
+    }
+  };
+
+  const login = async (credentials) => {
+    try {
+      const { data } = await apiLogin(credentials);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+      setIsLoggedIn(true);
+      toast.success("Login successful");
+    } catch (error) {
+      toast.error(error.response.data.message);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    setIsLoggedIn(false);
+    toast.success("Logged out successfully");
+  };
+
+  // --- Function to update selected location ---
   const updateUserLocation = async (locationData) => {
     let newSelectedLoc = null;
     if (locationData.type === LOCATION_TYPE_CURRENT) {
@@ -372,6 +416,7 @@ export const AuthProvider = ({ children }) => {
         LOCATION_TYPE_PRODUCT_BASED,
         USER_LOCATION_KEY,
         DEFAULT_FALLBACK_LOCATION,
+        availableLocations, // <-- This is now correctly populated and exposed
       }}
     >
       {children}

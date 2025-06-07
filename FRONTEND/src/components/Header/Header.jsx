@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Menu,
   X,
@@ -20,35 +21,27 @@ import {
 import { AuthContext } from "../../Context/Context.jsx"; // Correct path to your AuthContext
 import logo from "/src/assets/logo.svg";
 
-// REMOVED: LOCATION_TYPE_CURRENT, LOCATION_TYPE_PRODUCT_BASED, USER_LOCATION_KEY
-// These constants are now sourced from AuthContext
-
 const Header = () => {
   // Destructure relevant values from AuthContext
   const {
     cartItems,
     logout,
     isLoggedIn,
-    setIsLoggedIn, // Assuming setIsLoggedIn is needed here for local UI updates on logout
-    selectedLocation, // <--- GET selectedLocation FROM CONTEXT
-    updateUserLocation, // <--- GET updateUserLocation FUNCTION FROM CONTEXT
-    LOCATION_TYPE_CURRENT, // <--- GET constants FROM CONTEXT
-    LOCATION_TYPE_PRODUCT_BASED, // <--- GET constants FROM CONTEXT
-    // No need to get USER_LOCATION_KEY here as localStorage interaction is in context
+    setIsLoggedIn,
+    selectedLocation,
+    updateUserLocation,
+    LOCATION_TYPE_CURRENT,
+    LOCATION_TYPE_PRODUCT_BASED,
   } = useContext(AuthContext);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  // currentLocationDisplayName will now be derived from selectedLocation from context
   const [currentLocationDisplayName, setCurrentLocationDisplayName] = useState(
     "Loading Location..."
   );
   const [locationLoading, setLocationLoading] = useState(false);
-
-  // REMOVED: selectedLocation state and setSelectedLocation setter
-  // REMOVED: initialLocationFetchRef
 
   // State to hold dynamically extracted product locations (remains local to Header)
   const [productLocations, setProductLocations] = useState([]);
@@ -95,9 +88,6 @@ const Header = () => {
     }
   }, [menuOpen]);
 
-  // REMOVED: reverseGeocode helper
-  // REMOVED: getCurrentGeolocation helper
-
   // Function to fetch products and extract unique locations (remains local to Header)
   // This is for populating the dropdown options, not setting the global selected location.
   const fetchAndExtractProductLocations = async () => {
@@ -134,12 +124,17 @@ const Header = () => {
       const uniqueLocations = new Map();
 
       products.forEach((product) => {
+        // IMPROVED CHECK: Ensure all necessary location properties exist and are valid
         if (
+          product.city && // Check if city exists
+          typeof product.city === "string" &&
+          product.city.trim() !== "" && // Ensure city is a non-empty string
           product.location &&
-          product.city &&
           product.location.coordinates &&
           Array.isArray(product.location.coordinates) &&
-          product.location.coordinates.length === 2
+          product.location.coordinates.length === 2 &&
+          typeof product.location.coordinates[0] === "number" && // Check if coordinates are numbers
+          typeof product.location.coordinates[1] === "number"
         ) {
           const city = product.city;
           const lat = product.location.coordinates[1];
@@ -183,9 +178,6 @@ const Header = () => {
     });
   }, []); // Run only once on mount to populate the dropdown options
 
-  // REMOVED: Main effect to set up initial location on load.
-  // This is now handled by AuthContext's useEffect.
-
   // Effect to update display name when selectedLocation from context changes
   useEffect(() => {
     if (selectedLocation) {
@@ -205,16 +197,14 @@ const Header = () => {
     setLocationDropdownOpen(false); // Close dropdown after selection
   };
 
+  const navigate = useNavigate();
   const handleLogOut = () => {
     setIsLoggedIn(false); // Update local state for immediate UI change
     logout(); // Call context logout, which should handle clearing localStorage
     setMenuOpen(false);
     setUserDropdownOpen(false);
     setLocationDropdownOpen(false);
-
-    // REMOVED: localStorage.removeItem(USER_LOCATION_KEY);
-    // This is now handled by the 'logout' function provided by AuthContext,
-    // assuming it takes care of all relevant localStorage clearing.
+    navigate("/");
   };
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
@@ -316,15 +306,19 @@ const Header = () => {
                   <button
                     key={
                       option.type === LOCATION_TYPE_CURRENT
-                        ? option.type
-                        : option.name || `product-loc-${index}`
+                        ? option.type // Use 'current_location' as key for current location type
+                        : option.name || `product-loc-${index}` // Fallback key for product locations
                     }
                     onClick={() => handleLocationSelect(option)}
                     disabled={
                       locationLoading && option.type === LOCATION_TYPE_CURRENT
                     }
                     className={`w-full px-4 py-2.5 text-sm text-left font-medium rounded-md flex items-center justify-between transition-colors ${
-                      selectedLocation && selectedLocation.name === option.name
+                      selectedLocation &&
+                      // Compare by type for current location, by name for product locations
+                      (option.type === LOCATION_TYPE_CURRENT
+                        ? selectedLocation.type === option.type
+                        : selectedLocation.name === option.name)
                         ? "bg-green-50 text-green-600"
                         : "text-gray-700 hover:bg-green-50 hover:text-green-600"
                     } ${
@@ -340,7 +334,9 @@ const Header = () => {
                       {option.name}
                     </span>
                     {selectedLocation &&
-                      selectedLocation.name === option.name && (
+                      (option.type === LOCATION_TYPE_CURRENT
+                        ? selectedLocation.type === option.type
+                        : selectedLocation.name === option.name) && (
                         <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></span>
                       )}
                   </button>
@@ -504,8 +500,15 @@ const Header = () => {
             </div>
 
             {/* Location selector for mobile */}
-            <div className="px-4 py-3 border-b border-gray-100">
-              <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
+            {/* Location selector for mobile */}
+            <div
+              className="px-4 py-3 border-b border-gray-100"
+              ref={locationDropdownRef}
+            >
+              <div
+                className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg"
+                onClick={() => setLocationDropdownOpen(!locationDropdownOpen)}
+              >
                 <div className="flex items-center gap-2">
                   {locationLoading ? (
                     <div className="animate-spin">
@@ -515,11 +518,16 @@ const Header = () => {
                     <MapPin className="h-5 w-5 text-green-600" />
                   )}
                   <span className="font-medium truncate flex-1">
-                    {currentLocationDisplayName}
+                    {currentLocationDisplayName.length > 20
+                      ? currentLocationDisplayName.substring(0, 20) + "..."
+                      : currentLocationDisplayName}
                   </span>
                 </div>
                 <button
-                  onClick={toggleLocationDropdown}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocationDropdownOpen(!locationDropdownOpen);
+                  }}
                   disabled={locationLoading}
                   className={`text-gray-500 hover:text-green-600 transition-colors ${
                     locationLoading ? "opacity-50" : ""
@@ -538,20 +546,26 @@ const Header = () => {
                   <div className="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Select Location
                   </div>
-                  {combinedLocationOptions.map((option, index) => (
+                  {combinedLocationOptions.map((option) => (
                     <button
                       key={
                         option.type === LOCATION_TYPE_CURRENT
-                          ? option.type
-                          : option.name || `product-loc-${index}`
+                          ? "current_location"
+                          : option.name
                       }
-                      onClick={() => handleLocationSelect(option)}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await handleLocationSelect(option);
+                        setLocationDropdownOpen(false); // Close dropdown after selection
+                      }}
                       disabled={
                         locationLoading && option.type === LOCATION_TYPE_CURRENT
                       }
                       className={`w-full px-3 py-2.5 text-sm rounded-md flex items-center justify-between transition-colors ${
                         selectedLocation &&
-                        selectedLocation.name === option.name
+                        (option.type === LOCATION_TYPE_CURRENT
+                          ? selectedLocation.type === option.type
+                          : selectedLocation.name === option.name)
                           ? "bg-green-50 text-green-600"
                           : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                       } ${
@@ -564,10 +578,14 @@ const Header = () => {
                         {option.type === LOCATION_TYPE_CURRENT && (
                           <Navigation className="h-4 w-4" />
                         )}
-                        {option.name}
+                        {option.name.length > 20
+                          ? option.name.substring(0, 20) + "..."
+                          : option.name}
                       </span>
                       {selectedLocation &&
-                        selectedLocation.name === option.name && (
+                        (option.type === LOCATION_TYPE_CURRENT
+                          ? selectedLocation.type === option.type
+                          : selectedLocation.name === option.name) && (
                           <ChevronRight className="h-4 w-4 text-green-500" />
                         )}
                     </button>
@@ -575,8 +593,6 @@ const Header = () => {
                 </div>
               )}
             </div>
-
-            {/* Menu items */}
             <div className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
               <NavLink
                 to="/"
@@ -643,7 +659,10 @@ const Header = () => {
                   </NavLink>
 
                   <button
-                    onClick={handleLogOut}
+                    onClick={() => {
+                      handleLogOut();
+                      setMenuOpen(false); // Also close the mobile menu after logout
+                    }}
                     className="px-4 py-3 w-full rounded-lg text-base font-medium text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 flex items-center gap-3 justify-center mt-2 transition-all hover:shadow-md"
                   >
                     <LogIn className="h-5 w-5 transform rotate-180" />
@@ -681,7 +700,6 @@ const Header = () => {
               )}
             </div>
 
-            {/* Menu footer */}
             <div className="px-6 py-4 border-t border-gray-100 text-sm text-gray-500 flex items-center justify-center">
               © {new Date().getFullYear()} LocalCart
             </div>
