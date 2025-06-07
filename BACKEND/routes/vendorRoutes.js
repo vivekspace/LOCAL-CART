@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const Product = require('../models/Product'); // Add this import at the top
+
+// --- ADD THESE IMPORTS ---
+const Product = require('../models/Product');
+const Order = require('../models/Order');     // Assuming your Order model is here
+const Customer = require('../models/User'); // Assuming your Customer model is here
+// --- END ADDITIONS ---
 
 
 const {
@@ -9,7 +13,7 @@ const {
     loginVendor,
     addProduct,
     deleteProduct,
-    getVendorProducts // Make sure this is imported from your controller
+    getVendorProducts
 } = require('../controllers/vendorController');
 const { getVendorDashboard } = require('../controllers/dashboardController');
 const { protectVendor } = require('../middleware/vendorAuth');
@@ -21,64 +25,90 @@ router.post('/login', loginVendor);
 
 // Product Routes
 router.post('/products', protectVendor, addProduct);
-router.get('/products', protectVendor, getVendorProducts); // This uses the controller
+router.get('/products', protectVendor, getVendorProducts);
 router.delete('/products/:id', protectVendor, deleteProduct);
 router.get('/orders', protectVendor, orderController.getVendorOrders);
 
 // Dashboard Route
 router.get('/dashboard', protectVendor, getVendorDashboard);
 
-// Debug Route (can remove after confirming everything works)
-router.get('/debug-vendor-products', async (req, res) => {
-    try {
-        const products = await Product.find({
-            vendor: new mongoose.Types.ObjectId("682da34e36eb5ca5fcc6ed8a")
-        });
-        res.json(products);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Server Error' });
-    }
-});
+
 
 // routes/vendorRoutes.js
 router.get('/analytics', protectVendor, async (req, res) => {
     try {
-        // Get vendor ID from authenticated user
-        const vendorId = req.user._id;
+        const vendorId = req.vendor._id;
+       
 
-        // Calculate analytics (example - adjust based on your models)
-        const totalRevenue = await Order.aggregate([
-            { $match: { vendor: vendorId, status: 'completed' } },
-            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+        // Check what sellers exist in orders
+        const distinctSellers = await Order.distinct('seller');
+        
+
+        // Check if any orders exist at all
+        const totalOrdersInDB = await Order.countDocuments({});
+
+        // Try both ObjectId and string matching
+        const ordersWithObjectId = await Order.countDocuments({ seller: vendorId });
+        const ordersWithString = await Order.countDocuments({ seller: vendorId.toString() });
+       
+
+        // Since seller is in cartItems, we need to match orders that have items from this vendor
+        const totalRevenueResult = await Order.aggregate([
+            { $match: { 'cartItems.seller': vendorId, 'paymentDetails.status': 'completed' } },
+            { $group: { _id: null, total: { $sum: '$paymentDetails.amount' } } }
         ]);
+        const totalRevenue = totalRevenueResult[0]?.total || 0;
 
-        const totalOrders = await Order.countDocuments({ vendor: vendorId });
+        // Count total orders that contain items from this vendor
+        const totalOrders = await Order.countDocuments({ 'cartItems.seller': vendorId });
 
-        const newCustomers = await Customer.countDocuments({
-            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-            vendor: vendorId
+        // Count completed orders that contain items from this vendor
+        const completedOrders = await Order.countDocuments({
+            'cartItems.seller': vendorId,
+            'paymentDetails.status': 'completed'
         });
 
-        const popularProducts = await Product.aggregate([
-            { $match: { vendor: vendorId } },
-            { $sort: { salesCount: -1 } },
+        // New customers in last 30 days
+        const newCustomers = await Customer.countDocuments({
+            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+        });
+
+        // Popular products - aggregate from cartItems for this vendor
+        const popularProducts = await Order.aggregate([
+            { $unwind: '$cartItems' },
+            { $match: { 'cartItems.seller': vendorId } },
+            {
+                $group: {
+                    _id: '$cartItems.productId',
+                    name: { $first: '$cartItems.name' },
+                    totalQuantity: { $sum: '$cartItems.quantity' },
+                    orders: { $sum: 1 }
+                }
+            },
+            { $sort: { totalQuantity: -1 } },
             { $limit: 5 },
-            { $project: { name: 1, orders: '$salesCount' } }
+            {
+                $project: {
+                    name: 1,
+                    orders: '$totalQuantity',
+                    _id: 0
+                }
+            }
         ]);
 
-        // Sales trend data (last 30 days)
+        // Sales trend data (last 30 days) - only for this vendor's items
         const salesTrend = await Order.aggregate([
+            { $unwind: '$cartItems' },
             {
                 $match: {
-                    vendor: vendorId,
+                    'cartItems.seller': vendorId,
                     createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
                 }
             },
             {
                 $group: {
                     _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-                    amount: { $sum: "$totalAmount" }
+                    amount: { $sum: { $multiply: ['$cartItems.price', '$cartItems.quantity'] } }
                 }
             },
             { $sort: { _id: 1 } },
@@ -91,18 +121,63 @@ router.get('/analytics', protectVendor, async (req, res) => {
             }
         ]);
 
-        res.json({
-            totalRevenue: totalRevenue[0]?.total || 0,
-            totalOrders,
-            newCustomers,
-            popularProducts,
-            salesTrend
+        const recentOrders = await Order.aggregate([
+            { $unwind: '$cartItems' },
+            { $match: { 'cartItems.seller': vendorId } },
+            { $sort: { createdAt: -1 } },
+            { $limit: 5 },
+            {
+                $project: {
+                    orderId: '$_id',
+                    customerName: {
+                        $concat: ['$customerDetails.firstname', ' ', '$customerDetails.lastname']
+                    },
+                    itemName: '$cartItems.name',
+                    quantity: '$cartItems.quantity',
+                    amount: { $multiply: ['$cartItems.price', '$cartItems.quantity'] },
+                    status: '$paymentDetails.status',
+                    createdAt: '$createdAt',
+                    _id: 0
+                }
+            }
+        ]);
+
+        // Additional metrics
+        const pendingOrders = await Order.countDocuments({
+            'cartItems.seller': vendorId,
+            'paymentDetails.status': 'pending'
         });
 
+        const processingOrders = await Order.countDocuments({
+            'cartItems.seller': vendorId,
+            'paymentDetails.status': 'processing'
+        });
+
+        const response = {
+            totalRevenue,
+            totalOrders,
+            completedOrders,
+            pendingOrders,
+            processingOrders,
+            newCustomers,
+            popularProducts,
+            salesTrend,
+            recentOrders,
+            debug: {
+                vendorId: vendorId.toString(),
+                message: 'Using correct field names: seller, paymentDetails.amount, paymentDetails.status'
+            }
+        };
+
+        console.log('Analytics response:', response);
+        res.json(response);
+
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Server Error' });
+        console.error("Error in /api/vendor/analytics:", error);
+        res.status(500).json({ error: 'Server Error', details: error.message });
     }
 });
+
+
 
 module.exports = router;
