@@ -17,6 +17,7 @@ import {
   MapPin,
   ChevronRight,
   Navigation,
+  Store,
 } from "lucide-react";
 import { AuthContext } from "../../Context/Context.jsx"; // Correct path to your AuthContext
 import logo from "/src/assets/logo.svg";
@@ -421,6 +422,10 @@ const Header = () => {
                   <UserPlus className="h-5 w-5" />
                   <span>Register</span>
                 </NavLink>
+                <NavLink to="/vendor/login" className={navItemClasses}>
+                  <Store className="h-5 w-5" />
+                  <span>Vendor Login</span>
+                </NavLink>
               </>
             )}
 
@@ -686,6 +691,10 @@ const Header = () => {
                   >
                     <LogIn className="h-5 w-5" />
                     Login
+                  </NavLink>
+                  <NavLink to="/vendor/login" className={navItemClasses}>
+                    <Store className="h-5 w-5" />
+                    <span>Vendor Login</span>
                   </NavLink>
 
                   <NavLink

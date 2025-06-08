@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useRef } from "react";
+import React, { createContext, useState, useContext, useRef , useCallback} from "react";
 import { toast } from "react-toastify";
 import { login as apiLogin, register as apiRegister } from "/api";
 
@@ -353,17 +353,30 @@ export const AuthProvider = ({ children }) => {
   };
 
   // --- Function to update selected location ---
-  const updateUserLocation = async (locationData) => {
+  const updateUserLocation = useCallback(async (locationData) => {
     let newSelectedLoc = null;
+
+    // Show an immediate "Fetching..." state while geolocation is active
+    // This makes selectedLocation change immediately, triggering ShoppingPage's useEffect.
+    setSelectedLocation((prev) => ({
+      ...prev, // Keep existing properties if any, like type
+      name: "Fetching current location...",
+      lat: null, // Temporarily set to null while fetching
+      lng: null, // Temporarily set to null while fetching
+      type: LOCATION_TYPE_CURRENT, // Ensure type is correct for current location
+    }));
+    toast.info("Fetching your current location..."); // Provide user feedback
+
     if (locationData.type === LOCATION_TYPE_CURRENT) {
       try {
-        const coords = await getCurrentGeolocation();
-        const name = await reverseGeocode(coords.lat, coords.lng);
+        const coords = await getCurrentGeolocation(); // This awaits the promise
+        const name = await reverseGeocode(coords.lat, coords.lng); // This awaits the promise
         newSelectedLoc = {
           ...coords,
           name: `Current Location (${name})`,
           type: LOCATION_TYPE_CURRENT,
         };
+        toast.success("Location updated successfully!");
       } catch (error) {
         console.error(
           "Context: Geolocation error on re-acquire for 'Current Location' type:",
@@ -373,18 +386,21 @@ export const AuthProvider = ({ children }) => {
         newSelectedLoc = {
           ...DEFAULT_FALLBACK_LOCATION,
           name: "Current Location (Denied/Failed)", // Update name for UI clarity
+          type: LOCATION_TYPE_CURRENT, // Ensure type is still 'current' for the fallback
         };
+        toast.error("Failed to get current location. Using default fallback.");
       }
     } else {
-      // For product-based locations, directly use the provided data
+      // For product-based locations or other manual selections, directly use the provided data
       newSelectedLoc = locationData;
+      toast.info(`Location set to ${locationData.name}`);
     }
 
+    // Set the final selected location after all async operations
     setSelectedLocation(newSelectedLoc);
     localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(newSelectedLoc));
     console.log("Context: User location updated to:", newSelectedLoc);
-  };
-
+  }, []);
   return (
     <AuthContext.Provider
       value={{

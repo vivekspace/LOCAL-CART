@@ -303,63 +303,67 @@ const ShoppingPage = () => {
                           }`}
                         >
                           <div className="w-8 h-8 mr-3 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
-  {product.images && product.images.length > 0 ? (
-    <picture>
-      <source
-        media="(min-width: 1024px)" /* For large screens */
-        srcSet={`${
-          import.meta.env.VITE_API_URL
-        }/uploads/${product.images[0]}-large.webp`}
-        type="image/webp"
-      />
-      <source
-        media="(min-width: 640px)" /* For medium screens */
-        srcSet={`${
-          import.meta.env.VITE_API_URL
-        }/uploads/${product.images[0]}-medium.webp`}
-        type="image/webp"
-      />
-      <source
-        srcSet={`${
-          import.meta.env.VITE_API_URL
-        }/uploads/${product.images[0]}-small.webp`} /* Default for small screens */
-        type="image/webp"
-      />
-      {/* Fallback JPEG images */}
-      <source
-        media="(min-width: 1024px)"
-        srcSet={`${
-          import.meta.env.VITE_API_URL
-        }/uploads/${product.images[0]}-large.jpg`}
-        type="image/jpeg"
-      />
-      <source
-        media="(min-width: 640px)"
-        srcSet={`${
-          import.meta.env.VITE_API_URL
-        }/uploads/${product.images[0]}-medium.jpg`}
-        type="image/jpeg"
-      />
-      <img
-        src={`${
-          import.meta.env.VITE_API_URL
-        }/uploads/${product.images[0]}.jpg`} /* Default src */
-        alt={product.name}
-        className="w-full h-full object-cover"
-        loading="lazy"
-        decoding="async"
-        width="200" // Actual dimensions
-        height="150" // Actual dimensions
-        onError={(e) => {
-          e.target.src = `${
-            import.meta.env.VITE_API_URL
-          }/uploads/default-product.png`;
-          e.target.onerror = null;
-        }}
-      />
-    </picture>
-  ) : null}
-</div>
+                            {product.images && product.images.length > 0 ? (
+                              <picture>
+                                <source
+                                  media="(min-width: 1024px)" /* For large screens */
+                                  srcSet={`${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/${product.images[0]}-large.webp`}
+                                  type="image/webp"
+                                />
+                                <source
+                                  media="(min-width: 640px)" /* For medium screens */
+                                  srcSet={`${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/${product.images[0]}-medium.webp`}
+                                  type="image/webp"
+                                />
+                                <source
+                                  srcSet={`${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/${
+                                    product.images[0]
+                                  }-small.webp`} /* Default for small screens */
+                                  type="image/webp"
+                                />
+                                {/* Fallback JPEG images */}
+                                <source
+                                  media="(min-width: 1024px)"
+                                  srcSet={`${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/${product.images[0]}-large.jpg`}
+                                  type="image/jpeg"
+                                />
+                                <source
+                                  media="(min-width: 640px)"
+                                  srcSet={`${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/${product.images[0]}-medium.jpg`}
+                                  type="image/jpeg"
+                                />
+                                <img
+                                  src={`${
+                                    import.meta.env.VITE_API_URL
+                                  }/uploads/${
+                                    product.images[0]
+                                  }.jpg`} /* Default src */
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                  width="200" // Actual dimensions
+                                  height="150" // Actual dimensions
+                                  onError={(e) => {
+                                    e.target.src = `${
+                                      import.meta.env.VITE_API_URL
+                                    }/uploads/default-product.png`;
+                                    e.target.onerror = null;
+                                  }}
+                                />
+                              </picture>
+                            ) : null}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">
                               {product.name}
