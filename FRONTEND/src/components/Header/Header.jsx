@@ -94,83 +94,53 @@ const Header = () => {
   const fetchAndExtractProductLocations = async () => {
     try {
       console.log(
-        "Header: Attempting to fetch products for location options from:",
-        `${import.meta.env.VITE_API_URL}/api/products`
+        "Header: Attempting to fetch unique location options from:",
+        `${import.meta.env.VITE_API_URL}/api/products/locations` // <-- NEW ENDPOINT
       );
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/products`
+        `${import.meta.env.VITE_API_URL}/api/products/locations` // <-- NEW ENDPOINT
       );
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error(
-          `Header: Product API HTTP error! Status: ${response.status}, Message: ${errorText}`
+          `Header: Location API HTTP error! Status: ${response.status}, Message: ${errorText}`
         );
-        throw new Error(`Failed to fetch products: ${response.status}`);
+        throw new Error(`Failed to fetch location options: ${response.status}`);
       }
 
       const rawData = await response.json();
-      console.log("Header: Raw product API response for locations:", rawData);
+      console.log("Header: Raw location API response for options:", rawData);
 
-      const products = rawData?.data?.products;
+      const extractedLocations = rawData?.data?.locations; // Assuming data structure is { data: { locations: [...] } }
 
-      if (!products || !Array.isArray(products)) {
+      if (!Array.isArray(extractedLocations)) {
         console.warn(
-          "Header: Products array not found or not an array in API response:",
-          products
+          "Header: Locations array not found or not an array in API response:",
+          extractedLocations
         );
         return [];
       }
 
-      const uniqueLocations = new Map();
-
-      products.forEach((product) => {
-        // IMPROVED CHECK: Ensure all necessary location properties exist and are valid
-        if (
-          product.city && // Check if city exists
-          typeof product.city === "string" &&
-          product.city.trim() !== "" && // Ensure city is a non-empty string
-          product.location &&
-          product.location.coordinates &&
-          Array.isArray(product.location.coordinates) &&
-          product.location.coordinates.length === 2 &&
-          typeof product.location.coordinates[0] === "number" && // Check if coordinates are numbers
-          typeof product.location.coordinates[1] === "number"
-        ) {
-          const city = product.city;
-          const lat = product.location.coordinates[1];
-          const lng = product.location.coordinates[0];
-
-          if (!uniqueLocations.has(city)) {
-            uniqueLocations.set(city, {
-              name: city,
-              lat: lat,
-              lng: lng,
-              type: LOCATION_TYPE_PRODUCT_BASED,
-            });
-          }
-        } else {
-          console.warn(
-            "Header: Product skipped due to incomplete or malformed location data:",
-            product.name,
-            "Location:",
-            product.location,
-            "City:",
-            product.city
-          );
-        }
-      });
-
-      const extractedLocations = Array.from(uniqueLocations.values());
+      // The backend now returns the locations in the desired format, no complex frontend processing needed
       return extractedLocations;
     } catch (error) {
       console.error(
-        "Header: Error during product location fetch and extraction:",
+        "Header: Error during fetching and extracting product locations:",
         error
       );
+      // Optionally, show a toast notification to the user about failing to load options
+      // toast.error("Failed to load location options.");
       return [];
     }
   };
+
+  // Initial fetch of product locations for the dropdown (remains local to Header)
+  useEffect(() => {
+    fetchAndExtractProductLocations().then((locations) => {
+      setProductLocations(locations);
+    });
+  }, []);
 
   // Initial fetch of product locations for the dropdown (remains local to Header)
   useEffect(() => {
