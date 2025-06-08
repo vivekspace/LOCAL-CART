@@ -145,6 +145,57 @@ router.get('/nearby', async (req, res) => {
     // return sendErrorResponse(res, 500, 'error', 'Error finding nearby products', err);
   }
 });
+
+router.get('/locations', async (req, res) => {
+  try {
+    // Aggregate to get unique cities and their associated coordinates
+    const uniqueCities = await Product.aggregate([
+      {
+        // Match products that have valid location and city data
+        $match: {
+          'location.city': { $exists: true, $ne: null, $ne: '' },
+          'location.coordinates': { $exists: true, $ne: null, $size: 2 },
+          'location.type': 'Point'
+        }
+      },
+      {
+        // Group by city to get unique entries.
+        // We pick the first set of coordinates found for that city.
+        $group: {
+          _id: '$location.city', // Group by city name
+          lat: { $first: '$location.coordinates.1' }, // Get latitude (index 1)
+          lng: { $first: '$location.coordinates.0' }  // Get longitude (index 0)
+        }
+      },
+      {
+        // Project the fields into the desired format for the frontend
+        $project: {
+          _id: 0, // Exclude the default _id from the group
+          name: '$_id', // Rename _id to 'name'
+          lat: 1,
+          lng: 1,
+          type: { $literal: 'product_location' } // Add a type field
+        }
+      },
+      {
+        // Optional: Sort alphabetically by city name
+        $sort: { name: 1 }
+      }
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      results: uniqueCities.length,
+      data: {
+        locations: uniqueCities
+      }
+    });
+
+  } catch (err) {
+    console.error('Backend: Error fetching unique product locations:', err);
+    res.status(500).json({ status: 'error', message: 'Error fetching unique product locations' });
+  }
+});
 // ✅ Public route: Get a single product by ID (place before getAllProducts to ensure specific match)
 router.get('/:id', getProductById); // This was the missing piece from earlier
 
