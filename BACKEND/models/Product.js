@@ -43,7 +43,7 @@ const productSchema = new mongoose.Schema({
     ref: 'Vendor', // Ensure 'Vendor' matches your actual Vendor model name
     required: [true, 'Product must belong to a vendor']
   },
-  images: [{
+  images: [{ // Array of image URLs/filenames
     type: String,
     // If you always require at least one *actual* image from the user, keep 'required: true'
     // but ensure your middleware or controller sets the default *before* validation.
@@ -60,7 +60,7 @@ const productSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Rating must be at least 0'],
     max: [5, 'Rating must be at most 5'],
-    set: val => Math.round(val * 10) / 10 // Rounds to 1 decimal
+    set: val => Math.round(val * 10) / 10 // Rounds to 1 decimal place
   },
   ratingsQuantity: {
     type: Number,
@@ -68,7 +68,7 @@ const productSchema = new mongoose.Schema({
   },
   location: {
     type: {
-      type: String,
+      type: String, // Must be 'Point' for 2dsphere index
       enum: ['Point'],
       required: [true, 'Location type is required and must be "Point"'],
       default: 'Point'
@@ -83,9 +83,8 @@ const productSchema = new mongoose.Schema({
         message: props => `${props.value} is not a valid coordinate pair. Must be [longitude, latitude] numbers.`
       }
     },
-    // IMPORTANT: Moved 'city' inside 'location' object for better semantic grouping
-    // This aligns with geospatial data being related to a specific city.
-    // Make sure your frontend logic is updated to access product.location.city.
+    // IMPORTANT: 'city' is now nested within 'location' object.
+    // Make sure your frontend and backend logic accessing this is updated to product.location.city.
     city: {
       type: String,
       required: [true, 'City name for location is required'],
@@ -95,68 +94,75 @@ const productSchema = new mongoose.Schema({
     }
   },
 }, {
-  timestamps: true, // Adds createdAt and updatedAt
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  timestamps: true, // Adds createdAt and updatedAt fields
+  toJSON: { virtuals: true }, // Include virtuals when converting to JSON
+  toObject: { virtuals: true } // Include virtuals when converting to plain object
 });
 
 // --- Schema Enhancements & Middleware ---
 
-// Compound index for unique product name per seller
+// Compound index for unique product name per seller (ensures a seller doesn't have duplicate product names)
 productSchema.index({ name: 1, seller: 1 }, { unique: true });
 
-// Text index for search functionality
-productSchema.index({ name: 'text', description: 'text', category: 'text', 'location.city': 'text' }); // Added 'location.city' for text search
+// Text index for search functionality (enables text search queries across these fields)
+productSchema.index({ name: 'text', description: 'text', category: 'text', 'location.city': 'text' });
 
-// Geospatial index for efficient `$geoNear` queries
+// Geospatial index for efficient `$geoNear` queries (CRITICAL for nearby product search)
 productSchema.index({ location: '2dsphere' });
 
-// Indexes for common queries (e.g., sorting, filtering)
-productSchema.index({ price: 1, ratingsAverage: -1 });
-productSchema.index({ seller: 1 });
-productSchema.index({ category: 1 });
-productSchema.index({ 'location.city': 1 }); // Index for efficient filtering/sorting by city
+// Indexes for common queries (improves performance of filtering, sorting)
+productSchema.index({ price: 1, ratingsAverage: -1 }); // For sorting by price (ascending) then ratings (descending)
+productSchema.index({ seller: 1 }); // For finding products by a specific seller
+productSchema.index({ category: 1 }); // For filtering products by category
+productSchema.index({ 'location.city': 1 }); // For filtering products by a specific city
 
-// Virtual populate reviews (if you have a Review model)
+// Virtual populate reviews:
+// Allows you to get associated reviews directly from a product document
+// (Requires a 'Review' model where 'product' field references Product._id)
 productSchema.virtual('reviews', {
-  ref: 'Review',
-  foreignField: 'product',
-  localField: '_id'
+  ref: 'Review',          // The model to use for population
+  foreignField: 'product', // Field in the 'Review' model that references 'Product._id'
+  localField: '_id'       // Field in the 'Product' model that matches 'foreignField'
 });
 
-// Document middleware to set default image if none provided
-const DEFAULT_PRODUCT_IMAGE = 'default-product.png'; // Define this constant clearly
+// Document middleware to set a default image if none provided
+const DEFAULT_PRODUCT_IMAGE = 'default-product.png'; // Define your actual default image filename
 productSchema.pre('save', function (next) {
+  // If the images array is empty or not provided, set a default image
   if (!this.images || this.images.length === 0) {
     this.images = [DEFAULT_PRODUCT_IMAGE];
   }
-  next();
+  next(); // Proceed to the next middleware or save operation
 });
 
 // Query middleware to populate seller details on find queries
+// This automatically fetches seller information when you query for products
 productSchema.pre(/^find/, function (next) {
   this.populate({
     path: 'seller',
-    // FIX: Changed to object syntax to correctly exclude _id within an inclusion projection
-    select: { name: 1, email: 1, _id: 0 } // Correct way to select specific fields and exclude _id
+    // Select specific fields to return from the 'seller' document
+    // name: 1, email: 1 (include these)
+    // _id: 0 (exclude _id)
+    select: { name: 1, email: 1, _id: 0 }
   });
-  next();
+  next(); // Proceed to the next middleware or query execution
 });
 
-// Static method for getting product stats by category (useful for analytics/dashboards)
+// Static method for getting product statistics by category
+// Useful for analytics dashboards or summary views
 productSchema.statics.getProductStats = async function () {
   return this.aggregate([
     {
       $group: {
-        _id: '$category',
-        numProducts: { $sum: 1 },
-        avgPrice: { $avg: '$price' },
-        minPrice: { $min: '$price' },
-        maxPrice: { $max: '$price' }
+        _id: '$category', // Group by category
+        numProducts: { $sum: 1 }, // Count products in each category
+        avgPrice: { $avg: '$price' }, // Calculate average price
+        minPrice: { $min: '$price' }, // Find minimum price
+        maxPrice: { $max: '$price' }  // Find maximum price
       }
     },
     {
-      $sort: { numProducts: -1 }
+      $sort: { numProducts: -1 } // Sort results by number of products in descending order
     }
   ]);
 };
