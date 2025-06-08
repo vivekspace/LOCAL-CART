@@ -692,7 +692,17 @@ const Header = () => {
                     <LogIn className="h-5 w-5" />
                     Login
                   </NavLink>
-                  <NavLink to="/vendor/login" className={navItemClasses}>
+                  <NavLink
+                    to="/vendor/login"
+                    onClick={toggleMenu}
+                    className={({ isActive }) =>
+                      `px-4 py-3 rounded-lg text-base font-medium flex items-center gap-3 transition-colors ${
+                        isActive
+                          ? "bg-green-50 text-green-600"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`
+                    }
+                  >
                     <Store className="h-5 w-5" />
                     <span>Vendor Login</span>
                   </NavLink>
