@@ -523,8 +523,8 @@ const ProductCardPage = () => {
                 <Link to={`/vendor/${foundProduct.seller._id}`} className="text-green-600 hover:underline ml-1">
                   {foundProduct.seller.name} {/* Access seller.name from populated field */}
                 </Link>
-                {foundProduct.city && ( // Display city if available
-                  <span className="ml-2 text-gray-500">({foundProduct.city})</span>
+                {foundProduct.location.city && ( // Display city if available
+                  <span className="ml-2 text-gray-500">({foundProduct.location.city})</span>
                 )}
               </p>
 

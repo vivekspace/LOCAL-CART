@@ -99,6 +99,16 @@ exports.getOrdersByEmail = async (req, res) => {
 
 // Create new order
 exports.createOrder = async (req, res) => {
+    console.log('Order Controller: Starting createOrder execution.'); // Add this
+    console.log('Order Controller: req.user at entry:', req.user ? req.user._id : 'null/undefined'); // Add this
+
+    if (!req.user) {
+        console.log('Order Controller: req.user is NULL, returning 401.'); // Add this
+        return res.status(401).json({
+            success: false,
+            message: "Not authorized - please login"
+        });
+    }
     try {
         // ADD THIS AUTHENTICATION CHECK (ensure protect middleware is active on route)
         if (!req.user) {
