@@ -143,7 +143,7 @@ productSchema.pre(/^find/, function (next) {
     // Select specific fields to return from the 'seller' document
     // name: 1, email: 1 (include these)
     // _id: 0 (exclude _id)
-    select: { name: 1, email: 1, _id: 0 }
+    select: { name: 1, email: 1, _id: 1 }
   });
   next(); // Proceed to the next middleware or query execution
 });

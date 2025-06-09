@@ -99,16 +99,17 @@ exports.getOrdersByEmail = async (req, res) => {
 
 // Create new order
 exports.createOrder = async (req, res) => {
-    console.log('Order Controller: Starting createOrder execution.'); // Add this
-    console.log('Order Controller: req.user at entry:', req.user ? req.user._id : 'null/undefined'); // Add this
+    console.log('Order Controller: Starting createOrder execution.');
+    console.log('Order Controller: req.user at entry:', req.user ? req.user._id : 'null/undefined');
 
     if (!req.user) {
-        console.log('Order Controller: req.user is NULL, returning 401.'); // Add this
+        console.log('Order Controller: req.user is NULL, returning 401.');
         return res.status(401).json({
             success: false,
             message: "Not authorized - please login"
         });
     }
+
     try {
         // ADD THIS AUTHENTICATION CHECK (ensure protect middleware is active on route)
         if (!req.user) {
@@ -129,29 +130,82 @@ exports.createOrder = async (req, res) => {
             });
         }
 
+        // *** NEW: Fetch product details to get seller information ***
+        const enrichedCartItems = await Promise.all(
+            cartItems.map(async (item) => {
+                try {
+                    // Fetch product details if productId exists
+                    if (item.productId) {
+                        const Product = require('../models/Product'); // Adjust path as needed
+                        const product = await Product.findById(item.productId);
+
+                        if (product && product.seller) {
+                            return {
+                                ...item,
+                                seller: product.seller // Add seller from product
+                            };
+                        }
+                    }
+
+                    // If no productId or product not found, return item as is
+                    return item;
+                } catch (error) {
+                    console.error(`Error fetching product ${item.productId}:`, error);
+                    return item;
+                }
+            })
+        );
+
         // Backend calculations (your existing logic)
-        const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const subtotal = enrichedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const tax = subtotal * 0.08;
         const shippingCost = subtotal > 50 ? 0 : 10; // This might be overridden by frontend's `shipping.cost`
         const discount = 0;
         const totalAmount = subtotal + tax + shippingCost - discount; // Use your backend calculation
 
         // Normalize cart items (your existing logic)
-        const normalizedItems = cartItems.map(item => {
+        const normalizedItems = enrichedCartItems.map(item => {
             let sellerId;
-            if (typeof item.seller === 'object' && (item.seller._id || item.seller.id)) {
+
+            // This part extracts sellerId from the incoming item.
+            // Ensure that if item.seller is an object, you get its _id or id.
+            // If it's just a string, use it directly.
+            if (typeof item.seller === 'object' && item.seller !== null && (item.seller._id || item.seller.id)) {
                 sellerId = item.seller._id || item.seller.id;
             } else {
+                // This 'else' block will catch cases where item.seller is null, undefined,
+                // or a string that's not an object.
                 sellerId = item.seller;
             }
 
-            const finalSellerId = mongoose.Types.ObjectId.isValid(sellerId)
-                ? new mongoose.Types.ObjectId(sellerId)
-                : sellerId;
+            // *** THIS IS THE CRITICAL FIX ***
+            // Before trying to create a new ObjectId or validate it,
+            // check if sellerId is actually a valid, non-null value.
+            let finalSellerId = null; // Initialize to null
+
+            if (sellerId && typeof sellerId === 'string' && mongoose.Types.ObjectId.isValid(sellerId)) {
+                // If it's a valid ObjectId string, convert it
+                finalSellerId = new mongoose.Types.ObjectId(sellerId);
+            } else if (sellerId && typeof sellerId === 'object' && sellerId instanceof mongoose.Types.ObjectId) {
+                // If it's already a mongoose ObjectId (less likely if coming from frontend payload directly)
+                finalSellerId = sellerId;
+            } else {
+                // Handle cases where sellerId is null, undefined, or an invalid string.
+                // You have a few options here based on your business logic:
+                // Option 1 (Recommended): Throw an error if a seller is absolutely required for every product.
+                console.error(`Invalid or missing seller ID for cart item: ${item.name || 'Unknown Item'}. Received sellerId:`, sellerId);
+                throw new Error(`Missing or invalid seller ID for product: ${item.name || 'an item in your cart'}`);
+
+                // Option 2: Set a default/placeholder ID (less common unless you have a "system" vendor)
+                // finalSellerId = new mongoose.Types.ObjectId('yourDefaultVendorIdHere');
+
+                // Option 3: Allow null/undefined if your Mongoose schema for 'seller' is not 'required: true'
+                // finalSellerId = null; // Or leave it as is if it's already null/undefined
+            }
 
             return {
                 ...item,
-                seller: finalSellerId
+                seller: finalSellerId // Ensure this is a valid ObjectId or null/undefined if allowed by schema
             };
         });
 
