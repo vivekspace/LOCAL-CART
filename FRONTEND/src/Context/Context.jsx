@@ -171,6 +171,14 @@ export const AuthProvider = ({ children }) => {
         const fetchedProducts = data.data.products;
 
         setProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
+        console.log("AuthContext: Products fetched and set:", fetchedProducts); // <-- Add this
+        fetchedProducts.forEach((p, i) => {
+          console.log(`AuthContext: Product ${i} seller:`, p.seller); // <-- Add this
+          console.log(
+            `AuthContext: Product ${i} seller type:`,
+            typeof p.seller
+          ); // <-- Add this
+        });
 
         // --- Logic to extract and set availableLocations ---
         const uniqueLocationsMap = new Map();

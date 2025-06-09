@@ -1,7 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useNavigate, useLocation } from "react-router-dom";
-import mongoose from "mongoose";
 import axios from "axios";
 import { AuthContext } from "../../Context/Context";
 import {
@@ -212,45 +211,112 @@ const PaymentPage = () => {
 
   // 13. Vendor ID Extraction (Improved)
   const getVendorId = (item) => {
-    // Handle all possible vendor ID locations
     const seller = item.seller;
 
+    // Prioritize direct object access
     if (typeof seller === "object" && seller !== null) {
-      return seller._id || seller.id;
+      return seller._id || seller.id || null; // Ensure it returns null if no ID found in object
     }
 
+    // Handle string seller IDs
     if (typeof seller === "string") {
-      // Handle case where seller is already an ID
-      if (mongoose.Types.ObjectId.isValid(seller)) {
+      // A simple check for a non-empty string that looks like an ID
+      if (seller.length === 24 && /^[0-9a-fA-F]+$/.test(seller)) {
         return seller;
       }
-      // Handle stringified objects
+      // Attempt to parse if it might be a stringified object
       try {
         const parsed = JSON.parse(seller);
-        return parsed._id || parsed.id;
-      } catch {
+        return parsed._id || parsed.id || null; // Ensure null if ID not found in parsed object
+      } catch (e) {
+        // Not a valid JSON string, and not a direct ID string
         return null;
       }
     }
 
+    // Fallback to other properties
     return item.vendor?.id || item.vendorId || null;
   };
 
+   const enhanceCartItemsWithSellerInfo = async (items) => {
+  try {
+    const enhancedItems = await Promise.all(
+      items.map(async (item) => {
+        try {
+          // If seller info is already present, return as is
+          if (item.seller && getVendorId(item)) {
+            return item;
+          }
+
+          // Fetch product details to get seller info
+          const productId = item.productId || item._id || item.id;
+          if (productId) {
+            const response = await axios.get(
+              `${import.meta.env.VITE_API_URL}/api/products/${productId}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+              }
+            );
+
+            if (response.data && response.data.seller) {
+              return {
+                ...item,
+                seller: response.data.seller,
+              };
+            }
+          }
+
+          // Return original item if no seller found
+          return item;
+        } catch (error) {
+          console.error(`Error fetching product details for ${item.name}:`, error);
+          return item;
+        }
+      })
+    );
+
+    return enhancedItems;
+  } catch (error) {
+    console.error('Error enhancing cart items:', error);
+    return items; // Return original items if enhancement fails
+  }
+};
+
+
   // 14. Order Creation
   const createOrder = async (paymentResult, orderStatus) => {
+    // Enhance cart items before creating order
+    const enhancedCartItems = await enhanceCartItemsWithSellerInfo(cartItems);
+
     const orderPayload = {
       customerDetails: {
         ...formData,
         email: formData.email.toLowerCase().trim(),
       },
-      cartItems: cartItems.map((item) => ({
-        productId: item.productId || item._id || item.id,
-        name: item.name,
-        quantity: item.quantity || 1,
-        price: item.price,
-        vendorId: getVendorId(item),
-        seller: getVendorId(item), // Consistent vendor ID handling
-      })),
+      cartItems: enhancedCartItems.map((item) => {
+        const sellerId = getVendorId(item);
+
+        
+
+        // Debug logging
+        console.log("Processing item:", item.name);
+        console.log("Seller ID extracted:", sellerId);
+
+        if (!sellerId) {
+          console.warn(`No seller ID found for item: ${item.name}`);
+        }
+
+        return {
+          productId: item.productId || item._id || item.id,
+          name: item.name,
+          quantity: item.quantity || 1,
+          price: item.price,
+          seller: sellerId, // Only use seller, remove vendorId
+          // Remove vendorId: getVendorId(item), as backend expects 'seller'
+        };
+      }),
       paymentDetails: {
         method: paymentResult.method,
         status: paymentResult.status,
@@ -266,6 +332,7 @@ const PaymentPage = () => {
           city: formData.city,
           state: formData.state,
           pincode: formData.pincode,
+          country: formData.country || "India", // Add country
         },
       },
       pricing: {
@@ -276,6 +343,11 @@ const PaymentPage = () => {
       },
       orderStatus,
     };
+
+    console.log(
+      "Order payload being sent:",
+      JSON.stringify(orderPayload, null, 2)
+    );
 
     const response = await axios.post(
       `${import.meta.env.VITE_API_URL}/api/orders`,
@@ -290,7 +362,6 @@ const PaymentPage = () => {
 
     return response.data;
   };
-
   // Loading state
   if (!orderData || !formData || !cartItems.length) {
     return (
