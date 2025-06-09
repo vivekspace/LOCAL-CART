@@ -38,6 +38,10 @@ const ShoppingPage = () => {
   ];
 
   useEffect(() => {
+    console.log("🛰️ Selected Location changed:", selectedLocation);
+  }, [selectedLocation]);
+
+  useEffect(() => {
     // Simulate fetching categories
     const timer = setTimeout(() => {
       setCategories(mockCategories);
@@ -54,17 +58,22 @@ const ShoppingPage = () => {
     setIsLoading(true);
     let apiUrl = "";
 
-    // Determine API URL based on the selectedLocation's type and coordinates
-    // We expect selectedLocation to always have a type and potentially lat/lng
-    if (selectedLocation.lat && selectedLocation.lng) {
-      // For any location with coordinates (Current, Product-based, or Fallback)
+    // Check if lat and lng are valid numbers, not empty arrays
+    const hasValidCoordinates =
+      typeof selectedLocation.lat === "number" &&
+      typeof selectedLocation.lng === "number" &&
+      !isNaN(selectedLocation.lat) &&
+      !isNaN(selectedLocation.lng);
+
+    if (hasValidCoordinates) {
       apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby?lat=${
         selectedLocation.lat
       }&lng=${selectedLocation.lng}&distance=10`; // Assuming 10km radius
     } else {
-      // If coordinates are missing for some reason (e.g., denied geolocation, or a product entry without coordinates)
+      // If coordinates are missing or invalid, fallback to fetching all products
       console.warn(
-        `ShoppingPage: Selected location (${selectedLocation.name}) has no coordinates. Fetching all products as fallback.`
+        `ShoppingPage: Selected location (${selectedLocation.name}) has no valid coordinates. Fetching all products as fallback.`,
+        selectedLocation
       );
       apiUrl = `${import.meta.env.VITE_API_URL}/api/products`; // Fallback to fetching all products
     }
@@ -89,14 +98,11 @@ const ShoppingPage = () => {
         );
         setNearbyProducts([]); // Clear products on error
         setIsLoading(false);
-        // Only show alert if it's not a normal "no products nearby" scenario
         if (!error.message.includes("404")) {
-          // Example: don't alert for a missing endpoint if you expect it
           // alert("Failed to load products for this location. Please try another or refresh.");
         }
       });
-  }, [selectedLocation, LOCATION_TYPE_CURRENT, LOCATION_TYPE_PRODUCT_BASED]); // Re-run when selectedLocation or its types change
-
+  }, [selectedLocation, LOCATION_TYPE_CURRENT, LOCATION_TYPE_PRODUCT_BASED]);
   // Safe filtering with null checks - uses nearbyProducts now
   const filteredProducts =
     nearbyProducts?.filter((product) => {

@@ -95,7 +95,7 @@ export default function Register() {
 
       // Handle successful registration
       toast.success("Account created successfully!");
-      navigate("/login");
+      navigate("/");
     } catch (error) {
       console.error("Registration error:", error);
       toast.error(error.message || "Registration failed");

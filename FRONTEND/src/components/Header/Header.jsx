@@ -61,25 +61,25 @@ const Header = () => {
   }, []);
 
   // Handle click outside to close dropdowns (remains local)
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        locationDropdownRef.current &&
-        !locationDropdownRef.current.contains(event.target)
-      ) {
-        setLocationDropdownOpen(false);
-      }
-      if (
-        userDropdownRef.current &&
-        !userDropdownRef.current.contains(event.target)
-      ) {
-        setUserDropdownOpen(false);
-      }
-    };
+  // useEffect(() => {
+  //   const handleClickOutside = (event) => {
+  //     if (
+  //       locationDropdownRef.current &&
+  //       !locationDropdownRef.current.contains(event.target)
+  //     ) {
+  //       setLocationDropdownOpen(false);
+  //     }
+  //     if (
+  //       userDropdownRef.current &&
+  //       !userDropdownRef.current.contains(event.target)
+  //     ) {
+  //       setUserDropdownOpen(false);
+  //     }
+  //   };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  //   document.addEventListener("mousedown", handleClickOutside);
+  //   return () => document.removeEventListener("mousedown", handleClickOutside);
+  // }, []);
 
   // Close all dropdowns when menu state changes (remains local)
   useEffect(() => {
@@ -161,11 +161,14 @@ const Header = () => {
     console.log("Header: handleLocationSelect triggered with:", locationData);
     setLocationLoading(true);
 
-    // Call the context function to update the global selected location
-    await updateUserLocation(locationData); // <--- Use the context function
-
-    setLocationLoading(false);
-    setLocationDropdownOpen(false); // Close dropdown after selection
+    try {
+      await updateUserLocation(locationData);
+    } catch (error) {
+      console.error("Failed to update location:", error);
+    } finally {
+      setLocationLoading(false);
+      setLocationDropdownOpen(false);
+    }
   };
 
   const navigate = useNavigate();
@@ -193,6 +196,31 @@ const Header = () => {
       setUserDropdownOpen(false); // Close user dropdown when opening location dropdown
     }
   };
+
+  function useOnClickOutside(ref, handler) {
+  useEffect(
+    () => {
+      const listener = (event) => {
+        // Do nothing if clicking ref's element or descendent elements
+        if (!ref.current || ref.current.contains(event.target)) {
+          return;
+        }
+        handler(event);
+      };
+
+      document.addEventListener('mousedown', listener);
+      document.addEventListener('touchstart', listener);
+
+      return () => {
+        document.removeEventListener('mousedown', listener);
+        document.removeEventListener('touchstart', listener);
+      };
+    },
+    [ref, handler] // Reload only if ref or handler changes
+  );
+}
+
+
 
   const navItemClasses = ({ isActive }) =>
     `px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${
@@ -230,12 +258,12 @@ const Header = () => {
             to="/"
             className="flex items-center gap-2 text-2xl font-bold text-green-600 hover:text-green-700 transition-colors"
           >
-            <img src={logo} alt="Logo" className="h-12 w-auto" />
+            <img src={logo} alt="Logo" className="h-12 w-auto min-w-[48px] min-h-[48px]" />
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
-            {/* Location Selector */}
+            {/* Desktop Location Selector */}
             <div className="relative mr-2" ref={locationDropdownRef}>
               <button
                 onClick={toggleLocationDropdown}
@@ -263,56 +291,54 @@ const Header = () => {
                 />
               </button>
 
-              <div
-                className={`absolute left-0 mt-1 w-56 bg-white rounded-lg shadow-xl py-1 z-50 border border-gray-100 transition-all duration-300 origin-top p-2 overflow-y-auto max-h-[300px] ${
-                  locationDropdownOpen
-                    ? "opacity-100 scale-100"
-                    : "opacity-0 scale-95 pointer-events-none"
-                }`}
-              >
-                <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 mb-2">
-                  Select Location
+              {locationDropdownOpen && (
+                <div className="absolute left-0 mt-1 w-56 bg-white rounded-lg shadow-xl py-1 z-50 border border-gray-100 transition-all duration-300 origin-top p-2 overflow-y-auto max-h-[300px]">
+                  <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 mb-2">
+                    Select Location
+                  </div>
+                  {combinedLocationOptions.map((option, index) => (
+                    <button
+                      key={
+                        option.type === LOCATION_TYPE_CURRENT
+                          ? option.type
+                          : option.name || `product-loc-${index}`
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent event bubbling
+                        handleLocationSelect(option);
+                      }}
+                      disabled={
+                        locationLoading && option.type === LOCATION_TYPE_CURRENT
+                      }
+                      className={`w-full px-4 py-2.5 text-sm text-left font-medium rounded-md flex items-center justify-between transition-colors ${
+                        selectedLocation &&
+                        (option.type === LOCATION_TYPE_CURRENT
+                          ? selectedLocation.type === option.type
+                          : selectedLocation.name === option.name)
+                          ? "bg-green-50 text-green-600"
+                          : "text-gray-700 hover:bg-green-50 hover:text-green-600"
+                      } ${
+                        locationLoading && option.type === LOCATION_TYPE_CURRENT
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        {option.type === LOCATION_TYPE_CURRENT && (
+                          <Navigation className="h-4 w-4" />
+                        )}
+                        {option.name}
+                      </span>
+                      {selectedLocation &&
+                        (option.type === LOCATION_TYPE_CURRENT
+                          ? selectedLocation.type === option.type
+                          : selectedLocation.name === option.name) && (
+                          <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></span>
+                        )}
+                    </button>
+                  ))}
                 </div>
-                {combinedLocationOptions.map((option, index) => (
-                  <button
-                    key={
-                      option.type === LOCATION_TYPE_CURRENT
-                        ? option.type // Use 'current_location' as key for current location type
-                        : option.name || `product-loc-${index}` // Fallback key for product locations
-                    }
-                    onClick={() => handleLocationSelect(option)}
-                    disabled={
-                      locationLoading && option.type === LOCATION_TYPE_CURRENT
-                    }
-                    className={`w-full px-4 py-2.5 text-sm text-left font-medium rounded-md flex items-center justify-between transition-colors ${
-                      selectedLocation &&
-                      // Compare by type for current location, by name for product locations
-                      (option.type === LOCATION_TYPE_CURRENT
-                        ? selectedLocation.type === option.type
-                        : selectedLocation.name === option.name)
-                        ? "bg-green-50 text-green-600"
-                        : "text-gray-700 hover:bg-green-50 hover:text-green-600"
-                    } ${
-                      locationLoading && option.type === LOCATION_TYPE_CURRENT
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      {option.type === LOCATION_TYPE_CURRENT && (
-                        <Navigation className="h-4 w-4" />
-                      )}
-                      {option.name}
-                    </span>
-                    {selectedLocation &&
-                      (option.type === LOCATION_TYPE_CURRENT
-                        ? selectedLocation.type === option.type
-                        : selectedLocation.name === option.name) && (
-                        <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></span>
-                      )}
-                  </button>
-                ))}
-              </div>
+              )}
             </div>
 
             <NavLink to="/" className={navItemClasses}>
