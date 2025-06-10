@@ -1,35 +1,43 @@
-// Example: ../middleware/authMiddleware.js
+// In your authMiddleware.js file
 const jwt = require('jsonwebtoken');
-const User = require('../models/User'); // Assuming you have a User model
+const User = require('../models/User');
+const AppError = require('../utils/appError'); // Assuming you have appError.js in utils
+const catchAsync = require('../utils/catchAsync'); // Assuming you have catchAsync.js in utils
 
-const protect = async (req, res, next) => {
-  let token;
+const protect = catchAsync(async (req, res, next) => {
+    let token;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      // Get token from header
-      token = req.headers.authorization.split(' ')[1];
-
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET); // Make sure JWT_SECRET is set
-
-      // Find user by ID from token payload and attach to req.user
-      req.user = await User.findById(decoded.id).select('-password'); // Adjust 'id' to your token payload key
-
-      if (!req.user) {
-        return res.status(401).json({ message: 'Not authorized, user not found' });
-      }
-
-      next(); // Proceed to the next middleware/controller
-    } catch (error) {
-      console.error('Auth middleware error:', error.message);
-      return res.status(401).json({ message: 'Not authorized, token failed' });
+    // 1) Get token and check if it's there
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        token = req.headers.authorization.split(' ')[1];
     }
-  }
 
-  if (!token) {
-    return res.status(401).json({ message: 'Not authorized, no token' });
-  }
-};
+    if (!token) {
+        // Use AppError and next() for consistent global error handling
+        return next(new AppError('You are not logged in! Please log in to get access.', 401));
+    }
+
+    // 2) Verify token
+    // Using promisify is not strictly necessary if jwt.verify is already sync or handled by catchAsync
+    // but a common pattern if you want to explicitly await it.
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // 3) Check if user still exists
+    const currentUser = await User.findById(decoded.id).select('-password');
+    if (!currentUser) {
+        return next(
+            new AppError('The user belonging to this token no longer exists.', 401)
+        );
+    }
+
+    // 4) Check if user changed password after the token was issued (optional)
+    // if (currentUser.changedPasswordAfter && currentUser.changedPasswordAfter(decoded.iat)) {
+    //     return next(new AppError('User recently changed password! Please log in again.', 401));
+    // }
+
+    // GRANT ACCESS TO PROTECTED ROUTE
+    req.user = currentUser; // Attach the full user document
+    next();
+});
 
 module.exports = { protect };
