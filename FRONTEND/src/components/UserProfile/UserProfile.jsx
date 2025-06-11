@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Dialog } from "@headlessui/react";
 import { toast } from "react-toastify";
+import { Link, useNavigate } from "react-router-dom";
 import {
   User,
   Mail,
@@ -17,20 +18,17 @@ import {
 } from "lucide-react";
 import { AuthContext } from "../../Context/Context";
 
-console.log("🔥🔥🔥 ProfilePage.jsx HAS BEEN LOADED 🔥🔥🔥");
 
 const ProfilePage = () => {
   const { user, setUser, isLoggedIn } = useContext(AuthContext);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
-
   const [loading, setLoading] = useState(true);
   const [submittingChanges, setSubmittingChanges] = useState(false);
-
   const [orders, setOrders] = useState([]);
   const [addresses, setAddresses] = useState([]);
-
+  const navigate = useNavigate()
   // Separate forms for profile and address
   const profileForm = useForm({
     mode: "onChange",
@@ -283,7 +281,7 @@ const ProfilePage = () => {
             Please log in to view your profile.
           </p>
           <button
-            onClick={() => (window.location.href = "/login")}
+            onClick={navigate('/login')}
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition"
           >
             Go to Login
@@ -294,165 +292,330 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">My Profile</h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header with green Green Background */}
+      <div className="bg-gradient-to-r from-green-500 to-green-600 text-white py-6 shadow-md">
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl font-bold">My Account</h1>
+          <p className="text-green-100 mt-1">
+            Manage your profile and preferences
+          </p>
         </div>
+      </div>
 
-        {/* Profile Card */}
-        <div className="rounded-xl shadow-md p-6 mb-8 bg-white">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative">
-              <img
-                src={user.photo || "https://via.placeholder.com/96"}
-                alt="Profile"
-                className="w-24 h-24 rounded-full object-cover border-4 border-green-500"
-              />
-              <button
-                onClick={() => setIsEditModalOpen(true)}
-                className="absolute bottom-0 right-0 bg-green-500 p-2 rounded-full text-white hover:bg-green-600 transition"
-                aria-label="Edit Profile"
-              >
-                <Edit size={16} />
-              </button>
-            </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold">{user.name || "N/A"}</h2>
-              <p className="text-gray-500 flex items-center gap-2 mt-1">
-                <Mail size={16} /> {user.email || "N/A"}
-              </p>
-              {user.bio && <p className="mt-3 text-gray-700">{user.bio}</p>}
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Profile Overview Card */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8 border border-green-100">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 h-24 w-full"></div>
+          <div className="px-6 pb-6 relative">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6 -mt-16">
+              <div className="relative">
+                <img
+                  src={user?.photo || "https://via.placeholder.com/150"}
+                  alt="Profile"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md"
+                />
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="absolute bottom-2 right-2 bg-green-500 p-2 rounded-full text-white hover:bg-green-700 transition shadow-md"
+                  aria-label="Edit Profile"
+                >
+                  <Edit size={16} />
+                </button>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {user?.name || "N/A"}
+                </h2>
+                <p className="text-gray-600 flex items-center gap-2 mt-1">
+                  <Mail size={16} className="text-green-600" />
+                  {user?.email || "N/A"}
+                </p>
+                {user?.bio && (
+                  <p className="mt-3 text-gray-700 bg-green-50 p-3 rounded-lg border border-green-100">
+                    {user.bio}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Order History */}
-        <div className="rounded-xl shadow-md p-6 mb-8 bg-white">
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <ShoppingBag size={20} /> Order History
-          </h2>
-          {orders.length > 0 ? (
-            <div className="space-y-4">
-              {orders.map((order) => (
-                <div
-                  key={order._id}
-                  className="p-4 rounded-lg border flex justify-between items-center bg-gray-50 hover:bg-gray-100 transition"
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Orders */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Order History Card */}
+            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+                  <ShoppingBag size={20} className="text-green-600" />
+                  Recent Orders
+                </h2>
+                {orders.length > 0 && (
+                  <Link
+                    to={"/orders"}
+                    className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center gap-1"
+                  >
+                    View All <ChevronRight size={16} />
+                  </Link>
+                )}
+              </div>
+
+              {orders.length > 0 ? (
+                <div className="space-y-4">
+                  {orders.slice(0, 3).map((order) => (
+                    <Link
+                      to={`/orders/${order._id}`}
+                      key={order._id}
+                      className="group block p-5 rounded-lg border border-gray-200 hover:border-green-300 bg-white hover:shadow-md transition-all duration-200"
+                    >
+                      <div className="flex flex-col sm:flex-row justify-between gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-800">
+                              #{order.orderNumber}
+                            </span>
+                            <span
+                              className={`px-2 py-1 text-xs rounded-full font-medium
+                              ${
+                                order.status === "Delivered"
+                                  ? "bg-green-100 text-green-700"
+                                  : order.status === "Pending"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-blue-100 text-blue-700"
+                              }`}
+                            >
+                              {order.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            {new Date(order.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              }
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-gray-900">
+                            ₹{order.totalAmount?.toFixed(2)}
+                          </span>
+                          <ChevronRight
+                            size={20}
+                            className="text-gray-400 group-hover:text-green-600 transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <ShoppingBag
+                    size={40}
+                    className="mx-auto text-gray-300 mb-3"
+                  />
+                  <p className="text-gray-500 mb-4">
+                    You haven't placed any orders yet.
+                  </p>
+                  <Link
+                    to={"/shopping"}
+                    className="inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  >
+                    Start Shopping
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Addresses Card */}
+            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+                  <MapPin size={20} className="text-green-600" />
+                  Saved Addresses
+                </h2>
+                <button
+                  onClick={() => {
+                    setEditingAddress(null);
+                    setIsAddressModalOpen(true);
+                  }}
+                  className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center gap-1"
                 >
-                  <div>
-                    <p className="font-medium">Order #{order.orderNumber}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(order.createdAt).toLocaleDateString()} •{" "}
-                      <span
-                        className={`font-semibold ${
-                          order.status === "Delivered"
-                            ? "text-green-600"
-                            : order.status === "Pending"
-                            ? "text-orange-500"
-                            : "text-blue-500"
-                        }`}
+                  <Plus size={16} /> Add New
+                </button>
+              </div>
+
+              {addresses.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {addresses.map((address) => (
+                    <div
+                      key={address._id}
+                      className="p-4 rounded-lg border border-gray-200 bg-white hover:border-green-300 transition"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-gray-800">
+                            {address.name}
+                          </h3>
+                          <p className="text-gray-600 mt-1 text-sm">
+                            {address.fullAddress}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingAddress(address);
+                              setIsAddressModalOpen(true);
+                            }}
+                            className="text-green-600 hover:text-green-800 p-1"
+                            title="Edit"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteAddress(address._id);
+                            }}
+                            className="text-red-500 hover:text-red-700 p-1"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <MapPin size={40} className="mx-auto text-gray-300 mb-3" />
+                  <p className="text-gray-500 mb-4">
+                    You don't have any saved addresses yet.
+                  </p>
+                  <button
+                    onClick={() => setIsAddressModalOpen(true)}
+                    className="inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  >
+                    <Plus size={16} className="mr-2" />
+                    Add Address
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column - Account Settings */}
+          <div className="space-y-6">
+            {/* Account Settings Card */}
+            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-gray-800">
+                <Lock size={20} className="text-green-600" />
+                Account Settings
+              </h2>
+              <div className="space-y-3">
+                <button className="w-full text-left flex justify-between items-center p-3 hover:bg-green-50 rounded-lg transition text-gray-700 group">
+                  <span className="flex items-center gap-2">
+                    <Lock size={16} className="text-green-600" />
+                    Change Password
+                  </span>
+                  <ChevronRight
+                    size={16}
+                    className="text-gray-400 group-hover:text-green-600"
+                  />
+                </button>
+                <button className="w-full text-left flex justify-between items-center p-3 hover:bg-green-50 rounded-lg transition text-gray-700 group">
+                  <span className="flex items-center gap-2">
+                    <Bell size={16} className="text-green-600" />
+                    Notification Preferences
+                  </span>
+                  <ChevronRight
+                    size={16}
+                    className="text-gray-400 group-hover:text-green-600"
+                  />
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("token");
+                    setUser(null);
+                    toast.info("You have been logged out.");
+                    navigate('/login')
+                  }}
+                  className="w-full text-left flex justify-between items-center p-3 hover:bg-red-50 rounded-lg transition text-red-600 font-medium group"
+                >
+                  <span className="flex items-center gap-2">
+                    <Trash2 size={16} />
+                    Logout
+                  </span>
+                  <ChevronRight
+                    size={16}
+                    className="text-gray-400 group-hover:text-red-600"
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Actions Card */}
+            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-gray-800">
+                <User size={20} className="text-green-600" />
+                Quick Actions
+              </h2>
+              <div className="space-y-3">
+                <Link
+                  to="/wishlist"
+                  className="block p-3 hover:bg-green-50 rounded-lg transition text-gray-700 border border-gray-100 hover:border-green-200"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="bg-green-100 p-2 rounded-lg">
+                      <svg
+                        className="w-5 h-5 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        {order.status}
-                      </span>
-                    </p>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                    </div>
+                    <span className="font-medium">View Wishlist</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <p className="font-bold text-lg">
-                      ₹{order.totalAmount?.toFixed(2)}
-                    </p>
-                    <ChevronRight size={20} className="text-gray-400" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500">You haven't placed any orders yet.</p>
-          )}
-        </div>
-
-        {/* Saved Addresses */}
-        <div className="rounded-xl shadow-md p-6 mb-8 bg-white">
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <MapPin size={20} /> Saved Addresses
-          </h2>
-          {addresses.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {addresses.map((address) => (
-                <div
-                  key={address._id}
-                  className="p-4 rounded-lg border bg-gray-50 flex flex-col justify-between"
+                </Link>
+                <Link
+                  to="/support"
+                  className="block p-3 hover:bg-green-50 rounded-lg transition text-gray-700 border border-gray-100 hover:border-green-200"
                 >
-                  <div>
-                    <h3 className="font-bold text-gray-800">{address.name}</h3>
-                    <p className="text-gray-600 mt-1">{address.fullAddress}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-green-100 p-2 rounded-lg">
+                      <svg
+                        className="w-5 h-5 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"
+                        />
+                      </svg>
+                    </div>
+                    <span className="font-medium">Contact Support</span>
                   </div>
-                  <div className="flex gap-3 mt-3">
-                    <button
-                      onClick={() => {
-                        setEditingAddress(address);
-                        setIsAddressModalOpen(true);
-                      }}
-                      className="text-green-600 hover:underline text-sm flex items-center gap-1"
-                    >
-                      <Edit size={14} /> Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteAddress(address._id)}
-                      className="text-red-600 hover:underline text-sm flex items-center gap-1"
-                    >
-                      <Trash2 size={14} /> Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+                </Link>
+              </div>
             </div>
-          ) : (
-            <p className="text-gray-500">You don't have any saved addresses.</p>
-          )}
-          <button
-            onClick={() => {
-              setEditingAddress(null);
-              setIsAddressModalOpen(true);
-            }}
-            className="mt-4 text-green-600 hover:underline flex items-center gap-1 font-medium"
-          >
-            <Plus size={16} /> <span>Add New Address</span>
-          </button>
-        </div>
-
-        {/* Account Settings */}
-        <div className="rounded-xl shadow-md p-6 bg-white">
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Lock size={20} /> Account Settings
-          </h2>
-          <div className="space-y-2">
-            <button className="w-full flex justify-between items-center p-3 hover:bg-gray-100 rounded-lg transition text-gray-700">
-              <span className="flex items-center gap-2">
-                <Lock size={16} /> Change Password
-              </span>
-              <ChevronRight size={16} className="text-gray-400" />
-            </button>
-            <button className="w-full flex justify-between items-center p-3 hover:bg-gray-100 rounded-lg transition text-gray-700">
-              <span className="flex items-center gap-2">
-                <Bell size={16} /> Notification Preferences
-              </span>
-              <ChevronRight size={16} className="text-gray-400" />
-            </button>
-            <button
-              onClick={() => {
-                localStorage.removeItem("token");
-                setUser(null);
-                toast.info("You have been logged out.");
-                window.location.href = "/login";
-              }}
-              className="w-full flex justify-between items-center p-3 hover:bg-red-50 rounded-lg transition text-red-600 font-medium"
-            >
-              <span className="flex items-center gap-2">
-                <Trash2 size={16} /> Logout
-              </span>
-              <ChevronRight size={16} className="text-gray-400" />
-            </button>
           </div>
         </div>
       </div>
@@ -465,35 +628,35 @@ const ProfilePage = () => {
       >
         <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-md mx-auto rounded-xl p-6 bg-white shadow-xl">
-            <div className="flex justify-between items-center mb-6">
-              <Dialog.Title className="text-2xl font-bold text-gray-800">
-                Edit Profile
-              </Dialog.Title>
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700 p-1 transition"
-                aria-label="Close"
-              >
-                <X size={24} />
-              </button>
+          <Dialog.Panel className="w-full max-w-md mx-auto rounded-xl bg-white shadow-2xl overflow-hidden">
+            <div className="bg-green-600 p-4 text-white">
+              <div className="flex justify-between items-center">
+                <Dialog.Title className="text-xl font-bold">
+                  Edit Profile
+                </Dialog.Title>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="text-white hover:text-green-200 p-1 transition"
+                >
+                  <X size={24} />
+                </button>
+              </div>
             </div>
+
             <form
               onSubmit={profileForm.handleSubmit(onSubmitProfile)}
-              className="space-y-5"
+              className="p-6 space-y-5"
             >
               <div>
                 <label
                   htmlFor="name"
-                  className="block text-sm font-medium mb-1"
+                  className="block text-sm font-medium mb-1 text-gray-700"
                 >
                   Name
                 </label>
                 <input
                   id="name"
                   type="text"
-                  autoComplete="name"
                   {...profileForm.register("name", {
                     required: "Name is required",
                   })}
@@ -509,17 +672,17 @@ const ProfilePage = () => {
                   </p>
                 )}
               </div>
+
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium mb-1"
+                  className="block text-sm font-medium mb-1 text-gray-700"
                 >
                   Email
                 </label>
                 <input
                   id="email"
                   type="email"
-                  autoComplete="email"
                   {...profileForm.register("email", {
                     required: "Email is required",
                     pattern: {
@@ -539,8 +702,12 @@ const ProfilePage = () => {
                   </p>
                 )}
               </div>
+
               <div>
-                <label htmlFor="bio" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="bio"
+                  className="block text-sm font-medium mb-1 text-gray-700"
+                >
                   Bio (Optional)
                 </label>
                 <textarea
@@ -551,18 +718,19 @@ const ProfilePage = () => {
                   placeholder="Tell us a little about yourself..."
                 />
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg transition font-semibold"
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg transition font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingChanges || !profileForm.formState.isValid}
-                  className={`flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition font-semibold ${
+                  className={`flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition font-medium ${
                     submittingChanges || !profileForm.formState.isValid
                       ? "opacity-50 cursor-not-allowed"
                       : ""
@@ -577,7 +745,6 @@ const ProfilePage = () => {
       </Dialog>
 
       {/* Add/Edit Address Modal */}
-      {/* Add/Edit Address Modal */}
       <Dialog
         open={isAddressModalOpen}
         onClose={() => {
@@ -586,166 +753,155 @@ const ProfilePage = () => {
         }}
         className="relative z-50"
       >
-        {/* This div prevents background scrolling */}
         <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
-
-        <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
-          <Dialog.Panel className="w-full max-w-md mx-auto rounded-xl bg-white shadow-xl">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <Dialog.Title className="text-2xl font-bold text-gray-800">
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="w-full max-w-md mx-auto rounded-xl bg-white shadow-2xl overflow-hidden">
+            <div className="bg-green-600 p-4 text-white">
+              <div className="flex justify-between items-center">
+                <Dialog.Title className="text-xl font-bold">
                   {editingAddress ? "Edit Address" : "Add New Address"}
                 </Dialog.Title>
+                <button
+                  onClick={() => {
+                    setIsAddressModalOpen(false);
+                    setEditingAddress(null);
+                  }}
+                  className="text-white hover:text-green-200 p-1 transition"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            <form
+              onSubmit={addressForm.handleSubmit(onSubmitAddress)}
+              className="p-6 space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  Address Name (e.g., Home, Work)
+                </label>
+                <input
+                  {...addressForm.register("name", {
+                    required: "Address name is required",
+                  })}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
+                />
+                {addressForm.formState.errors.name && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {addressForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  Street Address
+                </label>
+                <input
+                  {...addressForm.register("street", {
+                    required: "Street address is required",
+                  })}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
+                />
+                {addressForm.formState.errors.street && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {addressForm.formState.errors.street.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  Apartment, Suite, etc. (Optional)
+                </label>
+                <input
+                  {...addressForm.register("apartment")}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">
+                    City
+                  </label>
+                  <input
+                    {...addressForm.register("city", {
+                      required: "City is required",
+                    })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
+                  />
+                  {addressForm.formState.errors.city && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {addressForm.formState.errors.city.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">
+                    State
+                  </label>
+                  <input
+                    {...addressForm.register("state", {
+                      required: "State is required",
+                    })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
+                  />
+                  {addressForm.formState.errors.state && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {addressForm.formState.errors.state.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">
+                    ZIP Code
+                  </label>
+                  <input
+                    {...addressForm.register("zipCode", {
+                      required: "ZIP code is required",
+                      pattern: {
+                        value: /^\d{5,6}(?:[-\s]\d{4})?$/,
+                        message: "Invalid ZIP code",
+                      },
+                    })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
+                  />
+                  {addressForm.formState.errors.zipCode && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {addressForm.formState.errors.zipCode.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => {
                     setIsAddressModalOpen(false);
                     setEditingAddress(null);
                   }}
-                  className="text-gray-500 hover:text-gray-700 p-1 transition"
-                  aria-label="Close"
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg transition font-medium"
                 >
-                  <X size={24} />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingChanges || !addressForm.formState.isValid}
+                  className={`flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition font-medium ${
+                    submittingChanges || !addressForm.formState.isValid
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  {submittingChanges ? "Saving..." : "Save Address"}
                 </button>
               </div>
-
-              <form
-                onSubmit={addressForm.handleSubmit(onSubmitAddress)}
-                className="space-y-4"
-              >
-                {/* Address Name */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Address Name (e.g., Home, Work)
-                  </label>
-                  <input
-                    {...addressForm.register("name", {
-                      required: "Address name is required",
-                    })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
-                  />
-                  {addressForm.formState.errors.name && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {addressForm.formState.errors.name.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Street Address */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Street Address
-                  </label>
-                  <input
-                    {...addressForm.register("street", {
-                      required: "Street address is required",
-                    })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
-                  />
-                  {addressForm.formState.errors.street && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {addressForm.formState.errors.street.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Apartment/Suite */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Apartment, Suite, etc. (Optional)
-                  </label>
-                  <input
-                    {...addressForm.register("apartment")}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
-                  />
-                </div>
-
-                {/* City, State, ZIP */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      City
-                    </label>
-                    <input
-                      {...addressForm.register("city", {
-                        required: "City is required",
-                      })}
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
-                    />
-                    {addressForm.formState.errors.city && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {addressForm.formState.errors.city.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      State
-                    </label>
-                    <input
-                      {...addressForm.register("state", {
-                        required: "State is required",
-                      })}
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
-                    />
-                    {addressForm.formState.errors.state && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {addressForm.formState.errors.state.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      ZIP Code
-                    </label>
-                    <input
-                      {...addressForm.register("zipCode", {
-                        required: "ZIP code is required",
-                        pattern: {
-                          value: /^\d{5,6}(?:[-\s]\d{4})?$/,
-                          message: "Invalid ZIP code",
-                        },
-                      })}
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition border-gray-300"
-                    />
-                    {addressForm.formState.errors.zipCode && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {addressForm.formState.errors.zipCode.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Form Actions */}
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddressModalOpen(false);
-                      setEditingAddress(null);
-                    }}
-                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={
-                      submittingChanges || !addressForm.formState.isValid
-                    }
-                    className={`flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition ${
-                      submittingChanges || !addressForm.formState.isValid
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    {submittingChanges ? "Saving..." : "Save Address"}
-                  </button>
-                </div>
-              </form>
-            </div>
+            </form>
           </Dialog.Panel>
         </div>
       </Dialog>

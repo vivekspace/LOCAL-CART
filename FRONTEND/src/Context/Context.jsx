@@ -336,19 +336,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (credentials) => {
+// In your AuthContext
+
+const login = async (credentials) => {
     try {
-      const { data } = await apiLogin(credentials);
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
-      setIsLoggedIn(true);
-      toast.success("Login successful");
+        const { data } = await apiLogin(credentials);
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        setUser(data.user);
+        setIsLoggedIn(true);
+        // It's generally better to let the consuming component handle the success toast for a more unified UX flow.
+        // You can remove this line if you prefer the Login.jsx to handle it.
+        // toast.success("Login successful"); 
     } catch (error) {
-      console.error("login error:", error);
-      toast.error(error.response?.data?.message || "Login failed.");
+        console.error("login error in AuthContext:", error);
+        // It's generally better to let the consuming component handle the error toast for a more unified UX flow.
+        // You can remove this line if you prefer the Login.jsx to handle it.
+        toast.error(error.response?.data?.message || "Login failed from context."); 
+
+        // CRUCIAL CHANGE: Re-throw the error so the component can catch it
+        throw error; 
     }
-  };
+};
 
   const logout = () => {
     localStorage.removeItem("token");

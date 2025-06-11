@@ -21,7 +21,6 @@ const Layout = () => {
   const role = user?.role || admin?.role;
   const isAdminRoute = location.pathname.startsWith("/admin");
 
-  console.log("isAdminRoute:", isAdminRoute, "role:", role);
 
   if (loading) {
     return <Loader />;

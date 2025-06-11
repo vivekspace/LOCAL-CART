@@ -1,8 +1,10 @@
+// In your Login.jsx file
+
 import { Link } from "react-router-dom";
 import { Lock, Mail, Eye, EyeOff, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useContext } from "react";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../Context/Context";
 
@@ -11,6 +13,8 @@ export default function Login() {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  // Change error state to hold a string, not an object
+  const [error, setError] = useState(""); 
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -28,6 +32,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(""); // Clear previous errors on new submission
 
     try {
       // Validate form inputs
@@ -53,11 +58,15 @@ export default function Login() {
       navigate("/");
     } catch (error) {
       console.error("Login error:", error);
-      toast.error(
-        error.response?.data?.message ||
-          error.message ||
-          "Login failed. Please try again."
-      );
+      
+      // FIX THIS LINE: Extract the message from the error object
+      const errorMessage = 
+        error.response?.data?.message || // For backend errors from Axios
+        error.message ||                 // For client-side errors (like "Please fill in all fields")
+        "Login failed. Please try again."; // Generic fallback
+
+      setError(errorMessage); // Set the string message to the state
+      toast.error(errorMessage); // Use the same message for the toast
     } finally {
       setIsLoading(false);
     }
@@ -65,6 +74,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4">
+      <ToastContainer/>
       {/* Decorative elements */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
       <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
@@ -100,6 +110,12 @@ export default function Login() {
           {/* Form section */}
           <div className="p-8">
             <form onSubmit={handleSubmit}>
+              {/* Error display */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm">{error}</p> {/* This will now correctly display the string message */}
+                </div>
+              )}
               {/* Email field */}
               <div className="mb-6">
                 <label

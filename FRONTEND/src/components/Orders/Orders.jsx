@@ -26,7 +26,6 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
-
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -65,6 +64,7 @@ const Orders = () => {
         }
 
         const responseData = await apiResponse.json();
+        console.log("order is", responseData);
 
         if (!responseData || !Array.isArray(responseData.orders)) {
           throw new Error("Invalid response format from server");
@@ -231,7 +231,7 @@ const Orders = () => {
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl mb-6">
             <ShoppingBag className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
@@ -256,7 +256,7 @@ const Orders = () => {
             </p>
             <button
               onClick={() => alert("Navigate to products page")}
-              className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
+              className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
             >
               <ShoppingBag className="w-5 h-5 mr-2" />
               Start Shopping
@@ -275,7 +275,7 @@ const Orders = () => {
                     placeholder="Search orders by ID or status..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                   />
                 </div>
 
@@ -286,7 +286,7 @@ const Orders = () => {
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="pl-10 pr-8 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white appearance-none cursor-pointer"
+                      className="pl-10 pr-8 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer"
                     >
                       <option value="all">All Status</option>
                       <option value="processing">Processing</option>
@@ -300,7 +300,7 @@ const Orders = () => {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white appearance-none cursor-pointer"
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer"
                   >
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
@@ -374,8 +374,8 @@ const Orders = () => {
                             </div>
                             <div className="flex items-center">
                               <ShoppingBagIcon className="w-4 h-4 mr-1" />
-                              {order.items?.length || 0} item
-                              {(order.items?.length || 0) !== 1 ? "s" : ""}
+                              {order.itemCount || 0} item
+                              {(order.itemCount || 0) !== 1 ? "s" : ""}
                             </div>
                             {order.paymentMethod && (
                               <div className="flex items-center">
@@ -391,7 +391,7 @@ const Orders = () => {
                             <span
                               className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
                                 order.paymentStatus === "paid"
-                                  ? "text-green-800 bg-green-100 border-green-200"
+                                  ? "text-green-700 bg-green-100 border-green-200"
                                   : "text-amber-800 bg-amber-100 border-amber-200"
                               }`}
                             >
@@ -406,12 +406,12 @@ const Orders = () => {
                       <div className="mt-6 lg:mt-0 lg:ml-6 lg:text-right">
                         <div className="flex items-center justify-between lg:flex-col lg:items-end">
                           <div>
-                            <p className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                            <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-500 bg-clip-text text-transparent">
                               ₹{(order.totalAmount || 0).toFixed(2)}
                             </p>
                           </div>
 
-                          <div className="flex items-center text-emerald-600 group-hover:text-emerald-700 font-semibold">
+                          <div className="flex items-center text-green-600 group-hover:text-green-700 font-semibold">
                             <span className="text-sm">View Details</span>
                             <svg
                               className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1"

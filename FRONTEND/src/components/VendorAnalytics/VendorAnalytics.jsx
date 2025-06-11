@@ -35,7 +35,6 @@ const VendorAnalytics = () => {
     salesTrend: [],
     recentOrders: [],
   });
-
   const fetchAnalytics = async () => {
     try {
       const vendorToken = localStorage.getItem("vendorToken");
@@ -145,7 +144,7 @@ const VendorAnalytics = () => {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
           <p className="text-lg text-gray-700">Loading your analytics...</p>
           <p className="text-sm text-gray-500">
             LocalCart is crunching the numbers
