@@ -3,8 +3,7 @@
 const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
-// import mongoose from 'mongoose'; // REMOVE THIS LINE
-const mongoose = require('mongoose'); // ADD THIS LINE
+const mongoose = require('mongoose'); // Keep this line as you've correctly added it
 
 // Helper function to filter allowed fields
 const filterObj = (obj, ...allowedFields) => {
@@ -63,12 +62,10 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     });
 });
 
-// >>> ADD THESE FUNCTIONS <<<
+// >>> MODIFIED FUNCTIONS <<<
 
-// Example placeholder for fetching addresses
+// Function to fetch addresses for the logged-in user
 exports.getAddresses = catchAsync(async (req, res, next) => {
-    // Implement logic to fetch addresses for req.user.id
-    // For now, sending a placeholder response
     const user = await User.findById(req.user.id);
     if (!user) {
         return next(new AppError('User not found', 404));
@@ -76,65 +73,90 @@ exports.getAddresses = catchAsync(async (req, res, next) => {
     res.status(200).json({
         status: 'success',
         data: {
-            addresses: user.addresses || [] // Assuming addresses are an array in your User model
+            addresses: user.addresses || []
         }
     });
 });
 
-// Example placeholder for adding an address
+// Function to add a new address for the logged-in user
 exports.addAddress = catchAsync(async (req, res, next) => {
-        console.log('🔥🔥🔥 Hit addAddress controller! 🔥🔥🔥'); // <--- ADD THIS
+    console.log('🔥🔥🔥 Hit addAddress controller! 🔥🔥🔥');
+    // Extract individual address fields from req.body
+    const { name, street, apartment, city, state, zipCode } = req.body;
 
-    const { name, fullAddress } = req.body;
-    // Implement logic to add address to req.user.id
-    // For now, sending a placeholder response
+    // Create the new address object matching the updated Mongoose schema
+    const newAddressData = {
+        name,
+        street,
+        apartment,
+        city,
+        state,
+        zipCode
+    };
+
+    // Find the user
     const user = await User.findById(req.user.id);
     if (!user) {
         return next(new AppError('User not found', 404));
     }
-    // Assuming you have an 'addresses' array in your User schema
-    user.addresses.push({ name, fullAddress, _id: new mongoose.Types.ObjectId() }); // Add an _id for new addresses
-    await user.save({ validateBeforeSave: false }); // Bypass top-level validation if just updating nested array
+
+    // Add the new address object to the addresses array
+    user.addresses.push(newAddressData);
+
+    // Save the user document. Mongoose will automatically validate the new address sub-document
+    // Removing { validateBeforeSave: false } as we DO want validation for the new address.
+    await user.save(); 
 
     res.status(201).json({
         status: 'success',
-        message: 'Address added successfully (placeholder)',
+        message: 'Address added successfully',
         data: {
-            addresses: user.addresses // Return updated addresses
+            address: user.addresses[user.addresses.length - 1] // Return the newly added address
         }
     });
 });
 
-// Example placeholder for updating an address
+// Function to update an existing address
 exports.updateAddress = catchAsync(async (req, res, next) => {
     const { addressId } = req.params;
-    const { name, fullAddress } = req.body;
+    // Extract individual address fields from req.body for update
+    const { name, street, apartment, city, state, zipCode } = req.body;
 
     const user = await User.findById(req.user.id);
     if (!user) {
         return next(new AppError('User not found', 404));
     }
 
-    const addressIndex = user.addresses.findIndex(addr => addr._id.toString() === addressId);
-    if (addressIndex === -1) {
+    const address = user.addresses.id(addressId); // Mongoose helper to find sub-document by ID
+    
+    if (!address) {
         return next(new AppError('Address not found', 404));
     }
 
-    user.addresses[addressIndex].name = name || user.addresses[addressIndex].name;
-    user.addresses[addressIndex].fullAddress = fullAddress || user.addresses[addressIndex].fullAddress;
+    // Update the address fields
+    address.set({ // Using .set() method is cleaner for updating subdocuments
+        name: name || address.name, // Only update if new value is provided
+        street: street || address.street,
+        apartment: apartment || address.apartment,
+        city: city || address.city,
+        state: state || address.state,
+        zipCode: zipCode || address.zipCode
+    });
 
-    await user.save({ validateBeforeSave: false });
+    // Save the user document. Mongoose will validate the updated sub-document.
+    // Removing { validateBeforeSave: false } as we DO want validation for the updated address.
+    await user.save();
 
     res.status(200).json({
         status: 'success',
-        message: 'Address updated successfully (placeholder)',
+        message: 'Address updated successfully',
         data: {
-            address: user.addresses[addressIndex]
+            address: address // Return the updated address
         }
     });
 });
 
-// Example placeholder for deleting an address
+// Function to delete an address
 exports.deleteAddress = catchAsync(async (req, res, next) => {
     const { addressId } = req.params;
 
@@ -143,18 +165,20 @@ exports.deleteAddress = catchAsync(async (req, res, next) => {
         return next(new AppError('User not found', 404));
     }
 
-    const initialLength = user.addresses.length;
-    user.addresses = user.addresses.filter(addr => addr._id.toString() !== addressId);
-
-    if (user.addresses.length === initialLength) {
+    const address = user.addresses.id(addressId); // Mongoose helper to find sub-document by ID
+    
+    if (!address) {
         return next(new AppError('Address not found', 404));
     }
 
-    await user.save({ validateBeforeSave: false });
+    address.remove(); // Removes the sub-document from the array
 
-    res.status(204).json({
+    // Save the user document. No need to bypass validation here typically.
+    await user.save();
+
+    res.status(204).json({ // 204 No Content is standard for successful DELETE
         status: 'success',
-        message: 'Address deleted successfully (placeholder)',
+        message: 'Address deleted successfully',
         data: null
     });
 });

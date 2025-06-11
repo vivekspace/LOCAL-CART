@@ -24,65 +24,71 @@ exports.register = async (req, res) => {
   }
 };
 
+// In your authController.js file
+
+
+
+
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  // Validate input
-  if (!email || !password) {
-    return res.status(400).json({ 
-      success: false,
-      message: 'Please provide both email and password' 
-    });
-  }
-
-  try {
-    // 1. Check if user exists (case-insensitive search)
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    
-    if (!user) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid credentials' // Generic message for security
-      });
+    // Validate input
+    if (!email || !password) {
+        return res.status(400).json({
+            success: false,
+            message: 'Please provide both email and password'
+        });
     }
 
-    // 2. Verify password using the model method
-    const isPasswordValid = await user.matchPassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+    try {
+        // 1. Check if user exists (case-insensitive search) and explicitly select password
+        const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid credentials'
+            });
+        }
+
+        // 2. Verify password using the model method
+        const isPasswordValid = await user.matchPassword(password);
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid credentials'
+            });
+        }
+
+        // 3. Generate token
+        const token = generateToken(user);
+
+        // 4. Update last login timestamp
+        user.lastLogin = new Date();
+        // FIX: Bypass schema validation when saving only the 'lastLogin' field
+        await user.save({ validateBeforeSave: false }); // <--- ADD THIS OPTION
+
+        // 5. Return response
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
+
+    } catch (err) {
+        console.error('Login error:', err);
+        // Ensure you're handling errors robustly, possibly using AppError if that's your pattern
+        res.status(500).json({
+            success: false,
+            message: 'Authentication server error',
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
-
-    // 3. Generate token
-    const token = generateToken(user);
-
-    // 4. Update last login timestamp
-    user.lastLogin = new Date();
-    await user.save();
-
-    // 5. Return response (remove sensitive data)
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
-
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ 
-      success: false,
-      message: 'Authentication server error',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
 };
-
 
 
