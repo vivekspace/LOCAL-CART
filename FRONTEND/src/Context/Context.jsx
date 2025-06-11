@@ -7,41 +7,53 @@ import React, {
   useEffect,
 } from "react";
 import { toast } from "react-toastify";
+import axios from 'axios'; // Import axios for API calls
 import { login as apiLogin, register as apiRegister } from "/api"; // Adjust the path as needed
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  // --- Cart Management States ---
   const [cartItems, setCartItems] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const [availableLocations, setAvailableLocations] = useState([]);
 
-  // Authentication states
+  // --- Product States (fetched separately from locations now) ---
+  const [products, setProducts] = useState([]);
+
+  // --- UI States ---
+  const [isOpen, setIsOpen] = useState(false); // Likely for a modal or sidebar
+
+  // --- Authentication States ---
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // For initial auth loading
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [admin, setAdmin] = useState(null);
+  const [error, setError] = useState(null);
 
-  // Location Constants
+  // --- Location Constants ---
   const USER_LOCATION_KEY = "user_preferred_location_v2";
   const LOCATION_TYPE_CURRENT = "current_location";
   const LOCATION_TYPE_PRODUCT_BASED = "product_location";
 
   // Default fallback location (Mumbai)
+  // Note: For product-based locations fetched from the backend, we only get the city name.
+  // Lat/Lng are not stored in UniqueLocation collection.
+  // If you need Lat/Lng for a product-based selected location in the frontend,
+  // you might need a separate mechanism (e.g., geocoding on demand for that specific city).
   const DEFAULT_FALLBACK_LOCATION = {
     name: "Mumbai, Maharashtra",
+    city: "Mumbai", // Adding city for consistency if needed for filtering
     lat: 19.076, // Mumbai latitude
     lng: 72.8777, // Mumbai longitude
     type: "default_fallback",
   };
 
-  // Location States and Refs
-  const [selectedLocation, setSelectedLocation] = useState(null);
-  const initialLocationFetchRef = useRef(false);
+  // --- Location States and Refs ---
+  const [selectedLocation, setSelectedLocation] = useState(null); // The user's currently selected/detected location
+  const [availableLocations, setAvailableLocations] = useState([]); // The list of unique city names from backend
+  const initialLocationFetchRef = useRef(false); // To ensure initial location setup runs only once
 
   // --- Utility Functions (Cart Management) ---
-  const addToCart = (productId, quantity = 1) => {
+  const addToCart = useCallback((productId, quantity = 1) => {
     const product = products.find((p) => p._id === productId);
 
     if (!product) {
@@ -64,37 +76,38 @@ export const AuthProvider = ({ children }) => {
         return [...prevItems, { ...product, quantity }];
       }
     });
-  };
+  }, [products]); // Dependency on products to find product details
 
-  const updateCartItemQuantity = (productId, newQuantity) => {
+  const updateCartItemQuantity = useCallback((productId, newQuantity) => {
     setCartItems((prevItems) =>
       prevItems.map((item) =>
         item._id === productId ? { ...item, quantity: newQuantity } : item
       )
     );
-  };
+  }, []);
 
-  const removeFromCart = (productId) => {
+  const removeFromCart = useCallback((productId) => {
     setCartItems((prevItems) =>
       prevItems.filter((item) => item._id !== productId)
     );
     toast.info("Item removed from cart");
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setCartItems([]);
     toast.info("Cart cleared");
-  };
+  }, []);
 
-  const getCartTotal = () => {
+  const getCartTotal = useCallback(() => {
     return cartItems.reduce((total, item) => {
       const quantity = item.quantity || 1;
       return total + item.price * quantity;
     }, 0);
-  };
+  }, [cartItems]);
 
   // --- Utility Functions (Geolocation) ---
-  const reverseGeocode = async (lat, lng) => {
+  // Using useCallback for stability, though dependencies are fixed
+  const reverseGeocode = useCallback(async (lat, lng) => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`
@@ -111,9 +124,9 @@ export const AuthProvider = ({ children }) => {
       console.error("Context: Reverse geocoding failed:", error);
       return "Current Location";
     }
-  };
+  }, []);
 
-  const getCurrentGeolocation = async () => {
+  const getCurrentGeolocation = useCallback(() => {
     return new Promise((resolve, reject) => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -138,11 +151,11 @@ export const AuthProvider = ({ children }) => {
         reject(new Error("Geolocation is not supported by this browser."));
       }
     });
-  };
+  }, []);
 
   // --- Effects ---
 
-  // Effect for initial user login state from localStorage
+  // Effect 1: Initial user login state from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
@@ -153,92 +166,85 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Effect to fetch products and populate availableLocations
+  // Effect 2: Fetch ALL products (if needed for other parts of the app, e.g., cart details)
+  // This useEffect no longer extracts locations.
   useEffect(() => {
-    const fetchProductsAndSetLocations = async () => {
+    const fetchAllProducts = async () => {
       try {
-        const response = await fetch(
+        const response = await axios.get(
           `${import.meta.env.VITE_API_URL}/api/products`
         );
 
-        console.log("Response status:", response.status);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+        if (response.data.status === 'success' && Array.isArray(response.data.data.products)) {
+          setProducts(response.data.data.products);
+          console.log("Context: Products fetched successfully.");
+        } else {
+          console.warn("Context: Unexpected product data format.", response.data);
+          setProducts([]);
         }
-
-        const data = await response.json();
-        const fetchedProducts = data.data.products;
-
-        setProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
-        console.log("AuthContext: Products fetched and set:", fetchedProducts); // <-- Add this
-        fetchedProducts.forEach((p, i) => {
-          console.log(`AuthContext: Product ${i} seller:`, p.seller); // <-- Add this
-          console.log(
-            `AuthContext: Product ${i} seller type:`,
-            typeof p.seller
-          ); // <-- Add this
-        });
-
-        // --- Logic to extract and set availableLocations ---
-        const uniqueLocationsMap = new Map();
-        if (Array.isArray(fetchedProducts)) {
-          fetchedProducts.forEach((product) => {
-            // Check product.location structure from image_8a2bb8.png and image_8a90dc.png
-            if (
-              product.location &&
-              product.location.city &&
-              Array.isArray(product.location.coordinates) &&
-              product.location.coordinates.length === 2
-            ) {
-              const cityName = product.location.city;
-              // MongoDB GeoJSON stores coordinates as [longitude, latitude]
-              const longitude = product.location.coordinates[0]; //
-              const latitude = product.location.coordinates[1]; //
-
-              // Use city name as key to ensure uniqueness and store lat/lng
-              if (!uniqueLocationsMap.has(cityName)) {
-                uniqueLocationsMap.set(cityName, {
-                  name: cityName,
-                  lat: latitude, // Correctly assign latitude
-                  lng: longitude, // Correctly assign longitude
-                  type: LOCATION_TYPE_PRODUCT_BASED,
-                });
-              }
-            }
-          });
-        }
-
-        const extractedLocations = Array.from(uniqueLocationsMap.values());
-
-        // Add the 'Current Location' option if it's not already in the list
-        const hasCurrentLocationOption = extractedLocations.some(
-          (loc) => loc.type === LOCATION_TYPE_CURRENT
-        );
-        if (!hasCurrentLocationOption) {
-          extractedLocations.unshift({
-            name: "Current Location",
-            lat: null, // Actual coords fetched on selection
-            lng: null, // Actual coords fetched on selection
-            type: LOCATION_TYPE_CURRENT,
-          });
-        }
-
-        setAvailableLocations(extractedLocations);
-        console.log("Context: Available locations set:", extractedLocations); //
       } catch (error) {
-        console.error(
-          "Fetch error: Failed to fetch products or set locations",
-          error
-        );
-        toast.error("Failed to load products or locations.");
+        console.error("Context: Failed to fetch products:", error);
+        toast.error("Failed to load product data.");
       }
     };
+    fetchAllProducts();
+  }, []); // Run once on mount
 
-    fetchProductsAndSetLocations();
-  }, []);
+  // Effect 3: Fetch AVAILABLE UNIQUE LOCATIONS from the new backend API
+  useEffect(() => {
+    const fetchAvailableLocations = async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/locations`
+        );
 
-  // Effect for initial location setup (from localStorage or geolocation)
+        if (response.data.status === 'success' && Array.isArray(response.data.data.locations)) {
+          // The backend returns an array of strings (city names in lowercase)
+          const fetchedCities = response.data.data.locations;
+          
+          // Structure them as { name: "City Name", type: LOCATION_TYPE_PRODUCT_BASED }
+          // We don't have lat/lng for these from the /api/locations endpoint,
+          // so leave them null or add a mechanism to resolve them if truly needed later.
+          const formattedLocations = fetchedCities.map(city => ({
+            name: city, // Backend provides lowercase, can capitalize on display in component
+            city: city, // Keep lowercase for internal use/matching
+            lat: null, // No coordinates from this endpoint
+            lng: null, // No coordinates from this endpoint
+            type: LOCATION_TYPE_PRODUCT_BASED,
+          }));
+
+          // Add the 'Current Location' option at the beginning if not already there
+          const hasCurrentLocationOption = formattedLocations.some(
+            (loc) => loc.type === LOCATION_TYPE_CURRENT
+          );
+          let finalLocations = formattedLocations;
+          if (!hasCurrentLocationOption) {
+            finalLocations = [{
+              name: "Current Location",
+              city: "Current Location", // Placeholder, actual city name will be reverse geocoded
+              lat: null,
+              lng: null,
+              type: LOCATION_TYPE_CURRENT,
+            }, ...formattedLocations];
+          }
+
+          setAvailableLocations(finalLocations);
+          console.log("Context: Available locations fetched:", finalLocations);
+        } else {
+          setError('Unexpected data format from locations API.');
+          console.warn("Context: Unexpected locations data format.", response.data);
+        }
+      } catch (error) {
+        console.error("Context: Failed to fetch available locations:", error);
+        toast.error("Failed to load available locations.");
+      }
+    };
+    fetchAvailableLocations();
+  }, []); // Run once on mount
+
+  // Effect 4: Initial location setup (from localStorage or geolocation)
+  // This logic remains largely the same, but it now relies on availableLocations
+  // if you want to ensure the initial 'selectedLocation' matches one of the product locations.
   useEffect(() => {
     const setupInitialLocation = async () => {
       if (initialLocationFetchRef.current) return;
@@ -255,25 +261,32 @@ export const AuthProvider = ({ children }) => {
           if (userLoc.type === LOCATION_TYPE_CURRENT) {
             try {
               const newCoords = await getCurrentGeolocation();
-              const newName = await reverseGeocode(
-                newCoords.lat,
-                newCoords.lng
-              );
+              const newCityName = await reverseGeocode(newCoords.lat, newCoords.lng);
               userLoc = {
                 ...newCoords,
-                name: `Current Location (${newName})`,
+                name: `Current Location (${newCityName})`, // Display name
+                city: newCityName.toLowerCase(), // Store actual city for filtering
                 type: LOCATION_TYPE_CURRENT,
               };
               localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc));
             } catch (geoError) {
               console.warn(
-                "Context: Could not re-acquire current location, using saved:",
+                "Context: Could not re-acquire current location, using saved (or fallback):",
                 geoError
               );
-              if (!userLoc.lat || !userLoc.lng) {
-                userLoc = null; // Invalidate if saved data is incomplete
+              // Invalidate if saved data is incomplete OR if geolocation failed and it was a 'current_location' type
+              if (!userLoc.lat || !userLoc.lng || userLoc.type === LOCATION_TYPE_CURRENT) {
+                  userLoc = null; // Forces fallback or new geolocation attempt
               }
             }
+          } else {
+             // For product-based saved location, ensure it's still a valid available location
+             // (Optional: this ensures old product-based locations that no longer exist are not used)
+             const foundInAvailable = availableLocations.find(loc => loc.city === userLoc.city);
+             if(!foundInAvailable) {
+                 userLoc = null; // Invalidate if not found in current available locations
+                 console.warn("Context: Saved product-based location not found in available locations, resetting.");
+             }
           }
         } catch (e) {
           console.error(
@@ -289,8 +302,13 @@ export const AuthProvider = ({ children }) => {
       if (!userLoc) {
         try {
           const coords = await getCurrentGeolocation();
-          const name = await reverseGeocode(coords.lat, coords.lng);
-          userLoc = { ...coords, name: `Current Location (${name})` };
+          const cityName = await reverseGeocode(coords.lat, coords.lng);
+          userLoc = {
+            ...coords,
+            name: `Current Location (${cityName})`,
+            city: cityName.toLowerCase(),
+            type: LOCATION_TYPE_CURRENT,
+          };
           localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc));
         } catch (error) {
           console.warn(
@@ -305,21 +323,23 @@ export const AuthProvider = ({ children }) => {
       console.log("Context: Initial selected location set to:", userLoc);
     };
 
-    setupInitialLocation();
-  }, []);
+    // Only run this effect once availableLocations are potentially loaded (or after a short delay)
+    // and if it hasn't run already
+    if (availableLocations.length > 0 || initialLocationFetchRef.current) { // Run if locations are loaded or if it's already tried
+      setupInitialLocation();
+    }
+  }, [availableLocations, getCurrentGeolocation, reverseGeocode, DEFAULT_FALLBACK_LOCATION]); // Dependencies for useCallback functions and default fallback
 
   // --- Authentication Functions ---
-  const register = async (userData) => {
+  const register = useCallback(async (userData) => {
     try {
-      const { data } = await apiRegister(userData); // Assuming apiRegister handles the actual API call
+      const { data } = await apiRegister(userData);
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
       setIsLoggedIn(true);
 
-      // --- IMPORTANT CHANGE HERE ---
-      // Return a success object that the Register.jsx component expects
       return {
         success: true,
         message: "Registration successful!",
@@ -328,55 +348,47 @@ export const AuthProvider = ({ children }) => {
       };
     } catch (error) {
       console.error("register error:", error);
-      // Return an error object that the Register.jsx component expects
       return {
         success: false,
         message: error.response?.data?.message || "Registration failed.",
       };
     }
-  };
+  }, []);
 
-// In your AuthContext
-
-const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     try {
-        const { data } = await apiLogin(credentials);
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        setUser(data.user);
-        setIsLoggedIn(true);
-        // It's generally better to let the consuming component handle the success toast for a more unified UX flow.
-        // You can remove this line if you prefer the Login.jsx to handle it.
-        // toast.success("Login successful"); 
+      const { data } = await apiLogin(credentials);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+      setIsLoggedIn(true);
     } catch (error) {
-        console.error("login error in AuthContext:", error);
-        // It's generally better to let the consuming component handle the error toast for a more unified UX flow.
-        // You can remove this line if you prefer the Login.jsx to handle it.
-        toast.error(error.response?.data?.message || "Login failed from context."); 
-
-        // CRUCIAL CHANGE: Re-throw the error so the component can catch it
-        throw error; 
+      console.error("login error in AuthContext:", error);
+      toast.error(error.response?.data?.message || "Login failed from context.");
+      throw error;
     }
-};
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
     setIsLoggedIn(false);
     toast.success("Logged out successfully");
-  };
+  }, []);
 
-  const adminSignOut = () => {
+  const adminSignOut = useCallback(() => {
     localStorage.removeItem("adminToken");
     localStorage.removeItem("adminInfo");
     setAdmin(null);
     toast.success("Admin logged out successfully");
-  };
+  }, []);
 
   // --- Location Update Function ---
+  // This function is called when a user selects a location from the dropdown
+  // or when 'Current Location' is re-acquired.
   const updateUserLocation = useCallback(
-    async (locationData) => {
+    async (locationData) => { // locationData will be the object from availableLocations
       let newSelectedLoc = null;
 
       setSelectedLocation((prev) => ({
@@ -398,10 +410,11 @@ const login = async (credentials) => {
       if (locationData.type === LOCATION_TYPE_CURRENT) {
         try {
           const coords = await getCurrentGeolocation();
-          const name = await reverseGeocode(coords.lat, coords.lng);
+          const cityName = await reverseGeocode(coords.lat, coords.lng);
           newSelectedLoc = {
             ...coords,
-            name: `Current Location (${name})`,
+            name: `Current Location (${cityName})`,
+            city: cityName.toLowerCase(), // Store city in lowercase for consistency
             type: LOCATION_TYPE_CURRENT,
           };
           toast.success("Location updated successfully!");
@@ -413,6 +426,7 @@ const login = async (credentials) => {
           newSelectedLoc = {
             ...DEFAULT_FALLBACK_LOCATION,
             name: "Current Location (Denied/Failed)",
+            city: DEFAULT_FALLBACK_LOCATION.city, // Ensure city is also consistent
             type: LOCATION_TYPE_CURRENT,
           };
           toast.error(
@@ -420,21 +434,29 @@ const login = async (credentials) => {
           );
         }
       } else {
-        // For product-based locations, `locationData` should already have valid lat/lng
-        newSelectedLoc = locationData;
+        // For product-based locations selected from the dropdown:
+        // `locationData` already contains `name` (which is the city name).
+        // If you need `lat`/`lng` for these, you'd need to either:
+        // 1. Fetch it from a geocoding service using `locationData.name`
+        // 2. Have the /api/locations endpoint return lat/lng for each city (more complex backend)
+        // For now, we'll store only what we have (name/city), and lat/lng will be null.
+        newSelectedLoc = {
+            ...locationData, // This includes name, city, type. Lat/lng might be null.
+            city: locationData.name.toLowerCase() // Ensure city is lowercase from original name
+        };
         toast.info(`Location set to ${locationData.name}`);
       }
 
       setSelectedLocation(newSelectedLoc);
       localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(newSelectedLoc));
-      console.log("Context: User location updated to:", newSelectedLoc);
     },
-    [DEFAULT_FALLBACK_LOCATION]
+    [DEFAULT_FALLBACK_LOCATION, getCurrentGeolocation, reverseGeocode]
   );
 
   return (
     <AuthContext.Provider
       value={{
+        // Cart
         cartItems,
         setCartItems,
         addToCart,
@@ -442,27 +464,35 @@ const login = async (credentials) => {
         removeFromCart,
         clearCart,
         getCartTotal,
-        login,
-        logout,
-        register,
+
+        // Products
+        products,
+
+        // UI
         isOpen,
         setIsOpen,
+
+        // Auth
         user,
         loading,
         setUser,
-        products,
         isLoggedIn,
         setIsLoggedIn,
         adminSignOut,
         admin,
         setAdmin,
+        login,
+        register,
+        logout,
+
+        // Location
         selectedLocation,
         updateUserLocation,
+        availableLocations, // Expose the fetched available locations
         LOCATION_TYPE_CURRENT,
         LOCATION_TYPE_PRODUCT_BASED,
         USER_LOCATION_KEY,
         DEFAULT_FALLBACK_LOCATION,
-        availableLocations,
       }}
     >
       {children}

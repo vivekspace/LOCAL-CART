@@ -50,60 +50,72 @@ const ShoppingPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedLocation) {
-      console.log("ShoppingPage: Waiting for selectedLocation from context...");
-      return;
-    }
+  if (!selectedLocation) {
+    console.log("ShoppingPage: Waiting for selectedLocation from context...");
+    return;
+  }
 
-    setIsLoading(true);
-    let apiUrl = "";
+  setIsLoading(true);
+  let apiUrl = "";
+  const queryParams = [];
 
-    // Check if lat and lng are valid numbers, not empty arrays
-    const hasValidCoordinates =
-      typeof selectedLocation.lat === "number" &&
-      typeof selectedLocation.lng === "number" &&
-      !isNaN(selectedLocation.lat) &&
-      !isNaN(selectedLocation.lng);
+  // Check if lat and lng are valid numbers, not empty arrays
+  const hasValidCoordinates =
+    typeof selectedLocation.lat === "number" &&
+    typeof selectedLocation.lng === "number" &&
+    !isNaN(selectedLocation.lat) &&
+    !isNaN(selectedLocation.lng);
 
-    if (hasValidCoordinates) {
-      apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby?lat=${
-        selectedLocation.lat
-      }&lng=${selectedLocation.lng}&distance=10`; // Assuming 10km radius
-    } else {
-      // If coordinates are missing or invalid, fallback to fetching all products
-      console.warn(
-        `ShoppingPage: Selected location (${selectedLocation.name}) has no valid coordinates. Fetching all products as fallback.`,
-        selectedLocation
+  if (hasValidCoordinates) {
+    // Option 1: Use geospatial query if coordinates are available and valid
+    apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby`;
+    queryParams.push(`lat=${selectedLocation.lat}`);
+    queryParams.push(`lng=${selectedLocation.lng}`);
+    queryParams.push(`distance=10`); // Assuming 10km radius
+  } else if (selectedLocation.city) { // <<< ADD THIS CONDITION: Check if a city name is available
+    // Option 2: If no valid coordinates, but a city name is available, filter by city
+    console.warn(
+      `ShoppingPage: Selected location (${selectedLocation.name}) has no valid coordinates. Falling back to city-based filter.`,
+      selectedLocation
+    );
+    apiUrl = `${import.meta.env.VITE_API_URL}/api/products`; // Your general products endpoint
+    queryParams.push(`city=${selectedLocation.city}`); // <<< SEND THE CITY PARAMETER
+  } else {
+    // Option 3: Fallback to fetching all products if no coordinates or city name are available
+    console.warn(
+      `ShoppingPage: Selected location (${selectedLocation.name}) has no valid coordinates or city name. Fetching all products as last resort.`,
+      selectedLocation
+    );
+    apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
+  }
+
+  const fullUrl = `${apiUrl}${queryParams.length > 0 ? '?' + queryParams.join('&') : ''}`;
+
+  console.log("ShoppingPage: Fetching products from:", fullUrl);
+  fetch(fullUrl) // Use the constructed fullUrl
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    })
+    .then((data) => {
+      console.log("ShoppingPage: Products Data received:", data);
+      setNearbyProducts(data.data?.products || []);
+      setIsLoading(false);
+    })
+    .catch((error) => {
+      console.error(
+        "ShoppingPage: API Error fetching products for location:",
+        error
       );
-      apiUrl = `${import.meta.env.VITE_API_URL}/api/products`; // Fallback to fetching all products
-    }
-
-    console.log("ShoppingPage: Fetching products from:", apiUrl);
-    fetch(apiUrl)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        console.log("ShoppingPage: Products Data received:", data);
-        setNearbyProducts(data.data?.products || []);
-        setIsLoading(false);
-      })
-      .catch((error) => {
-        console.error(
-          "ShoppingPage: API Error fetching products for location:",
-          error
-        );
-        setNearbyProducts([]); // Clear products on error
-        setIsLoading(false);
-        if (!error.message.includes("404")) {
-          // alert("Failed to load products for this location. Please try another or refresh.");
-        }
-      });
-  }, [selectedLocation, LOCATION_TYPE_CURRENT, LOCATION_TYPE_PRODUCT_BASED]);
-  // Safe filtering with null checks - uses nearbyProducts now
+      setNearbyProducts([]); // Clear products on error
+      setIsLoading(false);
+      if (!error.message.includes("404")) {
+        // alert("Failed to load products for this location. Please try another or refresh.");
+      }
+    });
+}, [selectedLocation, LOCATION_TYPE_CURRENT, LOCATION_TYPE_PRODUCT_BASED]);// Safe filtering with null checks - uses nearbyProducts now
   const filteredProducts =
     nearbyProducts?.filter((product) => {
       if (!product || !product.name) return false;
@@ -181,26 +193,7 @@ const ShoppingPage = () => {
     addToCart(productId);
   };
 
-  const handleResetFiltersAndLocation = async () => {
-    setSearch("");
-    setSelectedCategory("All");
-    setActiveResultIndex(-1);
 
-    // If updateUserLocation is available in context, try to get current location
-    if (updateUserLocation) {
-      try {
-        await updateUserLocation({ type: LOCATION_TYPE_CURRENT });
-      } catch (error) {
-        console.error("Failed to update location:", error);
-      }
-    }
-  };
-
-  console.log("ShoppingPage: Nearby Products for display:", nearbyProducts);
-  console.log(
-    "ShoppingPage: Selected Location from Context:",
-    selectedLocation
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">

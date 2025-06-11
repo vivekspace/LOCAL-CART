@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../../Context/Context";
 import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
@@ -9,13 +9,21 @@ import {
   ArrowLeft,
   CheckCircle,
   Truck,
+  Plus,
+  Edit3,
+  Trash2,
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const Checkout = () => {
-  const { cartItems: cart } = useContext(AuthContext);
+  const { cartItems: cart, user, token } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
+  const [isFetchingAddresses, setIsFetchingAddresses] = useState(true);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState(null);
 
   const [formData, setFormData] = useState({
     firstname: "",
@@ -25,21 +33,217 @@ const Checkout = () => {
     addressLine2: "",
     city: "",
     pincode: "",
-    email: "",
+    email: user?.email || "",
     state: "Maharashtra",
   });
 
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [isDeletingAddress, setIsDeletingAddress] = useState(false);
 
   // Calculate totals
   const subtotal = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + item.price * (item.quantity || 1),
     0
   );
   const shippingCost = shippingMethod === "express" ? 100 : 50;
   const totalPrice = subtotal + shippingCost;
 
+  // Fetch saved addresses on component mount
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      if (!user || !token) {
+        setIsFetchingAddresses(false);
+        setShowAddressForm(true);
+        return;
+      }
+
+      try {
+        setIsFetchingAddresses(true);
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/users/me/addresses`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch addresses");
+        }
+
+        const data = await response.json();
+
+        if (data.data?.addresses?.length > 0) {
+          setSavedAddresses(data.data.addresses);
+          const defaultAddress =
+            data.data.addresses.find((addr) => addr.isDefault) ||
+            data.data.addresses[0];
+          setSelectedAddressId(defaultAddress._id);
+          prefillFormWithAddress(defaultAddress);
+          setShowAddressForm(false);
+        } else {
+          setShowAddressForm(true);
+          setFormData((prev) => ({
+            ...prev,
+            email: user?.email || prev.email,
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching addresses:", error);
+        toast.error("Failed to load saved addresses");
+        setShowAddressForm(true);
+      } finally {
+        setIsFetchingAddresses(false);
+      }
+    };
+
+    fetchAddresses();
+  }, [user, token]);
+
+  // Helper to prefill form fields from an address object
+  const prefillFormWithAddress = (address) => {
+    if (!address) return;
+
+    // Split the name if it exists, otherwise use empty strings
+    const nameParts = address.name ? address.name.split(" ") : [];
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    setFormData({
+      firstname: firstName,
+      lastname: lastName,
+      phone: address.phone || "",
+      addressLine1: address.street || "",
+      addressLine2: address.apartment || "",
+      city: address.city || "",
+      pincode: address.zipCode || "",
+      email: user?.email || "",
+      state: address.state || "Maharashtra",
+    });
+  };
+
+  // Handle selection of a saved address
+  const handleAddressSelect = (addressId) => {
+    setSelectedAddressId(addressId);
+    const selectedAddress = savedAddresses.find(
+      (addr) => addr._id === addressId
+    );
+    if (selectedAddress) {
+      prefillFormWithAddress(selectedAddress);
+      setShowAddressForm(false);
+      setEditingAddressId(null);
+    }
+  };
+
+  // Handle adding new address
+  const handleAddNewAddress = () => {
+    setSelectedAddressId("");
+    setEditingAddressId(null);
+    setShowAddressForm(true);
+    setFormData({
+      firstname: "",
+      lastname: "",
+      phone: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      pincode: "",
+      email: user?.email || "",
+      state: "Maharashtra",
+    });
+  };
+
+  // Handle editing an existing address
+  const handleEditAddress = (address) => {
+    setEditingAddressId(address._id);
+    setSelectedAddressId(address._id);
+    setShowAddressForm(true);
+    prefillFormWithAddress(address);
+  };
+
+  // Handle deleting an address
+  const handleDeleteAddress = async (addressId) => {
+    if (!user || !token) return;
+
+    if (!window.confirm("Are you sure you want to delete this address?")) {
+      return;
+    }
+
+    try {
+      setIsDeletingAddress(true);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/users/me/addresses/${addressId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        setSavedAddresses((prev) =>
+          prev.filter((addr) => addr._id !== addressId)
+        );
+        toast.success("Address deleted successfully");
+
+        // If we deleted the selected address, clear selection
+        if (selectedAddressId === addressId) {
+          setSelectedAddressId("");
+          setShowAddressForm(true);
+          handleAddNewAddress();
+        }
+      } else {
+        const data = await response.json();
+        toast.error(data.message || "Failed to delete address");
+      }
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      toast.error("Failed to delete address");
+    } finally {
+      setIsDeletingAddress(false);
+    }
+  };
+
+  // Set default address
+  const handleSetDefaultAddress = async (addressId) => {
+    if (!user || !token) return;
+
+    try {
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/users/me/addresses/${addressId}/default`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        setSavedAddresses((prev) =>
+          prev.map((addr) => ({
+            ...addr,
+            isDefault: addr._id === addressId,
+          }))
+        );
+        toast.success("Default address updated");
+      } else {
+        const data = await response.json();
+        toast.error(data.message || "Failed to set default address");
+      }
+    } catch (error) {
+      console.error("Error setting default address:", error);
+      toast.error("Failed to set default address");
+    }
+  };
+
+  // Standard form field change handler
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -48,54 +252,172 @@ const Checkout = () => {
     }));
   };
 
+  // Form validation
   const validateForm = () => {
-    const requiredFields = [
-      "firstname",
-      "lastname",
-      "phone",
-      "addressLine1",
-      "city",
-      "pincode",
-      "email",
-    ];
+    const errors = [];
 
-    for (const field of requiredFields) {
-      if (!formData[field]) {
-        toast.error(
-          `Please fill in ${field.replace(/([A-Z])/g, " $1").toLowerCase()}`
-        );
-        return false;
-      }
+    if (!formData.firstname) errors.push("First name is required");
+    if (!formData.lastname) errors.push("Last name is required");
+    if (!formData.phone) errors.push("Phone number is required");
+    if (!formData.addressLine1) errors.push("Address line 1 is required");
+    if (!formData.city) errors.push("City is required");
+    if (!formData.pincode) errors.push("Pincode is required");
+    if (!formData.email) errors.push("Email is required");
+
+    if (formData.phone && !/^[0-9]{10}$/.test(formData.phone)) {
+      errors.push("Phone must be 10 digits");
     }
 
-    // Email validation
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      toast.error("Please enter a valid email address");
-      return false;
+    if (formData.pincode && !/^[0-9]{6}$/.test(formData.pincode)) {
+      errors.push("Pincode must be 6 digits");
     }
 
-    // Phone validation
-    if (!/^[0-9]{10}$/.test(formData.phone)) {
-      toast.error("Please enter a valid 10-digit phone number");
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.push("Invalid email format");
+    }
+
+    if (errors.length > 0) {
+      errors.forEach((error) => toast.error(error));
       return false;
     }
 
     return true;
   };
 
+  // Save address (new or edit)
+  const handleSaveAddress = async () => {
+    if (!validateForm() || !user || !token) return false;
+
+    try {
+      setIsSavingAddress(true);
+      const addressData = {
+        name: `${formData.firstname} ${formData.lastname}`.trim(),
+        street: formData.addressLine1,
+        apartment: formData.addressLine2,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.pincode,
+        phone: formData.phone,
+        isDefault: savedAddresses.length === 0, // Make first address default
+      };
+
+      const url = editingAddressId
+        ? `${
+            import.meta.env.VITE_API_URL
+          }/api/users/me/addresses/${editingAddressId}`
+        : `${import.meta.env.VITE_API_URL}/api/users/me/addresses`;
+
+      const method = editingAddressId ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(addressData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save address");
+      }
+
+      const data = await response.json();
+      const savedAddress = data.data.address;
+
+      if (editingAddressId) {
+        setSavedAddresses((prev) =>
+          prev.map((addr) =>
+            addr._id === editingAddressId ? savedAddress : addr
+          )
+        );
+        toast.success("Address updated successfully");
+      } else {
+        setSavedAddresses((prev) => [...prev, savedAddress]);
+        toast.success("Address saved successfully");
+      }
+
+      setSelectedAddressId(savedAddress._id);
+      setShowAddressForm(false);
+      setEditingAddressId(null);
+      return true;
+    } catch (error) {
+      console.error("Error saving address:", error);
+      toast.error(error.message || "Failed to save address");
+      return false;
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
+  // Format full address for display
+  const formatFullAddress = (address) => {
+    return [
+      address.street,
+      address.apartment,
+      address.city,
+      address.state,
+      address.zipCode,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  };
+
+  // Handle form submission and navigation to payment
   const handleContinueToPayment = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if (!validateForm() || cart.length === 0) {
+    if (cart.length === 0) {
+      toast.error("Your cart is empty. Please add items before checking out.");
       setIsSubmitting(false);
       return;
     }
 
+    if (!validateForm()) {
+      setIsSubmitting(false);
+      return;
+    }
+
+    // If user is logged in and form is shown (new address or editing), save it first
+    if (user && token && showAddressForm) {
+      const saved = await handleSaveAddress();
+      if (!saved) {
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    // For guest users, create a temporary address object
+    if (!user && !selectedAddressId && validateForm()) {
+      const tempAddress = {
+        _id: "temp-" + Date.now(),
+        name: `${formData.firstname} ${formData.lastname}`.trim(),
+        street: formData.addressLine1,
+        apartment: formData.addressLine2,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.pincode,
+        phone: formData.phone,
+        isDefault: true,
+      };
+
+      setSavedAddresses([tempAddress]);
+      setSelectedAddressId(tempAddress._id);
+    }
+
     const orderData = {
       customerDetails: {
-        ...formData,
+        firstName: formData.firstname,
+        lastName: formData.lastname,
+        phone: formData.phone,
+        addressLine1: formData.addressLine1,
+        addressLine2: formData.addressLine2,
+        city: formData.city,
+        pincode: formData.pincode,
         email: formData.email.toLowerCase().trim(),
+        state: formData.state,
       },
       cartItems: cart.map((item) => ({
         productId: item.id || item._id,
@@ -105,18 +427,19 @@ const Checkout = () => {
         seller: item.seller?._id || item.vendorId || item.sellerId,
       })),
       shippingMethod,
-      totalPrice: subtotal + (shippingMethod === "express" ? 100 : 50),
+      totalPrice: totalPrice,
       orderDate: new Date().toISOString(),
     };
 
     navigate("/payment", {
       state: {
         orderData,
-        formData,
+        formData: orderData.customerDetails,
       },
     });
     setIsSubmitting(false);
   };
+
   return (
     <div className="bg-gray-50 min-h-screen py-8">
       <ToastContainer position="top-center" />
@@ -165,6 +488,7 @@ const Checkout = () => {
           onSubmit={handleContinueToPayment}
         >
           <div className="lg:col-span-2">
+            {/* Contact Information */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
               <div className="border-b border-gray-100 px-6 py-4 bg-gray-50">
                 <h2 className="font-medium text-gray-700">
@@ -180,6 +504,10 @@ const Checkout = () => {
                     type="email"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
                     placeholder="your@email.com"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
                   />
                 </div>
                 <div className="flex items-center">
@@ -198,150 +526,288 @@ const Checkout = () => {
               </div>
             </div>
 
+            {/* Shipping Address */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
               <div className="border-b border-gray-100 px-6 py-4 bg-gray-50">
                 <h2 className="font-medium text-gray-700">Shipping Address</h2>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First name
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                      name="firstname"
-                      value={formData.firstname}
-                      onChange={handleChange}
-                      required
-                    />
+                {/* Loading State */}
+                {isFetchingAddresses && (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+                    <p className="text-gray-600 mt-2">
+                      Loading saved addresses...
+                    </p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last name
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                      name="lastname"
-                      value={formData.lastname}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                </div>
+                )}
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                    placeholder="Street and number, P.O. Box, c/o"
-                    name="addressLine1"
-                    value={formData.addressLine1}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+                {/* Saved Addresses List */}
+                {!isFetchingAddresses &&
+                  savedAddresses.length > 0 &&
+                  !showAddressForm && (
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-gray-700">
+                          Select Address
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={handleAddNewAddress}
+                          className="text-green-600 hover:text-green-700 text-sm font-medium flex items-center"
+                        >
+                          <Plus size={16} className="mr-1" />
+                          Add New
+                        </button>
+                      </div>
+                      {savedAddresses.map((address) => (
+                        <div
+                          key={address._id}
+                          className={`border rounded-lg p-4 cursor-pointer transition ${
+                            selectedAddressId === address._id
+                              ? "border-green-500 bg-green-50"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                          onClick={() => handleAddressSelect(address._id)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center">
+                                <h4 className="font-medium text-gray-800">
+                                  {address.name}
+                                </h4>
+                                {address.isDefault && (
+                                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full ml-2">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {formatFullAddress(address)}
+                              </p>
+                              {address.phone && (
+                                <p className="text-sm text-gray-600">
+                                  Phone: {address.phone}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2 ml-4">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditAddress(address);
+                                }}
+                                className="text-blue-600 hover:text-blue-700 p-1"
+                                title="Edit address"
+                              >
+                                <Edit3 size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAddress(address._id);
+                                }}
+                                className="text-red-600 hover:text-red-700 p-1"
+                                disabled={isDeletingAddress}
+                                title="Delete address"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                          {!address.isDefault && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSetDefaultAddress(address._id);
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-700 mt-2"
+                            >
+                              Set as default
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Apartment, suite, etc. (optional)
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                    name="addressLine2"
-                    onChange={handleChange}
-                    value={formData.addressLine2}
-                    required
-                  />
-                </div>
+                {/* Address Form */}
+                {!isFetchingAddresses &&
+                  (showAddressForm || savedAddresses.length === 0) && (
+                    <div>
+                      {savedAddresses.length > 0 && (
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm font-medium text-gray-700">
+                            {editingAddressId ? "Edit Address" : "New Address"}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddressForm(false);
+                              setEditingAddressId(null);
+                              if (savedAddresses.length > 0) {
+                                handleAddressSelect(savedAddresses[0]._id);
+                              }
+                            }}
+                            className="text-gray-600 hover:text-gray-700 text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      State
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                      name="state"
-                      value={formData.state}
-                      onChange={handleChange}
-                      disabled
-                      required
-                    />
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            First name
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                            name="firstname"
+                            value={formData.firstname}
+                            onChange={handleChange}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Last name
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                            name="lastname"
+                            value={formData.lastname}
+                            onChange={handleChange}
+                            required
+                          />
+                        </div>
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ZIP code
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                      name="pincode"
-                      value={formData.pincode}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                </div>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Address Line 1
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                          placeholder="Street and number, P.O. Box, c/o"
+                          name="addressLine1"
+                          value={formData.addressLine1}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                    placeholder="+1 (___) ___-____"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    For delivery questions only
-                  </p>
-                </div>
-                <label
-                  className="text-sm font-semibold text-gray-700 "
-                  htmlFor="email"
-                >
-                  Email Address *
-                </label>
-                <input
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                  type="email"
-                  id="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  name="email"
-                  required
-                  pattern="[^@\s]+@[^@\s]+\.[^@\s]+" // Basic email validation
-                />
-                <small>For order confirmation and tracking</small>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Apartment, suite, etc. (optional)
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                          name="addressLine2"
+                          onChange={handleChange}
+                          value={formData.addressLine2}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            City
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                            name="city"
+                            value={formData.city}
+                            onChange={handleChange}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            State
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                            name="state"
+                            value={formData.state}
+                            onChange={handleChange}
+                            disabled
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Pincode
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                            name="pincode"
+                            value={formData.pincode}
+                            onChange={handleChange}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Phone
+                        </label>
+                        <input
+                          type="tel"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
+                          placeholder="+91 XXXXXXXXXX"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          For delivery questions only
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between">
+                        {user && token && (
+                          <button
+                            type="button"
+                            onClick={handleSaveAddress}
+                            disabled={isSavingAddress}
+                            className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                          >
+                            {isSavingAddress
+                              ? "Saving..."
+                              : editingAddressId
+                              ? "Update Address"
+                              : "Save Address"}
+                          </button>
+                        )}
+                        {/* <button
+                          type="submit"
+                          disabled={isSubmitting || isSavingAddress}
+                          className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                          {isSubmitting
+                            ? "Processing..."
+                            : "Continue to Payment"}
+                        </button> */}
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
 
+            {/* Shipping Method */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden">
               <div className="border-b border-gray-100 px-6 py-4 bg-gray-50">
                 <h2 className="font-medium text-gray-700">Shipping Method</h2>
@@ -352,7 +818,7 @@ const Checkout = () => {
                   className={`flex items-center justify-between p-4 border rounded-lg transition cursor-pointer mb-3 ${
                     shippingMethod === "standard"
                       ? "border-green-500 bg-green-50"
-                      : "border-gray-200 hover:border-gray-300 "
+                      : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
                   <div className="flex items-center">
@@ -362,7 +828,7 @@ const Checkout = () => {
                       <p className="text-sm text-gray-600">3-5 business days</p>
                     </div>
                   </div>
-                  <span className="text-green-600 font-medium">Free</span>
+                  <span className="text-green-600 font-medium">₹50.00</span>
                 </div>
 
                 <div
@@ -370,7 +836,7 @@ const Checkout = () => {
                   className={`flex items-center justify-between p-4 border rounded-lg transition cursor-pointer ${
                     shippingMethod === "express"
                       ? "border-green-500 bg-green-50"
-                      : "border-gray-200 hover:border-gray-300 "
+                      : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
                   <div className="flex items-center">
@@ -380,12 +846,13 @@ const Checkout = () => {
                       <p className="text-sm text-gray-600">1-2 business days</p>
                     </div>
                   </div>
-                  <span className="font-medium">$9.99</span>
+                  <span className="font-medium">₹100.00</span>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-md sticky top-4 overflow-hidden">
               <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
@@ -397,18 +864,21 @@ const Checkout = () => {
                   {cart &&
                     cart.map((item) => (
                       <div
-                        key={item.id}
+                        key={item.id || item._id}
                         className="flex justify-between items-start"
                       >
-                        <div className="flex items-center h">
+                        <div className="flex items-center">
                           <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 h-12 w-12 flex-shrink-0 mr-3">
                             <img
-                              src={`${import.meta.env.VITE_API_URL}/uploads/${item.images[0]}`}
+                              src={`${import.meta.env.VITE_API_URL}/uploads/${
+                                item.images[0]
+                              }`}
                               alt={item.name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                e.target.src =
-                                  `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                                e.target.src = `${
+                                  import.meta.env.VITE_API_URL
+                                }/uploads/default-product.png`;
                                 e.target.onerror = null;
                               }}
                             />
@@ -423,7 +893,7 @@ const Checkout = () => {
                           </div>
                         </div>
                         <span className="text-sm font-medium">
-                          ${(item.price * (item.quantity || 1)).toFixed(2)}
+                          ₹{(item.price * (item.quantity || 1)).toFixed(2)}
                         </span>
                       </div>
                     ))}
@@ -432,13 +902,15 @@ const Checkout = () => {
                     <div className="flex justify-between mb-2">
                       <span className="text-gray-600">Subtotal</span>
                       <span className="font-medium">
-                        ${totalPrice.toFixed(2)}
+                        ₹{subtotal.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between mb-2">
                       <span className="text-gray-600">Shipping</span>
                       <span className="text-green-600 font-medium">
-                        {shippingMethod === "express" ? "$9.99" : "Free"}
+                        {shippingMethod === "express"
+                          ? `₹${shippingCost.toFixed(2)}`
+                          : "Free"}
                       </span>
                     </div>
                     <div className="flex justify-between font-medium text-gray-700">
@@ -451,19 +923,26 @@ const Checkout = () => {
                     <div className="flex justify-between items-center">
                       <span className="font-medium text-gray-700">Total</span>
                       <span className="font-bold text-lg text-gray-800">
-                        ${totalPrice.toFixed(2)}
+                        ₹{totalPrice.toFixed(2)}
                       </span>
                     </div>
                   </div>
                 </div>
                 <button
-                  onClick={handleContinueToPayment}
-                  disabled={isSubmitting}
-                  className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg flex items-center justify-center font-medium transition"
                   type="submit"
+                  disabled={isSubmitting || isSavingAddress}
+                  className={`w-full mt-6 bg-green-600 text-white py-3 px-4 rounded-lg flex items-center justify-center font-medium transition ${
+                    isSubmitting || isSavingAddress
+                      ? "opacity-70 cursor-not-allowed"
+                      : "hover:bg-green-700"
+                  }`}
                 >
                   <CreditCard size={16} className="mr-2" />
-                  Continue to Payment
+                  {isSubmitting
+                    ? "Processing..."
+                    : isSavingAddress
+                    ? "Saving Address..."
+                    : "Continue to Payment"}
                 </button>
                 <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
                   <ShieldCheck size={14} className="mr-1 text-green-600" />
@@ -492,9 +971,7 @@ const Checkout = () => {
                       />
                     </svg>
                   </div>
-                  <span className="text-gray-600">
-                    Call us: +1 (555) 123-4567
-                  </span>
+                  <span className="text-gray-600">Call us: +91 9876543210</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-3">
