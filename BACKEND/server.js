@@ -13,6 +13,8 @@ const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const userRoutes = require('./routes/userRoutes')
+const locationRoutes = require('./routes/locationRoutes'); // <--- ADD THIS LINE
+
 
 dotenv.config();
 
@@ -56,6 +58,8 @@ app.use('/api/vendor', vendorRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminAuthRoutes);
 app.use('/api/users', userRoutes);
+app.use('/', locationRoutes); 
+
 
 // Optional: A basic root route for API status check
 app.get('/api', (req, res) => {
