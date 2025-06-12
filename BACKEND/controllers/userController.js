@@ -182,3 +182,49 @@ exports.deleteAddress = catchAsync(async (req, res, next) => {
         data: null
     });
 });
+
+exports.setAsDefaultAddress = async (req, res, next) => {
+  try {
+    const { addressId } = req.params;
+    const userId = req.user.id; // Assuming req.user is set by protect middleware
+
+    // 1. Find the address to set as default and ensure it belongs to the user
+    const user = await User.findById(userId); // Assuming User is your Mongoose model
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const addressToSetDefault = user.addresses.id(addressId);
+    if (!addressToSetDefault) {
+      return res.status(404).json({ message: 'Address not found' });
+    }
+
+    // 2. Set all other addresses to not default
+    user.addresses.forEach(addr => {
+      if (addr._id.toString() !== addressId) {
+        addr.isDefault = false;
+      }
+    });
+
+    // 3. Set the chosen address to default
+    addressToSetDefault.isDefault = true;
+
+    await user.save(); // Save the updated user document
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Default address set successfully',
+      data: {
+        address: addressToSetDefault // Optionally send back the updated address
+      }
+    });
+
+  } catch (error) {
+    console.error("Error setting default address:", error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to set default address',
+      error: error.message // Good for debugging, but be cautious in production
+    });
+  }
+};
