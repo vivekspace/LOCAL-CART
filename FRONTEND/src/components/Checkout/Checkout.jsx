@@ -1,7 +1,6 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useCallback } from "react";
 import { AuthContext } from "../../Context/Context";
-import { toast } from "react-toastify";
-import { ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify"; // Keep ToastContainer if you render it here
 import {
   CreditCard,
   ShieldCheck,
@@ -16,33 +15,41 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 
 const Checkout = () => {
-  const { cartItems: cart, user, token } = useContext(AuthContext);
+  const {
+    cartItems: cart,
+    user,
+    token, // Token is now correctly received from AuthContext after fix
+    selectedLocation,
+  } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  // --- Address States ---
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [isFetchingAddresses, setIsFetchingAddresses] = useState(true);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const [editingAddressId, setEditingAddressId] = useState(null);
+  const [editingAddressId, setEditingAddressId] = useState(null); // Stores ID of address being edited
 
+  // --- Form Data State ---
   const [formData, setFormData] = useState({
     firstname: "",
     lastname: "",
     phone: "",
-    addressLine1: "",
-    addressLine2: "",
+    street: "", // Consistent with backend property
+    apartment: "", // Consistent with backend property
     city: "",
-    pincode: "",
-    email: user?.email || "",
-    state: "Maharashtra",
+    zipCode: "", // Consistent with backend property
+    email: user?.email || "", // Pre-fill if user exists
+    state: "Maharashtra", // Default state
   });
 
+  // --- UI / Loading States ---
   const [shippingMethod, setShippingMethod] = useState("standard");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSavingAddress, setIsSavingAddress] = useState(false);
-  const [isDeletingAddress, setIsDeletingAddress] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // For "Continue to Payment"
+  const [isSavingAddress, setIsSavingAddress] = useState(false); // For Add/Edit Address Form submission
+  const [isDeletingAddress, setIsDeletingAddress] = useState(false); // For Delete Address action
 
-  // Calculate totals
+  // --- Derived Values ---
   const subtotal = cart.reduce(
     (sum, item) => sum + item.price * (item.quantity || 1),
     0
@@ -50,64 +57,11 @@ const Checkout = () => {
   const shippingCost = shippingMethod === "express" ? 100 : 50;
   const totalPrice = subtotal + shippingCost;
 
-  // Fetch saved addresses on component mount
-  useEffect(() => {
-    const fetchAddresses = async () => {
-      if (!user || !token) {
-        setIsFetchingAddresses(false);
-        setShowAddressForm(true);
-        return;
-      }
-
-      try {
-        setIsFetchingAddresses(true);
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/users/me/addresses`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch addresses");
-        }
-
-        const data = await response.json();
-
-        if (data.data?.addresses?.length > 0) {
-          setSavedAddresses(data.data.addresses);
-          const defaultAddress =
-            data.data.addresses.find((addr) => addr.isDefault) ||
-            data.data.addresses[0];
-          setSelectedAddressId(defaultAddress._id);
-          prefillFormWithAddress(defaultAddress);
-          setShowAddressForm(false);
-        } else {
-          setShowAddressForm(true);
-          setFormData((prev) => ({
-            ...prev,
-            email: user?.email || prev.email,
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching addresses:", error);
-        toast.error("Failed to load saved addresses");
-        setShowAddressForm(true);
-      } finally {
-        setIsFetchingAddresses(false);
-      }
-    };
-
-    fetchAddresses();
-  }, [user, token]);
-
-  // Helper to prefill form fields from an address object
-  const prefillFormWithAddress = (address) => {
+  // --- Helper to prefill form fields from an address object (Memoized) ---
+  // Using useCallback because it's a dependency of useEffect for fetching addresses
+  const prefillFormWithAddress = useCallback((address) => {
     if (!address) return;
 
-    // Split the name if it exists, otherwise use empty strings
     const nameParts = address.name ? address.name.split(" ") : [];
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
@@ -116,16 +70,164 @@ const Checkout = () => {
       firstname: firstName,
       lastname: lastName,
       phone: address.phone || "",
-      addressLine1: address.street || "",
-      addressLine2: address.apartment || "",
+      street: address.street || "", // Maps to address.street
+      apartment: address.apartment || "", // Maps to address.apartment
       city: address.city || "",
-      pincode: address.zipCode || "",
+      zipCode: address.zipCode || "", // Maps to address.zipCode
       email: user?.email || "",
       state: address.state || "Maharashtra",
     });
-  };
+  }, [user?.email]); // Dependency on user.email for email pre-fill
 
-  // Handle selection of a saved address
+  // --- Effects ---
+
+  // Effect to populate form from selectedLocation (geolocation) for NEW addresses
+  useEffect(() => {
+   
+    if (
+      showAddressForm && // The address form is visible
+      !editingAddressId && // Not currently editing an existing address
+      selectedLocation && // Geolocation data is available
+      selectedLocation.type === "current_location" && // It's specifically a current location
+      selectedLocation.city && // And it has a city
+      selectedLocation.city.toLowerCase() !== "current location" // Avoid placeholder city names
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        city:
+          selectedLocation.city.charAt(0).toUpperCase() +
+          selectedLocation.city.slice(1),
+        state: "Maharashtra", // Assuming this is always true for your current location. Adjust if needed.
+      }));
+      toast.info(
+        `New address form pre-filled with "${selectedLocation.city}" from your current location.`
+      );
+    }
+  }, [selectedLocation, showAddressForm, editingAddressId]); // Dependencies
+
+  // Effect to fetch saved addresses on component mount or when user/token changes
+  useEffect(() => {
+    console.log("Starting address fetch...");
+    const fetchAddresses = async () => {
+      try {
+        console.log(
+          "Fetch addresses called with user:",
+          !!user,
+          "token:",
+          !!token
+        );
+        if (!user || !token) {
+          console.log("No user or token, showing guest form");
+          setIsFetchingAddresses(false);
+          setShowAddressForm(true); // Always show form for guest users
+          // For guests, attempt to pre-fill from geolocation if available
+          if (
+            selectedLocation &&
+            selectedLocation.type === "current_location" &&
+            selectedLocation.city
+          ) {
+            setFormData((prev) => ({
+              ...prev,
+              city:
+                selectedLocation.city.charAt(0).toUpperCase() +
+                selectedLocation.city.slice(1),
+              state: "Maharashtra",
+            }));
+          } else {
+            // Ensure email is set even for guests if user object is available (e.g., from a partial guest session)
+            setFormData((prev) => ({
+              ...prev,
+              email: user?.email || prev.email,
+            }));
+          }
+          return;
+        }
+
+        console.log(
+          "Fetching from URL:",
+          `${import.meta.env.VITE_API_URL}/api/users/me/addresses`
+        );
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/users/me/addresses`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        console.log("Response status:", response.status);
+        if (!response.ok) {
+          const errorData = await response
+            .json()
+            .catch(() => ({ message: "No error body" }));
+          console.error("API response not OK:", response.status, errorData);
+          throw new Error(errorData.message || "Failed to fetch addresses");
+        }
+
+        const data = await response.json();
+        console.log("Address data is: -", data);
+
+        if (data.data?.addresses?.length > 0) {
+          setSavedAddresses(data.data.addresses);
+          const defaultAddress =
+            data.data.addresses.find((addr) => addr.isDefault) ||
+            data.data.addresses[0];
+          setSelectedAddressId(defaultAddress._id);
+          prefillFormWithAddress(defaultAddress); // Use the memoized function
+          setShowAddressForm(false);
+        } else {
+          setShowAddressForm(true);
+          // Only prefill email if user is logged in
+          setFormData((prev) => ({
+            ...prev,
+            email: user?.email || prev.email,
+          }));
+          // Pre-fill city from geolocation if no addresses exist
+          if (
+            selectedLocation &&
+            selectedLocation.type === "current_location" &&
+            selectedLocation.city
+          ) {
+            setFormData((prev) => ({
+              ...prev,
+              city:
+                selectedLocation.city.charAt(0).toUpperCase() +
+                selectedLocation.city.slice(1),
+              state: "Maharashtra",
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching addresses:", error);
+        toast.error("Failed to load saved addresses");
+        setShowAddressForm(true);
+        // Pre-fill city from geolocation on error as well
+        if (
+          selectedLocation &&
+          selectedLocation.type === "current_location" &&
+          selectedLocation.city
+        ) {
+          setFormData((prev) => ({
+            ...prev,
+            city:
+              selectedLocation.city.charAt(0).toUpperCase() +
+              selectedLocation.city.slice(1),
+            state: "Maharashtra",
+          }));
+        }
+      } finally {
+        setIsFetchingAddresses(false);
+      }
+    };
+
+    fetchAddresses();
+  }, [user, token, selectedLocation, prefillFormWithAddress]); // prefillFormWithAddress is now stable due to useCallback
+
+  // --- Handlers ---
+
+  // Handle selection of a saved address (radio button click)
   const handleAddressSelect = (addressId) => {
     setSelectedAddressId(addressId);
     const selectedAddress = savedAddresses.find(
@@ -133,40 +235,57 @@ const Checkout = () => {
     );
     if (selectedAddress) {
       prefillFormWithAddress(selectedAddress);
-      setShowAddressForm(false);
-      setEditingAddressId(null);
+      setShowAddressForm(false); // Hide the form if an existing address is selected
+      setEditingAddressId(null); // Clear editing state
     }
   };
 
-  // Handle adding new address
+  // Handle "Add New" button click
   const handleAddNewAddress = () => {
-    setSelectedAddressId("");
-    setEditingAddressId(null);
-    setShowAddressForm(true);
+    setSelectedAddressId(""); // Deselect any chosen address
+    setEditingAddressId(null); // Ensure no address is in editing mode
+    setShowAddressForm(true); // Show the blank form
+    // Clear form data for a fresh start, pre-filling email and potential geolocation city
     setFormData({
       firstname: "",
       lastname: "",
       phone: "",
-      addressLine1: "",
-      addressLine2: "",
-      city: "",
-      pincode: "",
+      street: "",
+      apartment: "",
+      city:
+        selectedLocation?.type === "current_location" && selectedLocation?.city
+          ? selectedLocation.city.charAt(0).toUpperCase() +
+            selectedLocation.city.slice(1)
+          : "",
+      zipCode: "",
       email: user?.email || "",
       state: "Maharashtra",
     });
+    if (
+      selectedLocation &&
+      selectedLocation.type === "current_location" &&
+      selectedLocation.city
+    ) {
+      toast.info(
+        `New address form pre-filled with "${selectedLocation.city}" from current location.`
+      );
+    }
   };
 
-  // Handle editing an existing address
+  // Handle "Edit" icon click for a saved address
   const handleEditAddress = (address) => {
-    setEditingAddressId(address._id);
-    setSelectedAddressId(address._id);
-    setShowAddressForm(true);
-    prefillFormWithAddress(address);
+    setEditingAddressId(address._id); // Set the ID of the address being edited
+    setSelectedAddressId(address._id); // Keep this address selected
+    setShowAddressForm(true); // Show the form
+    prefillFormWithAddress(address); // Populate the form with the address data
   };
 
   // Handle deleting an address
   const handleDeleteAddress = async (addressId) => {
-    if (!user || !token) return;
+    if (!user || !token) {
+      toast.error("You must be logged in to delete addresses.");
+      return;
+    }
 
     if (!window.confirm("Are you sure you want to delete this address?")) {
       return;
@@ -190,15 +309,22 @@ const Checkout = () => {
         );
         toast.success("Address deleted successfully");
 
-        // If we deleted the selected address, clear selection
+        // If the deleted address was the selected one, unselect it and show the form
         if (selectedAddressId === addressId) {
           setSelectedAddressId("");
-          setShowAddressForm(true);
-          handleAddNewAddress();
+          // If there are other addresses, select the first one; otherwise, show the form
+          if (savedAddresses.length - 1 > 0) { // Check if any addresses left
+              setSelectedAddressId(savedAddresses[0]._id);
+              prefillFormWithAddress(savedAddresses[0]);
+              setShowAddressForm(false);
+          } else {
+              setShowAddressForm(true);
+              handleAddNewAddress(); // Re-initialize form for a new address
+          }
         }
       } else {
-        const data = await response.json();
-        toast.error(data.message || "Failed to delete address");
+        const errorData = await response.json().catch(() => ({ message: "No error body" }));
+        toast.error(errorData.message || "Failed to delete address");
       }
     } catch (error) {
       console.error("Error deleting address:", error);
@@ -210,36 +336,43 @@ const Checkout = () => {
 
   // Set default address
   const handleSetDefaultAddress = async (addressId) => {
-    if (!user || !token) return;
+    if (!user || !token) {
+      toast.error("You must be logged in to set a default address.");
+      return;
+    }
 
     try {
+      // Assuming your backend expects a PATCH to /api/users/me/addresses/:id/default
       const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL
-        }/api/users/me/addresses/${addressId}/default`,
+        `${import.meta.env.VITE_API_URL}/api/users/me/addresses/${addressId}/default`,
         {
-          method: "PATCH",
+          method: "PATCH", // Or "PUT" if your API uses that
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json", // Often needed for PATCH/PUT
           },
+         
         }
       );
+      console.log("Set default address response:", response);
 
       if (response.ok) {
         setSavedAddresses((prev) =>
           prev.map((addr) => ({
             ...addr,
-            isDefault: addr._id === addressId,
+            isDefault: addr._id === addressId, // Set clicked address to default, others to false
           }))
         );
-        toast.success("Default address updated");
+        setSelectedAddressId(addressId); // Ensure the newly defaulted address is selected
+        toast.success("Default address updated successfully!");
       } else {
-        const data = await response.json();
-        toast.error(data.message || "Failed to set default address");
+        const errorData = await response.json().catch(() => ({ message: "No error body" }));
+        console.error("Failed to set default address API response:", response.status, errorData);
+        toast.error(errorData.message || "Failed to set default address");
       }
     } catch (error) {
       console.error("Error setting default address:", error);
-      toast.error("Failed to set default address");
+      toast.error("Failed to set default address due to network error.");
     }
   };
 
@@ -259,17 +392,18 @@ const Checkout = () => {
     if (!formData.firstname) errors.push("First name is required");
     if (!formData.lastname) errors.push("Last name is required");
     if (!formData.phone) errors.push("Phone number is required");
-    if (!formData.addressLine1) errors.push("Address line 1 is required");
+    if (!formData.street) errors.push("Address line 1 (Street) is required"); // Updated message
     if (!formData.city) errors.push("City is required");
-    if (!formData.pincode) errors.push("Pincode is required");
+    if (!formData.zipCode) errors.push("Pincode is required"); // Updated message
     if (!formData.email) errors.push("Email is required");
 
     if (formData.phone && !/^[0-9]{10}$/.test(formData.phone)) {
-      errors.push("Phone must be 10 digits");
+      errors.push("Phone number must be 10 digits");
     }
 
-    if (formData.pincode && !/^[0-9]{6}$/.test(formData.pincode)) {
-      errors.push("Pincode must be 6 digits");
+    // Corrected to zipCode as per formData state
+    if (formData.zipCode && !/^[0-9]{6}$/.test(formData.zipCode)) {
+      errors.push("Pincode (Zip Code) must be 6 digits"); // Updated message
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -286,28 +420,30 @@ const Checkout = () => {
 
   // Save address (new or edit)
   const handleSaveAddress = async () => {
-    if (!validateForm() || !user || !token) return false;
+    if (!validateForm()) return false;
+    if (!user || !token) {
+      toast.error("You must be logged in to save addresses.");
+      return false; // Prevent saving for guests this way
+    }
 
     try {
       setIsSavingAddress(true);
       const addressData = {
         name: `${formData.firstname} ${formData.lastname}`.trim(),
-        street: formData.addressLine1,
-        apartment: formData.addressLine2,
+        street: formData.street,
+        apartment: formData.apartment,
         city: formData.city,
         state: formData.state,
-        zipCode: formData.pincode,
+        zipCode: formData.zipCode,
         phone: formData.phone,
-        isDefault: savedAddresses.length === 0, // Make first address default
+        isDefault: savedAddresses.length === 0, // Only set as default if it's the first address
       };
 
       const url = editingAddressId
-        ? `${
-            import.meta.env.VITE_API_URL
-          }/api/users/me/addresses/${editingAddressId}`
+        ? `${import.meta.env.VITE_API_URL}/api/users/me/addresses/${editingAddressId}`
         : `${import.meta.env.VITE_API_URL}/api/users/me/addresses`;
 
-      const method = editingAddressId ? "PUT" : "POST";
+      const method = editingAddressId ? "PUT" : "POST"; // Use PUT for update, POST for create
 
       const response = await fetch(url, {
         method,
@@ -319,8 +455,8 @@ const Checkout = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to save address");
+        const errorData = await response.json().catch(() => ({ message: "No error body" }));
+        throw new Error(errorData.message || "Failed to save address from server.");
       }
 
       const data = await response.json();
@@ -332,20 +468,20 @@ const Checkout = () => {
             addr._id === editingAddressId ? savedAddress : addr
           )
         );
-        toast.success("Address updated successfully");
+        toast.success("Address updated successfully!");
       } else {
         setSavedAddresses((prev) => [...prev, savedAddress]);
-        toast.success("Address saved successfully");
+        toast.success("Address saved successfully!");
       }
 
-      setSelectedAddressId(savedAddress._id);
-      setShowAddressForm(false);
-      setEditingAddressId(null);
-      return true;
+      setSelectedAddressId(savedAddress._id); // Select the newly saved/updated address
+      setShowAddressForm(false); // Hide the form
+      setEditingAddressId(null); // Clear editing state
+      return true; // Indicate success
     } catch (error) {
       console.error("Error saving address:", error);
       toast.error(error.message || "Failed to save address");
-      return false;
+      return false; // Indicate failure
     } finally {
       setIsSavingAddress(false);
     }
@@ -353,6 +489,7 @@ const Checkout = () => {
 
   // Format full address for display
   const formatFullAddress = (address) => {
+    // Ensure you use the correct properties from the address object
     return [
       address.street,
       address.apartment,
@@ -380,7 +517,8 @@ const Checkout = () => {
       return;
     }
 
-    // If user is logged in and form is shown (new address or editing), save it first
+    // If the address form is shown (meaning it's a new address or an edited one),
+    // and the user is logged in, save it first.
     if (user && token && showAddressForm) {
       const saved = await handleSaveAddress();
       if (!saved) {
@@ -388,42 +526,55 @@ const Checkout = () => {
         return;
       }
     }
+    // Handle guest users or when a new address was just added/edited by a logged-in user
+    // The `selectedAddressId` should now be set if a new address was just saved.
 
-    // For guest users, create a temporary address object
-    if (!user && !selectedAddressId && validateForm()) {
-      const tempAddress = {
-        _id: "temp-" + Date.now(),
-        name: `${formData.firstname} ${formData.lastname}`.trim(),
-        street: formData.addressLine1,
-        apartment: formData.addressLine2,
-        city: formData.city,
-        state: formData.state,
-        zipCode: formData.pincode,
-        phone: formData.phone,
-        isDefault: true,
-      };
-
-      setSavedAddresses([tempAddress]);
-      setSelectedAddressId(tempAddress._id);
+    let finalAddressForOrder = null;
+    if (selectedAddressId) {
+        finalAddressForOrder = savedAddresses.find(addr => addr._id === selectedAddressId);
     }
+
+    // If no saved/selected address (e.g., guest user filling form)
+    if (!finalAddressForOrder && showAddressForm && !user) { // Only create temp if guest and form is shown
+        finalAddressForOrder = {
+            _id: "temp-" + Date.now(),
+            name: `${formData.firstname} ${formData.lastname}`.trim(),
+            street: formData.street, // Corrected field name
+            apartment: formData.apartment, // Corrected field name
+            city: formData.city,
+            state: formData.state,
+            zipCode: formData.zipCode, // Corrected field name
+            phone: formData.phone,
+            isDefault: true,
+        };
+        // No need to setSavedAddresses for temp, it's just for this order session
+    }
+
+    if (!finalAddressForOrder) {
+        toast.error("Please select or add a shipping address.");
+        setIsSubmitting(false);
+        return;
+    }
+
 
     const orderData = {
       customerDetails: {
-        firstName: formData.firstname,
-        lastName: formData.lastname,
-        phone: formData.phone,
-        addressLine1: formData.addressLine1,
-        addressLine2: formData.addressLine2,
-        city: formData.city,
-        pincode: formData.pincode,
-        email: formData.email.toLowerCase().trim(),
-        state: formData.state,
+        firstName: finalAddressForOrder.name.split(" ")[0], // Extract from full name
+        lastName: finalAddressForOrder.name.split(" ").slice(1).join(" "), // Extract from full name
+        phone: finalAddressForOrder.phone,
+        addressLine1: finalAddressForOrder.street, // Use street from the selected/final address
+        addressLine2: finalAddressForOrder.apartment, // Use apartment from the selected/final address
+        city: finalAddressForOrder.city,
+        pincode: finalAddressForOrder.zipCode, // Use zipCode from the selected/final address
+        email: formData.email.toLowerCase().trim(), // Email from form data
+        state: finalAddressForOrder.state,
       },
       cartItems: cart.map((item) => ({
-        productId: item.id || item._id,
+        productId: item._id, // Use item._id consistently
         name: item.name,
         quantity: item.quantity,
         price: item.price,
+        // Ensure seller/vendor ID is correctly passed based on your product structure
         seller: item.seller?._id || item.vendorId || item.sellerId,
       })),
       shippingMethod,
@@ -434,12 +585,11 @@ const Checkout = () => {
     navigate("/payment", {
       state: {
         orderData,
-        formData: orderData.customerDetails,
+        formData: orderData.customerDetails, // Pass the processed customerDetails
       },
     });
     setIsSubmitting(false);
   };
-
   return (
     <div className="bg-gray-50 min-h-screen py-8">
       <ToastContainer position="top-center" />
@@ -668,7 +818,7 @@ const Checkout = () => {
                             type="text"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
                             name="firstname"
-                            value={formData.firstname}
+                            value={formData.name}
                             onChange={handleChange}
                             required
                           />
@@ -696,8 +846,8 @@ const Checkout = () => {
                           type="text"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
                           placeholder="Street and number, P.O. Box, c/o"
-                          name="addressLine1"
-                          value={formData.addressLine1}
+                          name="street"
+                          value={formData.street}
                           onChange={handleChange}
                           required
                         />
@@ -710,9 +860,9 @@ const Checkout = () => {
                         <input
                           type="text"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                          name="addressLine2"
+                          name="apartment"
                           onChange={handleChange}
-                          value={formData.addressLine2}
+                          value={formData.apartment}
                         />
                       </div>
 
@@ -751,8 +901,8 @@ const Checkout = () => {
                           <input
                             type="text"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
-                            name="pincode"
-                            value={formData.pincode}
+                            name="zipCode"
+                            value={formData.zipCode}
                             onChange={handleChange}
                             required
                           />
@@ -792,15 +942,6 @@ const Checkout = () => {
                               : "Save Address"}
                           </button>
                         )}
-                        {/* <button
-                          type="submit"
-                          disabled={isSubmitting || isSavingAddress}
-                          className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                          {isSubmitting
-                            ? "Processing..."
-                            : "Continue to Payment"}
-                        </button> */}
                       </div>
                     </div>
                   )}
