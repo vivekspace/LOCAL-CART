@@ -146,13 +146,10 @@ export const AuthProvider = ({ children }) => {
 
             if (error.code === error.PERMISSION_DENIED) {
               errorMessage = "Location access denied. Please enable it in your browser settings.";
-              toast.error(errorMessage);
             } else if (error.code === error.POSITION_UNAVAILABLE) {
               errorMessage = "Location information is unavailable. Try again or check device settings.";
-              toast.error(errorMessage);
             } else if (error.code === error.TIMEOUT) {
               errorMessage = "Timed out trying to get your location. Please check your signal or try again.";
-              toast.error(errorMessage);
             } else {
               toast.error(errorMessage + ` Error code: ${error.code}`);
             }
@@ -263,7 +260,6 @@ export const AuthProvider = ({ children }) => {
           }
 
           setAvailableLocations(finalLocations);
-          console.log("Context: Available locations fetched and formatted:", finalLocations);
         } else {
           setError("Unexpected data format from locations API.");
           console.warn(
@@ -292,7 +288,6 @@ export const AuthProvider = ({ children }) => {
       }
       initialLocationFetchRef.current = true; // Mark as attempted
 
-      console.log("Context: Starting initial location setup...");
       let userLoc = null;
 
       // 1. Try to load saved location from localStorage
@@ -300,7 +295,6 @@ export const AuthProvider = ({ children }) => {
       if (savedLoc) {
         try {
           userLoc = JSON.parse(savedLoc);
-          console.log("Context: Found saved location in localStorage:", userLoc);
 
           // If it was a 'current_location', try to re-acquire for accuracy
           if (userLoc.type === LOCATION_TYPE_CURRENT) {
@@ -474,7 +468,6 @@ export const AuthProvider = ({ children }) => {
             city: cityName.toLowerCase(), // Store city in lowercase for consistency
             type: LOCATION_TYPE_CURRENT,
           };
-          toast.success("Current location updated successfully!");
         } catch (error) {
           console.error(
             "Context: Geolocation error on re-acquire for 'Current Location' type in updateUserLocation:",
@@ -495,7 +488,6 @@ export const AuthProvider = ({ children }) => {
           ...locationData, // This includes name, city, type. Lat/lng might be null.
           city: locationData.name.toLowerCase(), // Ensure city is lowercase from original name
         };
-        toast.info(`Location set to ${newSelectedLoc.name}`);
       }
 
       setSelectedLocation(newSelectedLoc);
