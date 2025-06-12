@@ -28,6 +28,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [admin, setAdmin] = useState(null);
   const [error, setError] = useState(null); // General error state for context
+  const [token , setToken] = useState(null);
 
   // --- Location Constants ---
   const USER_LOCATION_KEY = "user_preferred_location_v2";
@@ -173,12 +174,24 @@ export const AuthProvider = ({ children }) => {
 
   // --- Effects ---
 
-  useEffect(() => {
+ useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
-    if (storedUser && token) {
-      setUser(JSON.parse(storedUser));
-      setIsLoggedIn(true);
+    const storedToken = localStorage.getItem("token"); // Changed variable name for clarity
+
+    if (storedUser && storedToken) { // Use storedToken here
+      try {
+        setUser(JSON.parse(storedUser));
+        setToken(storedToken); // <-- ADD THIS LINE to set the token state
+        setIsLoggedIn(true);
+      } catch (e) {
+        console.error("Failed to parse stored user or token:", e);
+        // Optionally clear localStorage if parsing fails to prevent infinite errors
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        setUser(null);
+        setToken(null);
+        setIsLoggedIn(false);
+      }
     }
     setLoading(false);
   }, []);
@@ -518,6 +531,7 @@ export const AuthProvider = ({ children }) => {
 
         // Auth
         user,
+        token,
         loading,
         setUser,
         isLoggedIn,
