@@ -19,7 +19,7 @@ router
 
 router
     .route('/me/addresses/:addressId')
-    .patch(userController.updateAddress) // This is for general updates to an address
+    .put(userController.updateAddress) // This is for general updates to an address
     .delete(userController.deleteAddress);
 
 // NEW ROUTE FOR SETTING DEFAULT ADDRESS

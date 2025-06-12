@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AuthContext } from "../../Context/Context"; // Assuming AuthContext provides user login status and now selectedLocation
 import { useNavigate } from "react-router-dom";
 import { HeroSlider } from "../HeroSlider/HeroSlider";
+import { ToastContainer } from "react-toastify";
 
 const ShoppingPage = () => {
   const [categories, setCategories] = useState([]);
@@ -198,6 +199,7 @@ const ShoppingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
       <HeroSlider />
+      <ToastContainer position="top-center"/>
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">

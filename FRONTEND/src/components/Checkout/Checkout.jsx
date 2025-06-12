@@ -99,9 +99,7 @@ const Checkout = () => {
           selectedLocation.city.slice(1),
         state: "Maharashtra", // Assuming this is always true for your current location. Adjust if needed.
       }));
-      toast.info(
-        `New address form pre-filled with "${selectedLocation.city}" from your current location.`
-      );
+      
     }
   }, [selectedLocation, showAddressForm, editingAddressId]); // Dependencies
 

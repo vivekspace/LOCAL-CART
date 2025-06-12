@@ -401,11 +401,5 @@ exports.deleteProduct = async (req, res) => {
 };
 
 // At the very bottom of productController.js, before module.exports
-console.log('productController exports:', {
-    getAllProducts: typeof exports.getAllProducts,
-    createProduct: typeof exports.createProduct,
-    getProductById: typeof exports.getProductById,
-    updateProduct: typeof exports.updateProduct,
-    deleteProduct: typeof exports.deleteProduct,
-});
+
 

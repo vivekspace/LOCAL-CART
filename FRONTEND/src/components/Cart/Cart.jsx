@@ -8,6 +8,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
 
 const CartPage = () => {
   const { cartItems, setCartItems } = useContext(AuthContext);
@@ -75,6 +76,7 @@ const CartPage = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen py-8">
+      <ToastContainer/>
       <div className="container mx-auto px-4 max-w-6xl">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 flex items-center">
