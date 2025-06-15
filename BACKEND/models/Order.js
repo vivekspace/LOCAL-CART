@@ -11,11 +11,10 @@ const orderSchema = new mongoose.Schema({
     },
 
     customerDetails: {
-        firstname: String, // From user's provided schema
-        lastname: String,  // From user's provided schema
-        email: { type: String, required: true },
+        firstname: String,
+        lastname: String,
+        email: { type: String, required: true }, // REQUIRED
         phone: String,
-
     },
     cartItems: [{
         productId: { type: Schema.Types.ObjectId, required: true, ref: 'Product' },
@@ -50,11 +49,11 @@ const orderSchema = new mongoose.Schema({
     },
     // ADDED SHIPPING ADDRESS SCHEMA DEFINITION
     shippingAddress: {
-        name: { type: String }, // Optional: If you want to store recipient name
-        street: { type: String, required: true }, // Mapped from frontend's addressLine1
+        name: { type: String },
+        street: { type: String, required: true }, // REQUIRED
         city: { type: String, required: true },
         state: { type: String, required: true },
-        zip: { type: String, required: true }, // Mapped from frontend's pincode
+        zip: { type: String, required: true },     // REQUIRED
         country: { type: String, required: true, default: 'India' },
     },
 
@@ -88,7 +87,7 @@ orderSchema.pre('save', function (next) {
 
 // --- ADDED THIS STATIC METHOD TO YOUR ORDER MODEL ---
 // This method updates the status within the paymentDetails object
-orderSchema.statics.updateStatus = async function(orderId, newStatus) {
+orderSchema.statics.updateStatus = async function (orderId, newStatus) {
     try {
         // Find the order by its _id (MongoDB's default unique identifier)
         // Frontend sends selectedOrder._id, which is the MongoDB document _id
