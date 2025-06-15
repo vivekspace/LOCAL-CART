@@ -59,31 +59,33 @@ const Checkout = () => {
 
   // --- Helper to prefill form fields from an address object (Memoized) ---
   // Using useCallback because it's a dependency of useEffect for fetching addresses
-  const prefillFormWithAddress = useCallback((address) => {
-    if (!address) return;
+  const prefillFormWithAddress = useCallback(
+    (address) => {
+      if (!address) return;
 
-    const nameParts = address.name ? address.name.split(" ") : [];
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.slice(1).join(" ") || "";
+      const nameParts = address.name ? address.name.split(" ") : [];
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
 
-    setFormData({
-      firstname: firstName,
-      lastname: lastName,
-      phone: address.phone || "",
-      street: address.street || "", // Maps to address.street
-      apartment: address.apartment || "", // Maps to address.apartment
-      city: address.city || "",
-      zipCode: address.zipCode || "", // Maps to address.zipCode
-      email: user?.email || "",
-      state: address.state || "Maharashtra",
-    });
-  }, [user?.email]); // Dependency on user.email for email pre-fill
+      setFormData({
+        firstname: firstName,
+        lastname: lastName,
+        phone: address.phone || "",
+        street: address.street || "", // Maps to address.street
+        apartment: address.apartment || "", // Maps to address.apartment
+        city: address.city || "",
+        zipCode: address.zipCode || "", // Maps to address.zipCode
+        email: user?.email || "",
+        state: address.state || "Maharashtra",
+      });
+    },
+    [user?.email]
+  ); // Dependency on user.email for email pre-fill
 
   // --- Effects ---
 
   // Effect to populate form from selectedLocation (geolocation) for NEW addresses
   useEffect(() => {
-   
     if (
       showAddressForm && // The address form is visible
       !editingAddressId && // Not currently editing an existing address
@@ -99,7 +101,6 @@ const Checkout = () => {
           selectedLocation.city.slice(1),
         state: "Maharashtra", // Assuming this is always true for your current location. Adjust if needed.
       }));
-      
     }
   }, [selectedLocation, showAddressForm, editingAddressId]); // Dependencies
 
@@ -311,17 +312,20 @@ const Checkout = () => {
         if (selectedAddressId === addressId) {
           setSelectedAddressId("");
           // If there are other addresses, select the first one; otherwise, show the form
-          if (savedAddresses.length - 1 > 0) { // Check if any addresses left
-              setSelectedAddressId(savedAddresses[0]._id);
-              prefillFormWithAddress(savedAddresses[0]);
-              setShowAddressForm(false);
+          if (savedAddresses.length - 1 > 0) {
+            // Check if any addresses left
+            setSelectedAddressId(savedAddresses[0]._id);
+            prefillFormWithAddress(savedAddresses[0]);
+            setShowAddressForm(false);
           } else {
-              setShowAddressForm(true);
-              handleAddNewAddress(); // Re-initialize form for a new address
+            setShowAddressForm(true);
+            handleAddNewAddress(); // Re-initialize form for a new address
           }
         }
       } else {
-        const errorData = await response.json().catch(() => ({ message: "No error body" }));
+        const errorData = await response
+          .json()
+          .catch(() => ({ message: "No error body" }));
         toast.error(errorData.message || "Failed to delete address");
       }
     } catch (error) {
@@ -342,14 +346,15 @@ const Checkout = () => {
     try {
       // Assuming your backend expects a PATCH to /api/users/me/addresses/:id/default
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/users/me/addresses/${addressId}/default`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/users/me/addresses/${addressId}/default`,
         {
           method: "PATCH", // Or "PUT" if your API uses that
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json", // Often needed for PATCH/PUT
           },
-         
         }
       );
       console.log("Set default address response:", response);
@@ -364,8 +369,14 @@ const Checkout = () => {
         setSelectedAddressId(addressId); // Ensure the newly defaulted address is selected
         toast.success("Default address updated successfully!");
       } else {
-        const errorData = await response.json().catch(() => ({ message: "No error body" }));
-        console.error("Failed to set default address API response:", response.status, errorData);
+        const errorData = await response
+          .json()
+          .catch(() => ({ message: "No error body" }));
+        console.error(
+          "Failed to set default address API response:",
+          response.status,
+          errorData
+        );
         toast.error(errorData.message || "Failed to set default address");
       }
     } catch (error) {
@@ -438,7 +449,9 @@ const Checkout = () => {
       };
 
       const url = editingAddressId
-        ? `${import.meta.env.VITE_API_URL}/api/users/me/addresses/${editingAddressId}`
+        ? `${
+            import.meta.env.VITE_API_URL
+          }/api/users/me/addresses/${editingAddressId}`
         : `${import.meta.env.VITE_API_URL}/api/users/me/addresses`;
 
       const method = editingAddressId ? "PUT" : "POST"; // Use PUT for update, POST for create
@@ -453,8 +466,12 @@ const Checkout = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "No error body" }));
-        throw new Error(errorData.message || "Failed to save address from server.");
+        const errorData = await response
+          .json()
+          .catch(() => ({ message: "No error body" }));
+        throw new Error(
+          errorData.message || "Failed to save address from server."
+        );
       }
 
       const data = await response.json();
@@ -524,66 +541,91 @@ const Checkout = () => {
         return;
       }
     }
-    // Handle guest users or when a new address was just added/edited by a logged-in user
-    // The `selectedAddressId` should now be set if a new address was just saved.
 
     let finalAddressForOrder = null;
     if (selectedAddressId) {
-        finalAddressForOrder = savedAddresses.find(addr => addr._id === selectedAddressId);
+      finalAddressForOrder = savedAddresses.find(
+        (addr) => addr._id === selectedAddressId
+      );
     }
 
     // If no saved/selected address (e.g., guest user filling form)
-    if (!finalAddressForOrder && showAddressForm && !user) { // Only create temp if guest and form is shown
-        finalAddressForOrder = {
-            _id: "temp-" + Date.now(),
-            name: `${formData.firstname} ${formData.lastname}`.trim(),
-            street: formData.street, // Corrected field name
-            apartment: formData.apartment, // Corrected field name
-            city: formData.city,
-            state: formData.state,
-            zipCode: formData.zipCode, // Corrected field name
-            phone: formData.phone,
-            isDefault: true,
-        };
-        // No need to setSavedAddresses for temp, it's just for this order session
+    if (!finalAddressForOrder && showAddressForm && !user) {
+      // Only create temp if guest and form is shown.
+      // Also, use the `formData` directly for the temporary address as it holds the current user input.
+      finalAddressForOrder = {
+        _id: "temp-" + Date.now(),
+        name: `${formData.firstname} ${formData.lastname}`.trim(),
+        street: formData.street,
+        apartment: formData.apartment,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode, // Use zipCode here from formData
+        phone: formData.phone,
+        isDefault: true,
+      };
     }
 
     if (!finalAddressForOrder) {
-        toast.error("Please select or add a shipping address.");
-        setIsSubmitting(false);
-        return;
+      toast.error("Please select or add a shipping address.");
+      setIsSubmitting(false);
+      return;
     }
 
-
+    // --- CRITICAL FIX: Construct orderData to match backend schema ---
     const orderData = {
       customerDetails: {
-        firstName: finalAddressForOrder.name.split(" ")[0], // Extract from full name
-        lastName: finalAddressForOrder.name.split(" ").slice(1).join(" "), // Extract from full name
-        phone: finalAddressForOrder.phone,
-        addressLine1: finalAddressForOrder.street, // Use street from the selected/final address
-        addressLine2: finalAddressForOrder.apartment, // Use apartment from the selected/final address
-        city: finalAddressForOrder.city,
-        pincode: finalAddressForOrder.zipCode, // Use zipCode from the selected/final address
+        // Ensure these match the schema (firstname, lastname, email, phone)
+        firstname: formData.firstname, // Use formData directly as it's updated from selected/temp address
+        lastname: formData.lastname, // Use formData directly
+        phone: formData.phone, // Use formData directly
         email: formData.email.toLowerCase().trim(), // Email from form data
-        state: finalAddressForOrder.state,
+      },
+      shippingAddress: {
+        // Ensure these match the schema (name, street, apartment, city, state, zip, country)
+        name: `${formData.firstname} ${formData.lastname}`.trim(), // Combined name for shipping address
+        street: formData.street,
+        apartment: formData.apartment,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zipCode, // Mapped frontend `zipCode` to backend `zip`
+        country: finalAddressForOrder.country || "India", // Assuming a default or from fetched address
       },
       cartItems: cart.map((item) => ({
-        productId: item._id, // Use item._id consistently
+        productId: item._id,
         name: item.name,
         quantity: item.quantity,
         price: item.price,
-        // Ensure seller/vendor ID is correctly passed based on your product structure
         seller: item.seller?._id || item.vendorId || item.sellerId,
       })),
-      shippingMethod,
-      totalPrice: totalPrice,
-      orderDate: new Date().toISOString(),
+      shippingMethod, // This is fine as a top-level field for now if your backend supports it,
+      // otherwise it needs to be integrated into paymentDetails or a new shippingDetails object
+      // NOTE: Your backend schema currently has shippingCost, tax, subtotal, discount, totalAmount directly under the order, not within paymentDetails
+      subtotal: subtotal,
+      shippingCost: shippingCost,
+      // Assuming 0 tax and discount for now, you'll need to calculate these if applicable
+      tax: 0,
+      discount: 0,
+      totalAmount: totalPrice,
+      // orderDate is often handled by createdAt timestamp in backend, so you might not need to send this
     };
+
+    // Log the constructed orderData to verify before navigation
+    console.log("Order Data being sent to payment:", orderData);
 
     navigate("/payment", {
       state: {
-        orderData,
-        formData: orderData.customerDetails, // Pass the processed customerDetails
+        orderData: orderData, // Pass the fully constructed orderData
+        // If the Payment component needs form data, pass the refined customerDetails and shippingAddress separately if needed,
+        // but `orderData` should be the primary payload for order creation.
+        formData: {
+          // This `formData` is for the payment page to display customer/shipping info
+          customerName: `${orderData.customerDetails.firstname} ${orderData.customerDetails.lastname}`,
+          customerEmail: orderData.customerDetails.email,
+          customerPhone: orderData.customerDetails.phone,
+          shippingAddressFull: formatFullAddress(orderData.shippingAddress), // Use your existing formatter
+          // Add any other specific fields the payment page needs from `orderData`
+        },
       },
     });
     setIsSubmitting(false);
@@ -816,7 +858,7 @@ const Checkout = () => {
                             type="text"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition"
                             name="firstname"
-                            value={formData.name}
+                            value={formData.firstname}
                             onChange={handleChange}
                             required
                           />

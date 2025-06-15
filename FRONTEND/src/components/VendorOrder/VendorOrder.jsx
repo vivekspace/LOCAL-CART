@@ -14,6 +14,7 @@ import {
   FiPrinter,
   FiDownload,
   FiTruck,
+  FiAlertCircle,
 } from "react-icons/fi";
 
 const OrderPage = () => {
@@ -22,6 +23,12 @@ const OrderPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [currentOrderToUpdate, setCurrentOrderToUpdate] = useState(null);
+  const [newOrderStatus, setNewOrderStatus] = useState("");
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -37,17 +44,79 @@ const OrderPage = () => {
           headers: { Authorization: `Bearer ${vendorToken}` },
         }
       );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setOrders(data);
     } catch (err) {
       console.error("Failed to load orders", err);
+      // Optionally, set an error state here to display to the user
     } finally {
       setLoading(false);
       if (showRefresh) setRefreshing(false);
     }
   };
 
+  const handleUpdateStatusClick = (order) => {
+    setCurrentOrderToUpdate(order);
+    setNewOrderStatus(order.paymentStatus); // Pre-fill with current status
+    setUpdateError(null);
+    setUpdateSuccess(false);
+    setShowUpdateModal(true);
+  };
+
+  const handleUpdateOrderStatus = async () => {
+    // Make sure currentOrderToUpdate and newOrderStatus are available
+    if (!currentOrderToUpdate || !newOrderStatus) return;
+
+    setUpdateLoading(true);
+    setUpdateError(null);
+    setUpdateSuccess(false);
+
+    try {
+      const vendorToken = localStorage.getItem("vendorToken");
+      const response = await fetch(
+        // **THIS IS THE CRUCIAL CHANGE:** Use currentOrderToUpdate._id
+        `${import.meta.env.VITE_API_URL}/api/vendor/orders/${currentOrderToUpdate._id}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${vendorToken}`,
+          },
+          body: JSON.stringify({ status: newOrderStatus }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update order status");
+      }
+
+      // Update the order in the local state immediately
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order._id === currentOrderToUpdate._id // Use _id for comparison here too
+            ? { ...order, paymentStatus: newOrderStatus }
+            : order
+        )
+      );
+      setUpdateSuccess(true);
+      setTimeout(() => {
+        setShowUpdateModal(false);
+        setCurrentOrderToUpdate(null);
+      }, 1500); // Close modal after 1.5 seconds
+    } catch (err) {
+      console.error("Error updating order status:", err);
+      setUpdateError(err.message || "An unexpected error occurred.");
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
   const filteredOrders = orders.filter((order) => {
+    // You can still use orderId for search and display, as it's for UI purposes
     const orderId = order?.orderId || "";
     const customerName = order?.customer || "";
 
@@ -88,6 +157,18 @@ const OrderPage = () => {
         text: "text-white",
         icon: RefreshCw,
         label: "Processing",
+      },
+      shipped: {
+        bg: "bg-gradient-to-r from-purple-400 to-indigo-500",
+        text: "text-white",
+        icon: FiTruck,
+        label: "Shipped",
+      },
+      cancelled: {
+        bg: "bg-gradient-to-r from-gray-400 to-gray-500",
+        text: "text-white",
+        icon: X,
+        label: "Cancelled",
       },
     };
 
@@ -257,6 +338,8 @@ const OrderPage = () => {
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
                 <option value="processing">Processing</option>
+                <option value="shipped">Shipped</option>
+                <option value="cancelled">Cancelled</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <FiChevronDown className="text-gray-400 w-5 h-5" />
@@ -282,7 +365,7 @@ const OrderPage = () => {
           ) : (
             filteredOrders.map((order, index) => (
               <div
-                key={order.orderId}
+                key={order._id} // Using _id as key is generally safer for MongoDB data
                 className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
@@ -291,7 +374,7 @@ const OrderPage = () => {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="bg-gradient-to-r from-green-600 to-green-600 text-white px-3 py-1 rounded-lg text-sm font-semibold">
-                        #{order.orderId.substring(order.orderId.length - 8)}
+                        #{order.orderId} {/* Display the short orderId here */}
                       </div>
                       {order.paymentStatus &&
                         getStatusBadge(order.paymentStatus)}
@@ -303,7 +386,7 @@ const OrderPage = () => {
                       </div>
                       <div className="flex items-center space-x-1">
                         <FiCalendar className="w-4 h-4" />
-                        <span>{new Date(order.date).toLocaleDateString()}</span>
+                        <span>{new Date(order.orderDate).toLocaleDateString()}</span> {/* Changed to orderDate */}
                       </div>
                     </div>
                   </div>
@@ -330,7 +413,7 @@ const OrderPage = () => {
                         <div className="flex justify-between">
                           <span className="text-gray-600">Shipping:</span>
                           <span className="font-medium">
-                            ₹{order.shipping?.toFixed(2) || "0.00"}
+                            ₹{order.shippingCharge?.toFixed(2) || "0.00"} {/* Changed to shippingCharge */}
                           </span>
                         </div>
                         <div className="flex justify-between pt-2 border-t border-blue-200">
@@ -338,7 +421,7 @@ const OrderPage = () => {
                             Total:
                           </span>
                           <span className="font-bold text-green-600">
-                            ₹{order.total?.toFixed(2) || "0.00"}
+                            ₹{order.totalAmount?.toFixed(2) || "0.00"} {/* Changed to totalAmount */}
                           </span>
                         </div>
                       </div>
@@ -378,7 +461,7 @@ const OrderPage = () => {
                         <div className="flex justify-between">
                           <span className="text-gray-600">Created:</span>
                           <span className="font-medium">
-                            {new Date(order.date).toLocaleDateString()}
+                            {new Date(order.orderDate).toLocaleDateString()} {/* Changed to orderDate */}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -469,12 +552,14 @@ const OrderPage = () => {
                       <FiDownload className="w-4 h-4 mr-2" />
                       Download
                     </button>
-                    {order.paymentStatus === "pending" && (
-                      <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl shadow-sm text-white bg-gradient-to-r from-green-600 to-green-600 hover:from-green-700 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200">
-                        <FiTruck className="w-4 h-4 mr-2" />
-                        Update Status
-                      </button>
-                    )}
+                    {/* Update Status Button */}
+                    <button
+                      onClick={() => handleUpdateStatusClick(order)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl shadow-sm text-white bg-gradient-to-r from-green-600 to-green-600 hover:from-green-700 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
+                    >
+                      <FiTruck className="w-4 h-4 mr-2" />
+                      Update Status
+                    </button>
                   </div>
                 </div>
               </div>
@@ -482,6 +567,102 @@ const OrderPage = () => {
           )}
         </div>
       </div>
+
+      {/* Update Order Status Modal */}
+      {showUpdateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+          <div className="relative p-8 bg-white rounded-2xl shadow-xl max-w-md mx-auto animate-fade-in-up">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              Update Order Status
+            </h3>
+            <button
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowUpdateModal(false)}
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {currentOrderToUpdate && (
+              <div className="mb-6">
+                <p className="text-gray-700 mb-2">
+                  Order ID:{" "}
+                  <span className="font-semibold">
+                    #{currentOrderToUpdate.orderId} {/* Display the human-readable orderId */}
+                  </span>
+                </p>
+                <p className="text-gray-700 mb-4">
+                  Customer:{" "}
+                  <span className="font-semibold">
+                    {currentOrderToUpdate.customer}
+                  </span>
+                </p>
+
+                <label
+                  htmlFor="order-status"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  New Status
+                </label>
+                <div className="relative">
+                  <select
+                    id="order-status"
+                    className="block w-full pl-4 pr-10 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 appearance-none transition-all duration-200"
+                    value={newOrderStatus}
+                    onChange={(e) => setNewOrderStatus(e.target.value)}
+                    disabled={updateLoading}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <FiChevronDown className="text-gray-400 w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {updateError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative mb-4" role="alert">
+                <span className="block sm:inline">{updateError}</span>
+              </div>
+            )}
+
+            {updateSuccess && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl relative mb-4" role="alert">
+                <span className="block sm:inline">Order status updated successfully!</span>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                className="px-5 py-2 border border-gray-300 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
+                onClick={() => setShowUpdateModal(false)}
+                disabled={updateLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center px-5 py-2 border border-transparent text-sm font-medium rounded-xl shadow-sm text-white bg-gradient-to-r from-green-600 to-green-600 hover:from-green-700 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleUpdateOrderStatus}
+                disabled={updateLoading}
+              >
+                {updateLoading ? (
+                  <RefreshCw className="animate-spin w-4 h-4 mr-2" />
+                ) : (
+                  <FiCheck className="w-4 h-4 mr-2" />
+                )}
+                {updateLoading ? "Updating..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

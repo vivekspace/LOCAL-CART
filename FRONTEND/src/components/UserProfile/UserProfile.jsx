@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { AuthContext } from "../../Context/Context";
 
-
 const ProfilePage = () => {
   const { user, setUser, isLoggedIn } = useContext(AuthContext);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -28,7 +27,7 @@ const ProfilePage = () => {
   const [submittingChanges, setSubmittingChanges] = useState(false);
   const [orders, setOrders] = useState([]);
   const [addresses, setAddresses] = useState([]);
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   // Separate forms for profile and address
   const profileForm = useForm({
     mode: "onChange",
@@ -177,14 +176,9 @@ const ProfilePage = () => {
   const onSubmitAddress = async (data) => {
     setSubmittingChanges(true);
     try {
-      // Combine address fields into a single fullAddress string
-      const fullAddress = `${data.street}, ${
-        data.apartment ? data.apartment + ", " : ""
-      }${data.city}, ${data.state} ${data.zipCode}`;
-
       const addressData = {
         name: data.name,
-        fullAddress,
+        // fullAddress,
         street: data.street,
         apartment: data.apartment,
         city: data.city,
@@ -281,7 +275,7 @@ const ProfilePage = () => {
             Please log in to view your profile.
           </p>
           <button
-            onClick={navigate('/login')}
+            onClick={navigate("/login")}
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition"
           >
             Go to Login
@@ -463,7 +457,9 @@ const ProfilePage = () => {
                             {address.name}
                           </h3>
                           <p className="text-gray-600 mt-1 text-sm">
-                            {address.fullAddress}
+                            {address.street}
+                            {address.apartment && `, ${address.apartment}`},{" "}
+                            {address.city}, {address.state} {address.zipCode}{" "}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -545,7 +541,7 @@ const ProfilePage = () => {
                     localStorage.removeItem("token");
                     setUser(null);
                     toast.info("You have been logged out.");
-                    navigate('/login')
+                    navigate("/login");
                   }}
                   className="w-full text-left flex justify-between items-center p-3 hover:bg-red-50 rounded-lg transition text-red-600 font-medium group"
                 >

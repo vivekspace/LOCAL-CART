@@ -108,16 +108,56 @@ const PaymentPage = () => {
     const errors = {};
     const cleanNumber = cardDetails.number.replace(/\s/g, "");
 
-    if (!cleanNumber.match(/^\d{16}$/)) {
+    // Card number validation
+    if (!cleanNumber) {
+      errors.number = "Card number is required";
+    } else if (!cleanNumber.match(/^\d{16}$/)) {
       errors.number = "Invalid card number (16 digits required)";
     }
-    // ... other validations
+
+    // Expiry validation
+    if (!cardDetails.expiry) {
+      errors.expiry = "Expiry date is required";
+    } else if (!cardDetails.expiry.match(/^\d{2}\/\d{2}$/)) {
+      errors.expiry = "Invalid expiry format (MM/YY)";
+    } else {
+      const [month, year] = cardDetails.expiry.split("/");
+      const currentYear = new Date().getFullYear() % 100;
+      const currentMonth = new Date().getMonth() + 1;
+
+      if (parseInt(month) < 1 || parseInt(month) > 12) {
+        errors.expiry = "Invalid month";
+      } else if (
+        parseInt(year) < currentYear ||
+        (parseInt(year) === currentYear && parseInt(month) < currentMonth)
+      ) {
+        errors.expiry = "Card has expired";
+      }
+    }
+
+    // CVC validation
+    if (!cardDetails.cvc) {
+      errors.cvc = "Security code is required";
+    } else if (!cardDetails.cvc.match(/^\d{3,4}$/)) {
+      errors.cvc = "Invalid security code (3-4 digits)";
+    }
+
+    // Name validation
+    if (!cardDetails.name.trim()) {
+      errors.name = "Cardholder name is required";
+    } else if (cardDetails.name.trim().length < 2) {
+      errors.name = "Name must be at least 2 characters";
+    }
+
+    console.log("Card validation errors:", errors);
     setCardErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   // 9. Data Validation Effect
   useEffect(() => {
+    console.log("PaymentPage received formData:", formData);
+    console.log("PaymentPage received orderData:", orderData);
     if (!orderData || !formData || !cartItems.length) {
       toast.error("Missing order information. Redirecting to checkout...");
       navigate("/checkout");
@@ -130,28 +170,149 @@ const PaymentPage = () => {
   const formatExpiry = (value) =>
     value.replace(/\D/g, "").replace(/(\d{2})(?=\d)/g, "$1/");
 
+  //10.1 validateformdata
+
+  const validateFormData = () => {
+    console.log("=== FORM DATA VALIDATION ===");
+    // Use orderData for validation as it contains structured details
+    const customerDetails = orderData?.customerDetails;
+    const shippingAddress = orderData?.shippingAddress;
+
+    if (!customerDetails) {
+      toast.error("Missing customer information");
+      return false;
+    }
+    if (!shippingAddress) {
+      toast.error("Missing shipping address information");
+      return false;
+    }
+
+    const missingFields = [];
+
+    // Validate customer details
+    const requiredCustomerFields = ["email", "firstname", "lastname", "phone"];
+    requiredCustomerFields.forEach((field) => {
+      if (!customerDetails[field]) {
+        missingFields.push(`customerDetails.${field}`);
+      }
+    });
+
+    // Validate shipping address
+    const requiredShippingFields = ["street", "city", "state", "zip"]; // Assuming 'zip' for pincode
+    requiredShippingFields.forEach((field) => {
+      if (!shippingAddress[field]) {
+        missingFields.push(`shippingAddress.${field}`);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      console.error("Missing required fields:", missingFields);
+      toast.error(`Missing required fields: ${missingFields.join(", ")}`);
+      return false;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(customerDetails.email)) {
+      toast.error("Please enter a valid email address");
+      return false;
+    }
+
+    return true;
+  };
+
   // 11. Main Payment Handler
   const handlePayment = async () => {
-    // Validation checks
-    if (!orderData || !formData || !cartItems.length) {
-      toast.error("Missing order information");
+    console.log("=== PAYMENT PROCESS STARTED ===");
+    console.log("Order Data:", orderData);
+    console.log("Form Data:", formData);
+    console.log("Cart Items:", cartItems);
+    console.log("Selected Payment:", selectedPayment);
+
+    // Enhanced validation with detailed logging
+    if (
+      !orderData ||
+      !orderData.customerDetails ||
+      !orderData.shippingAddress
+    ) {
+      console.error("Missing essential order details");
+      toast.error("Missing essential order information.");
       return;
     }
 
-    if (selectedPayment === "card" && !validateCard()) {
-      toast.error("Please fix card errors");
+    // --- New Validation based on orderData structure ---
+    const requiredCustomerFields = ["email", "firstname", "lastname", "phone"];
+    const missingCustomerFields = requiredCustomerFields.filter(
+      (field) => !orderData.customerDetails[field]
+    );
+    if (missingCustomerFields.length > 0) {
+      toast.error(
+        `Missing customer details: ${missingCustomerFields.join(", ")}`
+      );
       return;
     }
 
+    const requiredShippingFields = ["street", "city", "state", "zip"]; // Using 'zip' as per your orderData
+    const missingShippingFields = requiredShippingFields.filter(
+      (field) => !orderData.shippingAddress[field]
+    );
+    if (missingShippingFields.length > 0) {
+      toast.error(
+        `Missing shipping address details: ${missingShippingFields.join(", ")}`
+      );
+      return;
+    } // --- End New Validation ---
+    if (!cartItems.length) {
+      console.error("Empty cart items");
+      toast.error("Cart is empty");
+      return;
+    }
+
+    if (!validateFormData()) {
+      // ✅ NEW: Enhanced form validation
+      return;
+    }
+
+    if (!cartItems.length) {
+      console.error("Empty cart items");
+      toast.error("Cart is empty");
+      return;
+    }
+
+    // Card validation with detailed logging
+    if (selectedPayment === "card") {
+      console.log("Validating card details:", cardDetails);
+      const isCardValid = validateCard();
+      console.log("Card validation result:", isCardValid);
+
+      if (!isCardValid) {
+        console.error("Card validation failed:", cardErrors);
+        toast.error("Please fix card errors");
+        return;
+      }
+    }
+
+    // Bank transfer validation
+    if (selectedPayment === "bank_transfer" && !bankReceipt) {
+      toast.error("Please upload payment receipt for bank transfer");
+      return;
+    }
+
+    console.log("All validations passed, starting payment processing...");
     setIsProcessing(true);
 
     try {
+      console.log("Processing payment method:", selectedPayment);
       const paymentResult = await processPaymentMethod(selectedPayment);
+      console.log("Payment result:", paymentResult);
+
+      console.log("Creating order...");
       const orderResponse = await createOrder(paymentResult, "processing");
+      console.log("Order response:", orderResponse);
 
-      // Vendor notification (non-blocking)
-
+      console.log("Payment successful, clearing cart and navigating...");
       clearCart();
+
       navigate("/order-confirmation", {
         state: {
           orderId: orderResponse.orderId,
@@ -160,12 +321,18 @@ const PaymentPage = () => {
         },
       });
     } catch (error) {
+      console.error("Payment process error:", error);
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       toast.error(error.message || "Payment failed. Please try again.");
     } finally {
       setIsProcessing(false);
+      console.log("=== PAYMENT PROCESS ENDED ===");
     }
   };
-
   // 12. Payment Processors
   const processPaymentMethod = async (method) => {
     switch (method) {
@@ -229,6 +396,7 @@ const PaymentPage = () => {
         const parsed = JSON.parse(seller);
         return parsed._id || parsed.id || null; // Ensure null if ID not found in parsed object
       } catch (e) {
+        console.log("Vendor id issue ", e);
         // Not a valid JSON string, and not a direct ID string
         return null;
       }
@@ -238,129 +406,158 @@ const PaymentPage = () => {
     return item.vendor?.id || item.vendorId || null;
   };
 
-   const enhanceCartItemsWithSellerInfo = async (items) => {
-  try {
-    const enhancedItems = await Promise.all(
-      items.map(async (item) => {
-        try {
-          // If seller info is already present, return as is
-          if (item.seller && getVendorId(item)) {
+  const enhanceCartItemsWithSellerInfo = async (items) => {
+    try {
+      const enhancedItems = await Promise.all(
+        items.map(async (item) => {
+          try {
+            // If seller info is already present, return as is
+            if (item.seller && getVendorId(item)) {
+              return item;
+            }
+
+            // Fetch product details to get seller info
+            const productId = item.productId || item._id || item.id;
+            if (productId) {
+              const response = await axios.get(
+                `${import.meta.env.VITE_API_URL}/api/products/${productId}`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                  },
+                }
+              );
+
+              if (response.data && response.data.seller) {
+                return {
+                  ...item,
+                  seller: response.data.seller,
+                };
+              }
+            }
+
+            // Return original item if no seller found
+            return item;
+          } catch (error) {
+            console.error(
+              `Error fetching product details for ${item.name}:`,
+              error
+            );
             return item;
           }
+        })
+      );
 
-          // Fetch product details to get seller info
-          const productId = item.productId || item._id || item.id;
-          if (productId) {
-            const response = await axios.get(
-              `${import.meta.env.VITE_API_URL}/api/products/${productId}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
-              }
-            );
-
-            if (response.data && response.data.seller) {
-              return {
-                ...item,
-                seller: response.data.seller,
-              };
-            }
-          }
-
-          // Return original item if no seller found
-          return item;
-        } catch (error) {
-          console.error(`Error fetching product details for ${item.name}:`, error);
-          return item;
-        }
-      })
-    );
-
-    return enhancedItems;
-  } catch (error) {
-    console.error('Error enhancing cart items:', error);
-    return items; // Return original items if enhancement fails
-  }
-};
-
+      return enhancedItems;
+    } catch (error) {
+      console.error("Error enhancing cart items:", error);
+      return items; // Return original items if enhancement fails
+    }
+  };
 
   // 14. Order Creation
   const createOrder = async (paymentResult, orderStatus) => {
-    // Enhance cart items before creating order
-    const enhancedCartItems = await enhanceCartItemsWithSellerInfo(cartItems);
+    try {
+      console.log("=== CREATE ORDER DEBUG ===");
+      console.log("formData received:", formData);
+      console.log("formData.email:", formData?.email);
 
-    const orderPayload = {
-      customerDetails: {
-        ...formData,
-        email: formData.email.toLowerCase().trim(),
-      },
-      cartItems: enhancedCartItems.map((item) => {
-        const sellerId = getVendorId(item);
+      // Enhanced cart items
+      const enhancedCartItems = await enhanceCartItemsWithSellerInfo(cartItems);
 
-        
+      // Safe email handling
+      const safeEmail = formData?.customerEmail
+        ? formData.customerEmail.toLowerCase().trim()
+        : "";
 
-        // Debug logging
-        console.log("Processing item:", item.name);
-        console.log("Seller ID extracted:", sellerId);
-
-        if (!sellerId) {
-          console.warn(`No seller ID found for item: ${item.name}`);
-        }
-
-        return {
-          productId: item.productId || item._id || item.id,
-          name: item.name,
-          quantity: item.quantity || 1,
-          price: item.price,
-          seller: sellerId, // Only use seller, remove vendorId
-          // Remove vendorId: getVendorId(item), as backend expects 'seller'
-        };
-      }),
-      paymentDetails: {
-        method: paymentResult.method,
-        status: paymentResult.status,
-        amount: finalTotal,
-        transactionId: paymentResult.transactionId,
-      },
-      shipping: {
-        method: orderData?.shippingMethod || "standard",
-        cost: shippingCost,
-        address: {
-          line1: formData.addressLine1,
-          line2: formData.addressLine2 || "",
-          city: formData.city,
-          state: formData.state,
-          pincode: formData.pincode,
-          country: formData.country || "India", // Add country
-        },
-      },
-      pricing: {
-        subtotal: totalPrice,
-        tax,
-        shipping: shippingCost,
-        total: finalTotal,
-      },
-      orderStatus,
-    };
-
-    console.log(
-      "Order payload being sent:",
-      JSON.stringify(orderPayload, null, 2)
-    );
-
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/orders`,
-      orderPayload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+      if (!safeEmail) {
+        throw new Error("Customer email is required but not provided");
       }
-    );
 
-    return response.data;
+      const orderPayload = {
+        customerDetails: {
+          email: orderData.customerDetails.email, // Ensure this matches your schema's field name (email)
+          firstname: orderData.customerDetails.firstname, // Match backend schema (firstname)
+          lastname: orderData.customerDetails.lastname, // Match backend schema (lastname)
+          phone: orderData.customerDetails.phone,
+        },
+        cartItems: enhancedCartItems.map((item) => {
+          const sellerId = getVendorId(item);
+          return {
+            productId: item.productId || item._id || item.id,
+            name: item.name,
+            quantity: item.quantity || 1,
+            price: item.price,
+            seller: sellerId,
+          };
+        }),
+        paymentDetails: {
+          method: paymentResult.method,
+          status: paymentResult.status,
+          amount: finalTotal,
+          transactionId: paymentResult.transactionId,
+        },
+        shipping: {
+          method: orderData?.shippingMethod || "standard",
+          cost: shippingCost, // Make sure this is consistent with backend's expectation or calculated on backend
+          address: {
+            // ✅ FIX: Use orderData.shippingAddress properties here
+            line1: orderData.shippingAddress.street, // This should be populated from Checkout.jsx's orderData
+            line2: orderData.shippingAddress.apartment || "", // Use apartment if available, or keep as empty string
+            city: orderData.shippingAddress.city,
+            state: orderData.shippingAddress.state,
+            pincode: orderData.shippingAddress.zip, // This should be populated from Checkout.jsx's orderData
+            country: orderData.shippingAddress.country || "India",
+          },
+        },
+        pricing: {
+          subtotal: totalPrice,
+          tax,
+          shipping: shippingCost,
+          total: finalTotal,
+        },
+        orderStatus,
+      };
+      console.log(
+        "Order payload being sent:",
+        JSON.stringify(orderPayload, null, 2)
+      );
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Authentication token not found. Please login again.");
+      }
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/orders`,
+        orderPayload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          timeout: 30000,
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("Order creation error:", error);
+
+      if (error.response) {
+        console.error("Server error response:", error.response.data);
+        throw new Error(
+          error.response.data.message ||
+            `Server error: ${error.response.status}`
+        );
+      } else if (error.request) {
+        console.error("Network error - no response:", error.request);
+        throw new Error("Network error - please check your connection");
+      } else {
+        console.error("Request setup error:", error.message);
+        throw new Error(error.message || "Failed to create order");
+      }
+    }
   };
   // Loading state
   if (!orderData || !formData || !cartItems.length) {
@@ -552,10 +749,7 @@ const PaymentPage = () => {
                         Same as shipping address
                       </span>
                       <span className="block text-sm text-gray-500">
-                        {formData.addressLine1}
-                        {formData.addressLine2 &&
-                          `, ${formData.addressLine2}`}, {formData.city},{" "}
-                        {formData.state} - {formData.pincode}
+                        {formData.shippingAddressFull}
                       </span>
                     </label>
                   </div>
