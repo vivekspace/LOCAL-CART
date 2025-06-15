@@ -4,7 +4,7 @@ const mongoose = require('mongoose'); // Import mongoose for ObjectId validation
 const sharp = require('sharp'); // Import sharp
 const path = require('path'); // Import path for joining directories
 const fs = require('fs'); // Import fs for file system operations (e.g., deleting old files)
-const UniqueLocation = require('../models/uniqueLocation'); // <-- Add this line
+const UniqueLocation = require('../models/uniqueLocation'); 
 
 
 
@@ -176,53 +176,49 @@ exports.createProduct = async (req, res) => {
         // --- NEW UNIQUE LOCATION LOGIC END ---
 
         // --- NEW IMAGE PROCESSING LOGIC FOR createProduct - KEEP AS IS ---
-        const processedImageNames = [];
+       const processedImageNames = [];
         if (req.files && req.files.length > 0) {
             await Promise.all(req.files.map(async (file, index) => {
-                const filename = `productImages-<span class="math-inline">\{Date\.now\(\)\}\-</span>{index}.webp`;
+                const filename = `product-${Date.now()}-${index}.webp`;
                 const outputPath = path.join(__dirname, '../uploads', filename);
 
                 try {
                     await sharp(file.buffer)
-                        .resize(800, 600, {
-                            fit: sharp.fit.inside,
-                            withoutEnlargement: true
-                        })
+                        .resize(800, 600)
                         .webp({ quality: 80 })
                         .toFile(outputPath);
-
                     processedImageNames.push(filename);
                 } catch (sharpError) {
-                    console.error(`Sharp image processing error for file ${file.originalname}:`, sharpError);
+                    console.error(`Image processing error:`, sharpError);
                 }
             }));
         }
-        // --- END NEW IMAGE PROCESSING LOGIC ---
 
-        // 5. Create product - MODIFY req.body to include parsedLocation.city directly
-        // The product schema expects location.city, so we'll pass it explicitly
-        // req.body already has 'city', so make sure it's passed into the final product object
-        const product = await Product.create({
-            ...req.body, // This includes req.body.city and req.body.location (the string or parsed object)
+        // Create product with processed images
+        const productData = {
+            ...req.body,
             seller: req.vendor.id,
-            images: processedImageNames,
-            location: { // Reconstruct the location object to ensure it matches schema
+            location: {
                 type: parsedLocation.type,
                 coordinates: parsedLocation.coordinates,
-                city: req.body.city // Use req.body.city directly as it's validated
+                city: req.body.city
             }
-            // Note: You had `city: req.body.city` outside the location object,
-            // but your schema shows it's inside `location`.
-            // The `location` object now explicitly includes `city`.
-        });
+        };
 
-        // 6. Send response - KEEP AS IS
+        // Only set images if files were processed
+        if (processedImageNames.length > 0) {
+            productData.images = processedImageNames;
+        } else {
+            productData.images = [DEFAULT_PRODUCT_IMAGE];
+        }
+
+        const product = await Product.create(productData);
+
         res.status(201).json({
             status: 'success',
-            data: {
-                product
-            }
+            data: { product }
         });
+
     } catch (err) {
         // Your existing error handling - KEEP AS IS
         if (err.code === 11000) {
@@ -291,10 +287,6 @@ exports.updateProduct = async (req, res) => {
       if (!existingProduct) {
         return sendErrorResponse(res, 404, 'fail', 'Product not found for image update');
       }
-
-      // Decide if you want to replace all old images or append.
-      // For simplicity here, we'll replace them if new files are provided.
-      // If appending, you'd do: newImageNames = [...existingProduct.images];
 
       // Delete old images from disk if replacing
       if (existingProduct.images && existingProduct.images.length > 0) {
