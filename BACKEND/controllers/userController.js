@@ -78,34 +78,34 @@ exports.getAddresses = catchAsync(async (req, res, next) => {
     });
 });
 
-// Function to add a new address for the logged-in user
-exports.addAddress = catchAsync(async (req, res, next) => {
-    console.log('🔥🔥🔥 Hit addAddress controller! 🔥🔥🔥');
-    // Extract individual address fields from req.body
-    const { name, street, apartment, city, state, zipCode } = req.body;
 
-    // Create the new address object matching the updated Mongoose schema
+exports.addAddress = catchAsync(async (req, res, next) => {
+    const { name, street, apartment, city, state, zipCode , phone , isDefault} = req.body;
+
     const newAddressData = {
         name,
         street,
         apartment,
         city,
         state,
-        zipCode
+        phone,
+        zipCode,
+        isDefault
     };
+    console.log('newAddressData:', newAddressData); // Log the constructed address object
 
-    // Find the user
     const user = await User.findById(req.user.id);
     if (!user) {
         return next(new AppError('User not found', 404));
     }
 
-    // Add the new address object to the addresses array
-    user.addresses.push(newAddressData);
+    console.log('User addresses before push:', user.addresses); // Check existing addresses
 
-    // Save the user document. Mongoose will automatically validate the new address sub-document
-    // Removing { validateBeforeSave: false } as we DO want validation for the new address.
-    await user.save(); 
+    user.addresses.push(newAddressData);
+    console.log('User addresses after push:', user.addresses); // Check after push
+
+    await user.save();
+     // <<< Potential issue point for 500 (validation or database error)
 
     res.status(201).json({
         status: 'success',
@@ -157,24 +157,36 @@ exports.updateAddress = catchAsync(async (req, res, next) => {
 });
 
 // Function to delete an address
+// Function to delete an address
 exports.deleteAddress = catchAsync(async (req, res, next) => {
     const { addressId } = req.params;
+    console.log('deleteAddress: addressId from params:', addressId); //
 
     const user = await User.findById(req.user.id);
+    console.log('deleteAddress: user found:', user ? true : false); //
+
     if (!user) {
         return next(new AppError('User not found', 404));
     }
 
-    const address = user.addresses.id(addressId); // Mongoose helper to find sub-document by ID
-    
-    if (!address) {
-        return next(new AppError('Address not found', 404));
+    // --- CHANGE THIS PART ---
+    // Instead of user.addresses.id(addressId).remove(), use .pull()
+    // Check if the address exists before attempting to pull
+    const initialAddressCount = user.addresses.length;
+
+    // Mongoose's .pull() method is designed for removing subdocuments by _id
+    user.addresses.pull({ _id: addressId }); // Pull the subdocument by its _id
+
+    // Check if an address was actually removed
+    if (user.addresses.length === initialAddressCount) {
+         // This means no address with that ID was found and pulled
+         return next(new AppError('Address not found or already deleted', 404));
     }
+    // --- END CHANGE ---
 
-    address.remove(); // Removes the sub-document from the array
-
-    // Save the user document. No need to bypass validation here typically.
+    // Save the user document after modification
     await user.save();
+    console.log('deleteAddress: user saved after removal'); //
 
     res.status(204).json({ // 204 No Content is standard for successful DELETE
         status: 'success',
@@ -182,7 +194,6 @@ exports.deleteAddress = catchAsync(async (req, res, next) => {
         data: null
     });
 });
-
 exports.setAsDefaultAddress = async (req, res, next) => {
   try {
     const { addressId } = req.params;

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose') // Corrected spelling from 'moongose'
 
 // --- ADD THESE IMPORTS ---
 const Product = require('../models/Product');
@@ -19,38 +20,56 @@ const { getVendorDashboard } = require('../controllers/dashboardController');
 const { protectVendor } = require('../middleware/vendorAuth');
 const orderController = require('../controllers/orderController');
 
-// Vendor Auth Routes
+// Vendor Auth Routes (These paths are correct relative to '/api/vendor' prefix)
 router.post('/register', registerVendor);
 router.post('/login', loginVendor);
 
-// Product Routes
+// Product Routes (These paths are correct relative to '/api/vendor' prefix)
 router.post('/products', protectVendor, addProduct);
 router.get('/products', protectVendor, getVendorProducts);
 router.delete('/products/:id', protectVendor, deleteProduct);
-router.get('/orders', protectVendor, orderController.getVendorOrders);
 
-// Dashboard Route
+// Middleware for orderId parameter validation
+// This should also be relative to the router's prefix
+router.param('orderId', (req, res, next, id) => {
+    // Ensure mongoose is correctly imported as 'mongoose' not 'moongose'
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid order ID format'
+        });
+    }
+    next();
+});
+
+// Order Routes (Corrected paths - removed '/vendor' prefix)
+router.get('/orders', protectVendor, orderController.getVendorOrders); // Correct: /api/vendor/orders
+router.put('/orders/:orderId/status', 
+    protectVendor,
+    async (req, res) => {
+        try {
+            const { orderId } = req.params;
+            const { status } = req.body;
+
+            // Update logic here
+            // Assuming Order.updateStatus correctly updates based on orderId and newStatus
+            const updatedOrder = await Order.updateStatus(orderId, status);
+
+            res.json(updatedOrder);
+        } catch (error) {
+            console.error("Error updating order status:", error); // Added console.error for debugging
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+// Dashboard Route (Correct path relative to '/api/vendor' prefix)
 router.get('/dashboard', protectVendor, getVendorDashboard);
 
-
-
-// routes/vendorRoutes.js
+// Analytics Route (Correct path relative to '/api/vendor' prefix)
 router.get('/analytics', protectVendor, async (req, res) => {
     try {
         const vendorId = req.vendor._id;
-       
-
-        // Check what sellers exist in orders
-        const distinctSellers = await Order.distinct('seller');
-        
-
-        // Check if any orders exist at all
-        const totalOrdersInDB = await Order.countDocuments({});
-
-        // Try both ObjectId and string matching
-        const ordersWithObjectId = await Order.countDocuments({ seller: vendorId });
-        const ordersWithString = await Order.countDocuments({ seller: vendorId.toString() });
-       
 
         // Since seller is in cartItems, we need to match orders that have items from this vendor
         const totalRevenueResult = await Order.aggregate([
@@ -68,7 +87,8 @@ router.get('/analytics', protectVendor, async (req, res) => {
             'paymentDetails.status': 'completed'
         });
 
-        // New customers in last 30 days
+        // New customers in last 30 days (This queries all customers, not just vendor-specific customers)
+        // If you need vendor-specific customers, your Customer model or Order model needs to link customers to vendors.
         const newCustomers = await Customer.countDocuments({
             createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
         });
@@ -82,7 +102,7 @@ router.get('/analytics', protectVendor, async (req, res) => {
                     _id: '$cartItems.productId',
                     name: { $first: '$cartItems.name' },
                     totalQuantity: { $sum: '$cartItems.quantity' },
-                    orders: { $sum: 1 }
+                    orders: { $sum: 1 } // Sum of orders where this product appears
                 }
             },
             { $sort: { totalQuantity: -1 } },
@@ -90,7 +110,7 @@ router.get('/analytics', protectVendor, async (req, res) => {
             {
                 $project: {
                     name: 1,
-                    orders: '$totalQuantity',
+                    orders: '$totalQuantity', // Renaming totalQuantity to orders for response consistency
                     _id: 0
                 }
             }
@@ -121,26 +141,29 @@ router.get('/analytics', protectVendor, async (req, res) => {
             }
         ]);
 
+        // Recent orders (last 5) - adjusted to match `cartItems.seller`
         const recentOrders = await Order.aggregate([
-            { $unwind: '$cartItems' },
-            { $match: { 'cartItems.seller': vendorId } },
-            { $sort: { createdAt: -1 } },
+            { $unwind: '$cartItems' }, // Deconstruct cartItems array
+            { $match: { 'cartItems.seller': vendorId } }, // Filter by this vendor's items
+            { $sort: { createdAt: -1 } }, // Sort by most recent
+            
             { $limit: 5 },
             {
                 $project: {
-                    orderId: '$_id',
+                    orderId: '$_id', // The original order _id
                     customerName: {
                         $concat: ['$customerDetails.firstname', ' ', '$customerDetails.lastname']
                     },
                     itemName: '$cartItems.name',
                     quantity: '$cartItems.quantity',
                     amount: { $multiply: ['$cartItems.price', '$cartItems.quantity'] },
-                    status: '$paymentDetails.status',
-                    createdAt: '$createdAt',
+                    status: '$paymentDetails.status', // Payment status of the order
+                    createdAt: '$createdAt', // Order creation date
                     _id: 0
                 }
             }
         ]);
+
 
         // Additional metrics
         const pendingOrders = await Order.countDocuments({
@@ -177,7 +200,5 @@ router.get('/analytics', protectVendor, async (req, res) => {
         res.status(500).json({ error: 'Server Error', details: error.message });
     }
 });
-
-
 
 module.exports = router;

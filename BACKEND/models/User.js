@@ -4,48 +4,52 @@ const validator = require('validator');
 
 // Define the Address sub-schema
 const addressSchema = new mongoose.Schema({
-    name: { // Corresponds to "Address Name (e.g., Home, Work)" from your frontend form
+    name: {
         type: String,
         required: [true, 'Address name (e.g., Home, Work) is required'],
         trim: true,
         maxlength: [50, 'Address name cannot exceed 50 characters']
     },
-    street: { // Corresponds to "Street Address" from your frontend form
+    street: {
         type: String,
         required: [true, 'Street address is required'],
         trim: true,
         maxlength: [100, 'Street address cannot exceed 100 characters']
     },
-    apartment: { // Corresponds to "Apartment, Suite, etc. (Optional)" from your frontend form
+    apartment: {
         type: String,
         trim: true,
         maxlength: [50, 'Apartment/Suite details cannot exceed 50 characters']
-        // No 'required' as it's optional
     },
-    city: { // Corresponds to "City" from your frontend form
+    city: {
         type: String,
         required: [true, 'City is required'],
         trim: true,
         maxlength: [50, 'City name cannot exceed 50 characters']
     },
-    state: { // Corresponds to "State" from your frontend form
+    state: {
         type: String,
         required: [true, 'State is required'],
         trim: true,
         maxlength: [50, 'State name cannot exceed 50 characters']
     },
-    zipCode: { // Corresponds to "ZIP Code" from your frontend form
+    zipCode: {
         type: String,
         required: [true, 'ZIP Code is required'],
         trim: true,
         maxlength: [10, 'ZIP Code cannot exceed 10 characters'],
         minlength: [5, 'ZIP Code must be at least 5 characters']
     },
+    // ADDED: isDefault field
+    isDefault: {
+        type: Boolean,
+        default: false
+    }
 }, {
-    timestamps: true // Keeps createdAt and updatedAt for each address sub-document
+    timestamps: true,
+    _id: true // Good practice to explicitly set true, though often default
 });
 
-// Your existing userSchema remains the same, just referencing the updated addressSchema
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -82,7 +86,11 @@ const userSchema = new mongoose.Schema({
         maxlength: [500, 'Bio cannot exceed 500 characters'],
         default: ''
     },
-    addresses: [addressSchema], // Array of address sub-documents
+    // CRITICAL CHANGE: Ensure addresses is always an array
+    addresses: {
+        type: [addressSchema],
+        default: [] // <<< THIS IS THE KEY CHANGE for new users / when fetching existing users without the field
+    },
 }, {
     timestamps: true
 });

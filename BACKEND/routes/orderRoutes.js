@@ -20,4 +20,4 @@ router.get('/by-email', protectAdmin, orderController.getOrdersByEmail);
 // Status update
 router.put('/:orderId/status', protectVendor, orderController.updateOrderStatus);
 
-module.exports = router;
+module.exports = router;    
