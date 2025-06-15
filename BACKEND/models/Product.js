@@ -43,11 +43,14 @@ const productSchema = new mongoose.Schema({
     ref: 'Vendor', // Ensure 'Vendor' matches your actual Vendor model name
     required: [true, 'Product must belong to a vendor']
   },
-  images: [{ // Array of image URLs/filenames
+  images: [{
     type: String,
-    // If you always require at least one *actual* image from the user, keep 'required: true'
-    // but ensure your middleware or controller sets the default *before* validation.
-    // For now, leaving it not required for flexibility with the default image logic.
+    validate: {
+      validator: function (v) {
+        return v.length > 0 && !v.includes(DEFAULT_PRODUCT_IMAGE);
+      },
+      message: 'At least one product image is required'
+    }
   }],
   stock: {
     type: Number,
@@ -116,9 +119,6 @@ productSchema.index({ seller: 1 }); // For finding products by a specific seller
 productSchema.index({ category: 1 }); // For filtering products by category
 productSchema.index({ 'location.city': 1 }); // For filtering products by a specific city
 
-// Virtual populate reviews:
-// Allows you to get associated reviews directly from a product document
-// (Requires a 'Review' model where 'product' field references Product._id)
 productSchema.virtual('reviews', {
   ref: 'Review',          // The model to use for population
   foreignField: 'product', // Field in the 'Review' model that references 'Product._id'
@@ -128,11 +128,11 @@ productSchema.virtual('reviews', {
 // Document middleware to set a default image if none provided
 const DEFAULT_PRODUCT_IMAGE = 'default-product.png'; // Define your actual default image filename
 productSchema.pre('save', function (next) {
-  // If the images array is empty or not provided, set a default image
-  if (!this.images || this.images.length === 0) {
+  // Only set default if no files were processed
+  if ((!this.images || this.images.length === 0) && !this._processedFiles) {
     this.images = [DEFAULT_PRODUCT_IMAGE];
   }
-  next(); // Proceed to the next middleware or save operation
+  next();
 });
 
 // Query middleware to populate seller details on find queries
