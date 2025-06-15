@@ -60,28 +60,7 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Handle click outside to close dropdowns (remains local)
-  // useEffect(() => {
-  //   const handleClickOutside = (event) => {
-  //     if (
-  //       locationDropdownRef.current &&
-  //       !locationDropdownRef.current.contains(event.target)
-  //     ) {
-  //       setLocationDropdownOpen(false);
-  //     }
-  //     if (
-  //       userDropdownRef.current &&
-  //       !userDropdownRef.current.contains(event.target)
-  //     ) {
-  //       setUserDropdownOpen(false);
-  //     }
-  //   };
-
-  //   document.addEventListener("mousedown", handleClickOutside);
-  //   return () => document.removeEventListener("mousedown", handleClickOutside);
-  // }, []);
-
-  // Close all dropdowns when menu state changes (remains local)
+ 
   useEffect(() => {
     if (!menuOpen) {
       setLocationDropdownOpen(false);
@@ -129,8 +108,7 @@ const Header = () => {
         "Header: Error during fetching and extracting product locations:",
         error
       );
-      // Optionally, show a toast notification to the user about failing to load options
-      // toast.error("Failed to load location options.");
+   
       return [];
     }
   };
@@ -197,28 +175,7 @@ const Header = () => {
     }
   };
 
-  function useOnClickOutside(ref, handler) {
-  useEffect(
-    () => {
-      const listener = (event) => {
-        // Do nothing if clicking ref's element or descendent elements
-        if (!ref.current || ref.current.contains(event.target)) {
-          return;
-        }
-        handler(event);
-      };
 
-      document.addEventListener('mousedown', listener);
-      document.addEventListener('touchstart', listener);
-
-      return () => {
-        document.removeEventListener('mousedown', listener);
-        document.removeEventListener('touchstart', listener);
-      };
-    },
-    [ref, handler] // Reload only if ref or handler changes
-  );
-}
 
 
 
