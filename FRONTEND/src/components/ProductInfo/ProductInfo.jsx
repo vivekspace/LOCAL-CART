@@ -1,14 +1,9 @@
-import {
-  useContext,
-  useEffect,
-  useState,
-  useMemo,
-  useCallback,
-} from "react";
+import { useContext, useEffect, useState, useMemo, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AuthContext } from "../../Context/Context";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import MapComponent from "../MapComponent/MapComponent";
 import axios from "axios"; // Import axios for API calls
 
 // --- Extracted ProductImageGallery component ---
@@ -51,9 +46,12 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
             height={mainImageHeight}
             onError={(e) => {
               // Fallback to default image if error occurs
-              e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+              e.target.src = `${
+                import.meta.env.VITE_API_URL
+              }/uploads/default-product.png`;
               e.target.onerror = null; // Prevent infinite loop
-              e.target.className = "w-full h-full object-contain bg-gray-100 p-4"; // Adjust styling for default
+              e.target.className =
+                "w-full h-full object-contain bg-gray-100 p-4"; // Adjust styling for default
             }}
           />
         </picture>
@@ -64,12 +62,18 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
             NEW ARRIVAL
           </div>
         )}
-        {product.discountPrice && product.price < product.discountPrice && ( // Use discountPrice from backend
-          <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-            {/* Calculate discount percentage dynamically if needed */}
-            {Math.round(((product.price - product.discountPrice) / product.discountPrice) * -100)}% OFF
-          </div>
-        )}
+        {product.discountPrice &&
+          product.price < product.discountPrice && ( // Use discountPrice from backend
+            <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+              {/* Calculate discount percentage dynamically if needed */}
+              {Math.round(
+                ((product.price - product.discountPrice) /
+                  product.discountPrice) *
+                  -100
+              )}
+              % OFF
+            </div>
+          )}
       </div>
 
       {/* Thumbnail Gallery */}
@@ -93,7 +97,9 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
                 width={thumbnailWidth} // Add width for thumbnails
                 height={thumbnailHeight} // Add height for thumbnails
                 onError={(e) => {
-                  e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                  e.target.src = `${
+                    import.meta.env.VITE_API_URL
+                  }/uploads/default-product.png`;
                   e.target.onerror = null;
                   e.target.className =
                     "w-full h-full object-contain bg-gray-100 p-2";
@@ -122,7 +128,8 @@ const ProductPrice = ({ product, quantity = 1 }) => {
             ${(finalPrice * safeQuantity).toFixed(2)}
           </p>
           <p className="text-xl text-gray-400 line-through">
-            ${(product.price * safeQuantity).toFixed(2)} {/* Original price comes from 'price' */}
+            ${(product.price * safeQuantity).toFixed(2)}{" "}
+            {/* Original price comes from 'price' */}
           </p>
           <span className="ml-3 bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
             Save {Math.round((1 - finalPrice / product.price) * 100)}%
@@ -176,10 +183,18 @@ const ProductCardPage = () => {
   const [foundProduct, setFoundProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
-  const { addToCart, updateCartItemQuantity, products: cartProducts } = // Renamed 'products' to 'cartProducts' to avoid confusion
-    useContext(AuthContext);
+  const {
+    addToCart,
+    updateCartItemQuantity,
+    products: cartProducts,
+  } = useContext(AuthContext); // Renamed 'products' to 'cartProducts' to avoid confusion
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [wishlist, setWishlist] = useState("transparent");
+
+  console.log("The found product is", foundProduct?.location.coordinates[0]);
+  console.log("The found product is", foundProduct?.location.coordinates[1]);
+  // console.log(foundProduct.location.coordinate[0]);
+  // console.log(foundProduct.location.coordinate[1]);
 
   // Get the current quantity from cart if product exists in cart
   const getInitialQuantity = useCallback(() => {
@@ -195,27 +210,28 @@ const ProductCardPage = () => {
     setQuantity(getInitialQuantity());
   }, [foundProduct, getInitialQuantity]);
 
-
   // --- Crucial Change: Fetch product details directly from the backend API ---
   useEffect(() => {
     const fetchProduct = async () => {
-      console.log('Product Id is :', productId)
-    setLoading(true);
-    try {
-      const response = await axios.get(
+      console.log("Product Id is :", productId);
+      setLoading(true);
+      try {
+        const response = await axios.get(
           `${import.meta.env.VITE_API_URL}/api/products/${productId}` // Corrected template literal
-      );
-      const fetchedProduct = response.data.data.product; // Assuming API structure { data: { product: ... } }
-      setFoundProduct(fetchedProduct);
+        );
+        const fetchedProduct = response.data.data.product; // Assuming API structure { data: { product: ... } }
+        setFoundProduct(fetchedProduct);
         setSelectedImage(0); // Reset selected image when a new product is loaded
         setQuantity(getInitialQuantity()); // Set initial quantity based on cart for this specific product
 
-      
         const relatedRes = await axios.get(
-            `${import.meta.env.VITE_API_URL}/api/products?category=${fetchedProduct.category}&limit=4&exclude=${productId}`
+          `${import.meta.env.VITE_API_URL}/api/products?category=${
+            fetchedProduct.category
+          }&limit=4&exclude=${productId}`
         );
-        setRelatedProducts(relatedRes.data.data.products.filter(p => p._id !== productId)); // Filter out the current product
-
+        setRelatedProducts(
+          relatedRes.data.data.products.filter((p) => p._id !== productId)
+        ); // Filter out the current product
       } catch (error) {
         console.error("Failed to fetch product:", error);
         setFoundProduct(null); // Explicitly set to null on error
@@ -237,10 +253,13 @@ const ProductCardPage = () => {
     const newQuantity = (quantity || 1) + 1;
     // Prevent increasing beyond stock
     if (foundProduct.stock !== undefined && newQuantity > foundProduct.stock) {
-      toast.warn(`Cannot add more than ${foundProduct.stock} items to cart (stock limit).`, {
-        position: "top-center",
-        autoClose: 2000,
-      });
+      toast.warn(
+        `Cannot add more than ${foundProduct.stock} items to cart (stock limit).`,
+        {
+          position: "top-center",
+          autoClose: 2000,
+        }
+      );
       return;
     }
     setQuantity(newQuantity);
@@ -279,10 +298,13 @@ const ProductCardPage = () => {
     const qty = quantity || 1;
     // Check if adding this quantity exceeds available stock
     if (foundProduct.stock !== undefined && qty > foundProduct.stock) {
-      toast.error(`Cannot add ${qty} items. Only ${foundProduct.stock} available in stock.`, {
-        position: "top-center",
-        autoClose: 3000,
-      });
+      toast.error(
+        `Cannot add ${qty} items. Only ${foundProduct.stock} available in stock.`,
+        {
+          position: "top-center",
+          autoClose: 3000,
+        }
+      );
       return;
     }
 
@@ -304,10 +326,13 @@ const ProductCardPage = () => {
     if (!foundProduct) return;
     // Similar stock check for buy now
     if (foundProduct.stock !== undefined && quantity > foundProduct.stock) {
-      toast.error(`Cannot proceed. Only ${foundProduct.stock} available in stock.`, {
-        position: "top-center",
-        autoClose: 3000,
-      });
+      toast.error(
+        `Cannot proceed. Only ${foundProduct.stock} available in stock.`,
+        {
+          position: "top-center",
+          autoClose: 3000,
+        }
+      );
       return;
     }
     addToCart(foundProduct._id, quantity);
@@ -368,11 +393,12 @@ const ProductCardPage = () => {
   }
 
   // Determine stock status
-  const stockStatus = foundProduct.stock > 0
-    ? foundProduct.stock <= 5
-      ? `Only ${foundProduct.stock} left in stock!`
-      : "In Stock"
-    : "Out of Stock";
+  const stockStatus =
+    foundProduct.stock > 0
+      ? foundProduct.stock <= 5
+        ? `Only ${foundProduct.stock} left in stock!`
+        : "In Stock"
+      : "Out of Stock";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -495,7 +521,8 @@ const ProductCardPage = () => {
                   ))}
                 </div>
                 <span className="text-gray-500 text-sm ml-2">
-                  ({foundProduct.ratingsQuantity} customer reviews) {/* Use actual ratingsQuantity */}
+                  ({foundProduct.ratingsQuantity} customer reviews){" "}
+                  {/* Use actual ratingsQuantity */}
                 </span>
               </div>
 
@@ -520,18 +547,32 @@ const ProductCardPage = () => {
                   />
                 </svg>
                 Sold by:{" "}
-                <Link to={`/vendor/${foundProduct.seller._id}`} className="text-green-600 hover:underline ml-1">
-                  {foundProduct.seller.name} {/* Access seller.name from populated field */}
+                <Link
+                  to={`/vendor/${foundProduct.seller._id}`}
+                  className="text-green-600 hover:underline ml-1"
+                >
+                  {foundProduct.seller.name}{" "}
+                  {/* Access seller.name from populated field */}
                 </Link>
                 {foundProduct.location.city && ( // Display city if available
-                  <span className="ml-2 text-gray-500">({foundProduct.location.city})</span>
+                  <span className="ml-2 text-gray-500">
+                    ({foundProduct.location.city})
+                  </span>
                 )}
               </p>
 
               <ProductPrice product={foundProduct} quantity={quantity} />
 
               {/* Stock Status */}
-              <p className={`text-sm mb-4 font-semibold ${foundProduct.stock > 0 ? (foundProduct.stock <= 5 ? 'text-orange-500' : 'text-green-600') : 'text-red-600'}`}>
+              <p
+                className={`text-sm mb-4 font-semibold ${
+                  foundProduct.stock > 0
+                    ? foundProduct.stock <= 5
+                      ? "text-orange-500"
+                      : "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
                 {stockStatus}
               </p>
 
@@ -566,7 +607,9 @@ const ProductCardPage = () => {
                     Add to Cart
                   </button>
 
-                  <Link to="/payment"> {/* Consider redirecting to payment page after buy now logic */}
+                  <Link to="/payment">
+                    {" "}
+                    {/* Consider redirecting to payment page after buy now logic */}
                     <button
                       className="w-full bg-white border border-green-600 text-green-600 font-semibold py-3 px-6 rounded-lg shadow-sm hover:bg-green-50 transition-colors duration-300 flex items-center justify-center mt-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={handleBuyNow}
@@ -622,7 +665,8 @@ const ProductCardPage = () => {
                 Description
               </button>
               <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                Reviews ({foundProduct.ratingsQuantity}) {/* Updated review count */}
+                Reviews ({foundProduct.ratingsQuantity}){" "}
+                {/* Updated review count */}
               </button>
               <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
                 Shipping & Returns
@@ -644,6 +688,93 @@ const ProductCardPage = () => {
           </div>
         </div>
 
+        {/* Enhanced Map Section */}
+        {!loading && foundProduct?.location?.coordinates?.length === 2 && (
+          <div className="mt-12 bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-semibold text-gray-900">
+                  Product Location
+                </h3>
+                <div className="flex items-center text-sm text-gray-500">
+                  <svg
+                    className="w-4 h-4 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  {foundProduct.location.city && (
+                    <span>{foundProduct.location.city}</span>
+                  )}
+                  {foundProduct.location.state && (
+                    <span>, {foundProduct.location.state}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-gray-600 text-sm">
+                  This product is sourced from {foundProduct.seller.name}{" "}
+                  located in the area shown below.
+                  {foundProduct.location.address && (
+                    <span className="block mt-1 text-gray-500">
+                      Address: {foundProduct.location.address}
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Map Container with proper styling */}
+              <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                <MapComponent
+                  lat={foundProduct.location.coordinates[1]}
+                  lng={foundProduct.location.coordinates[0]}
+                  zoom={12} // Add zoom prop if your MapComponent supports it
+                  height="400px" // Add height prop if your MapComponent supports it
+                />
+              </div>
+
+              {/* Optional: Distance or delivery info */}
+              <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center text-sm text-green-700">
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>
+                    Local delivery available within 10km radius. Contact seller
+                    for delivery options and rates.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        
+
         {/* Related Products */}
         {relatedProducts.length > 0 && (
           <div className="mt-12">
@@ -656,10 +787,14 @@ const ProductCardPage = () => {
                   key={product._id} /* Use product._id for key */
                   className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
                 >
-                  <Link to={`/product-info/${product._id}`} className="block"> {/* Use product._id for Link */}
+                  <Link to={`/product-info/${product._id}`} className="block">
+                    {" "}
+                    {/* Use product._id for Link */}
                     <div className="relative pb-[75%] overflow-hidden">
                       <img
-                        src={`${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`} /* Use product.images[0] */
+                        src={`${import.meta.env.VITE_API_URL}/uploads/${
+                          product.images[0]
+                        }`} /* Use product.images[0] */
                         alt={product.name}
                         className="absolute h-full w-full object-cover hover:scale-105 transition-transform duration-300"
                         loading="lazy"
@@ -667,7 +802,9 @@ const ProductCardPage = () => {
                         width="200" // Example width for related products
                         height="150" // Example height for related products
                         onError={(e) => {
-                          e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                          e.target.src = `${
+                            import.meta.env.VITE_API_URL
+                          }/uploads/default-product.png`;
                           e.target.onerror = null;
                         }}
                       />
@@ -677,10 +814,12 @@ const ProductCardPage = () => {
                         {product.name}
                       </h4>
                       <p className="text-gray-500 text-sm mb-2">
-                        By: {product.seller.name} {/* Access seller name from populated field */}
+                        By: {product.seller.name}{" "}
+                        {/* Access seller name from populated field */}
                       </p>
                       <p className="text-gray-900 font-bold">
-                        ${product.discountPrice || product.price} {/* Display discount price if available */}
+                        ${product.discountPrice || product.price}{" "}
+                        {/* Display discount price if available */}
                       </p>
                     </div>
                   </Link>
