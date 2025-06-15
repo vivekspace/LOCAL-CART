@@ -38,8 +38,8 @@ const orderSchema = new mongoose.Schema({
         // ENUM ADJUSTED: Ensure this matches frontend states (pending, completed, failed, processing, shipped)
         status: {
             type: String,
-            enum: ['pending', 'completed', 'failed', 'processing', 'shipped'],
-            required: true, // Should always have a status
+            enum: ['pending', 'paid', 'failed'], // ✅ Correct enum for payment status
+            required: true,
             default: 'pending'
         },
         amount: { type: Number, required: true },
@@ -62,9 +62,15 @@ const orderSchema = new mongoose.Schema({
     tax: { type: Number, required: true },
     shippingCost: { type: Number, required: true },
     discount: { type: Number, default: 0 },
-    totalAmount: { type: Number, required: true }, // Represents the final total
+    totalAmount: { type: Number, required: true },
+    status: {
+        type: String,
+        enum: ['pending', 'processing', 'shipped', 'completed', 'cancelled', 'failed'],
+        default: 'pending',
+        required: true
+    },
+    // Represents the final total
 
-    // REMOVED top-level 'status' field to avoid redundancy with paymentDetails.status
     createdAt: { type: Date, default: Date.now }
 }, {
     timestamps: true // Adds createdAt and updatedAt timestamps automatically
@@ -89,33 +95,26 @@ orderSchema.pre('save', function (next) {
 // This method updates the status within the paymentDetails object
 orderSchema.statics.updateStatus = async function (orderId, newStatus) {
     try {
-        // Find the order by its _id (MongoDB's default unique identifier)
-        // Frontend sends selectedOrder._id, which is the MongoDB document _id
         const order = await this.findById(orderId);
-
         if (!order) {
             throw new Error('Order not found');
         }
 
-        // Validate the newStatus against the enum defined in the schema
-        const allowedStatuses = orderSchema.path('paymentDetails.status').enumValues;
+        const allowedStatuses = orderSchema.path('status').enumValues;
         if (!allowedStatuses.includes(newStatus)) {
-            throw new Error(`Invalid status: ${newStatus}. Allowed statuses are: ${allowedStatuses.join(', ')}`);
+            throw new Error(`Invalid status: ${newStatus}. Allowed: ${allowedStatuses.join(', ')}`);
         }
 
-        // Update the paymentDetails.status
-        order.paymentDetails.status = newStatus;
-
-        // Save the updated order
+        order.status = newStatus;
         await order.save();
-
         console.log(`Order ${orderId} status updated to: ${newStatus}`);
-        return order; // Return the updated order document
+        return order;
     } catch (error) {
         console.error("Error in Order.updateStatus:", error);
-        throw error; // Re-throw the error for the calling function to handle
+        throw error;
     }
 };
+
 // --- END STATIC METHOD ADDITION ---
 
 const Order = mongoose.model('Order', orderSchema);
