@@ -44,24 +44,19 @@ router.param('orderId', (req, res, next, id) => {
 
 // Order Routes (Corrected paths - removed '/vendor' prefix)
 router.get('/orders', protectVendor, orderController.getVendorOrders); // Correct: /api/vendor/orders
-router.put('/orders/:orderId/status', 
-    protectVendor,
-    async (req, res) => {
-        try {
-            const { orderId } = req.params;
-            const { status } = req.body;
+router.put('/orders/:orderId/status', protectVendor, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { status } = req.body;
 
-            // Update logic here
-            // Assuming Order.updateStatus correctly updates based on orderId and newStatus
-            const updatedOrder = await Order.updateStatus(orderId, status);
-
-            res.json(updatedOrder);
-        } catch (error) {
-            console.error("Error updating order status:", error); // Added console.error for debugging
-            res.status(500).json({ error: error.message });
-        }
+        const updatedOrder = await Order.updateStatus(orderId, status);
+        res.json(updatedOrder);
+    } catch (error) {
+        console.error("Error updating order status:", error);
+        res.status(500).json({ error: error.message });
     }
-);
+});
+
 
 // Dashboard Route (Correct path relative to '/api/vendor' prefix)
 router.get('/dashboard', protectVendor, getVendorDashboard);
@@ -71,29 +66,28 @@ router.get('/analytics', protectVendor, async (req, res) => {
     try {
         const vendorId = req.vendor._id;
 
-        // Since seller is in cartItems, we need to match orders that have items from this vendor
+        // Calculate total revenue for this vendor (completed orders only)
         const totalRevenueResult = await Order.aggregate([
-            { $match: { 'cartItems.seller': vendorId, 'paymentDetails.status': 'completed' } },
+            { $match: { 'cartItems.seller': vendorId, status: 'completed' } },
             { $group: { _id: null, total: { $sum: '$paymentDetails.amount' } } }
         ]);
         const totalRevenue = totalRevenueResult[0]?.total || 0;
 
-        // Count total orders that contain items from this vendor
+        // Count all orders that include this vendor's items
         const totalOrders = await Order.countDocuments({ 'cartItems.seller': vendorId });
 
-        // Count completed orders that contain items from this vendor
+        // Count completed orders for this vendor
         const completedOrders = await Order.countDocuments({
             'cartItems.seller': vendorId,
-            'paymentDetails.status': 'completed'
+            status: 'completed'
         });
 
-        // New customers in last 30 days (This queries all customers, not just vendor-specific customers)
-        // If you need vendor-specific customers, your Customer model or Order model needs to link customers to vendors.
+        // New customers in last 30 days (global, not vendor-specific)
         const newCustomers = await Customer.countDocuments({
             createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
         });
 
-        // Popular products - aggregate from cartItems for this vendor
+        // Popular products (top 5)
         const popularProducts = await Order.aggregate([
             { $unwind: '$cartItems' },
             { $match: { 'cartItems.seller': vendorId } },
@@ -101,8 +95,7 @@ router.get('/analytics', protectVendor, async (req, res) => {
                 $group: {
                     _id: '$cartItems.productId',
                     name: { $first: '$cartItems.name' },
-                    totalQuantity: { $sum: '$cartItems.quantity' },
-                    orders: { $sum: 1 } // Sum of orders where this product appears
+                    totalQuantity: { $sum: '$cartItems.quantity' }
                 }
             },
             { $sort: { totalQuantity: -1 } },
@@ -110,13 +103,13 @@ router.get('/analytics', protectVendor, async (req, res) => {
             {
                 $project: {
                     name: 1,
-                    orders: '$totalQuantity', // Renaming totalQuantity to orders for response consistency
+                    orders: '$totalQuantity',
                     _id: 0
                 }
             }
         ]);
 
-        // Sales trend data (last 30 days) - only for this vendor's items
+        // Sales trend over the last 30 days
         const salesTrend = await Order.aggregate([
             { $unwind: '$cartItems' },
             {
@@ -127,53 +120,51 @@ router.get('/analytics', protectVendor, async (req, res) => {
             },
             {
                 $group: {
-                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
                     amount: { $sum: { $multiply: ['$cartItems.price', '$cartItems.quantity'] } }
                 }
             },
             { $sort: { _id: 1 } },
             {
                 $project: {
-                    date: "$_id",
+                    date: '$_id',
                     amount: 1,
                     _id: 0
                 }
             }
         ]);
 
-        // Recent orders (last 5) - adjusted to match `cartItems.seller`
+        // Recent 5 orders that include this vendor's items
         const recentOrders = await Order.aggregate([
-            { $unwind: '$cartItems' }, // Deconstruct cartItems array
-            { $match: { 'cartItems.seller': vendorId } }, // Filter by this vendor's items
-            { $sort: { createdAt: -1 } }, // Sort by most recent
-            
+            { $unwind: '$cartItems' },
+            { $match: { 'cartItems.seller': vendorId } },
+            { $sort: { createdAt: -1 } },
             { $limit: 5 },
             {
                 $project: {
-                    orderId: '$_id', // The original order _id
+                    orderId: '$_id',
                     customerName: {
                         $concat: ['$customerDetails.firstname', ' ', '$customerDetails.lastname']
                     },
                     itemName: '$cartItems.name',
                     quantity: '$cartItems.quantity',
                     amount: { $multiply: ['$cartItems.price', '$cartItems.quantity'] },
-                    status: '$paymentDetails.status', // Payment status of the order
-                    createdAt: '$createdAt', // Order creation date
+                    status: '$status', // ✅ Now using top-level status
+                    createdAt: 1,
                     _id: 0
                 }
             }
         ]);
 
-
-        // Additional metrics
+        // Additional order statuses
         const pendingOrders = await Order.countDocuments({
             'cartItems.seller': vendorId,
-            'paymentDetails.status': 'pending'
+            status: 'pending'
         });
 
         const processingOrders = await Order.countDocuments({
             'cartItems.seller': vendorId,
-            'paymentDetails.status': 'processing'
+            status: 'processing'
         });
 
         const response = {
@@ -188,7 +179,7 @@ router.get('/analytics', protectVendor, async (req, res) => {
             recentOrders,
             debug: {
                 vendorId: vendorId.toString(),
-                message: 'Using correct field names: seller, paymentDetails.amount, paymentDetails.status'
+                message: 'Using top-level "status" instead of "paymentDetails.status"'
             }
         };
 
