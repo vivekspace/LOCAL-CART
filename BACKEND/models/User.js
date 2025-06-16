@@ -76,9 +76,10 @@ const userSchema = new mongoose.Schema({
         enum: ['customer', 'seller', 'admin'],
         default: 'customer'
     },
-    avatar: {
+    // *** MODIFICATION HERE ***
+    photo: { // Changed from 'avatar' to 'photo'
         type: String,
-        default: 'https://i.ibb.co/4pDnMkG/avatar.png'
+        default: 'default.jpg' // Changed default to a local filename, as we'll be serving locally
     },
     bio: {
         type: String,
