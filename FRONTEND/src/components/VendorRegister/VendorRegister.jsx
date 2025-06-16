@@ -1,6 +1,15 @@
 import { useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Eye, EyeOff, Store, Phone, ShoppingBag } from "lucide-react"; // Import ShoppingBag for consistency with user register page header icon
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Store,
+  Phone,
+  ShoppingBag,
+} from "lucide-react"; // Import ShoppingBag for consistency with user register page header icon
 import { AuthContext } from "../../Context/Context";
 import { motion } from "framer-motion"; // Import motion for animations
 import { toast, ToastContainer } from "react-toastify"; // For notifications
@@ -8,84 +17,89 @@ import { toast, ToastContainer } from "react-toastify"; // For notifications
 export default function VendorRegister() {
   const [formData, setFormData] = useState({
     name: "",
+
     email: "",
+
     password: "",
-    confirmPassword: "", // Added for visual consistency with user register page
+
     storeName: "",
+
     phone: "",
   });
+
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // State for confirm password visibility
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
   const { setUser } = useContext(AuthContext);
 
   const [error, setError] = useState("");
+
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(""); // Clear previous errors
 
-    // Client-side validation for password match
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match.");
-      setIsLoading(false);
-      toast.error("Passwords do not match.");
-      return;
-    }
+    setIsLoading(true);
+
+    setError(""); // Clear previous errors
 
     try {
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/vendor/register`,
+
         {
           method: "POST",
+
           headers: { "Content-Type": "application/json" },
+
           body: JSON.stringify(formData),
         }
       );
 
       if (!response.ok) {
-        const errorData = await response.json(); // Assuming backend sends JSON for errors
-        throw new Error(errorData.message || "Registration failed.");
-      }
+        const errorText = await response.text();
+
+        throw new Error(errorText || "Registration failed");
+      } // Optional: You can save the token or user info here if returned
 
       const data = await response.json();
-      localStorage.setItem("vendorToken", data.token); // Store vendor token
-      localStorage.setItem("vendorInfo", JSON.stringify(data.user)); // Store vendor user info
-      setUser(data.user); // Update user context with vendor info
-      toast.success("Vendor account created successfully!");
-      navigate("/vendor/dashboard"); // Navigate to vendor dashboard after registration
+
+      localStorage.setItem("vendorToken", data.token);
+
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      setUser(data.user); // Update user context
+
+      navigate("/vendor/dashboard"); // ✅ Correct redirection
     } catch (err) {
-      console.error("Vendor registration error:", err);
-      setError(err.message || "Registration failed. Please try again.");
-      toast.error(err.message || "Registration failed.");
-      // Clear any stored data if registration fails
-      localStorage.removeItem("vendorToken");
-      localStorage.removeItem("vendorInfo");
+      setError(err.message || "Registration failed");
     } finally {
       setIsLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4"> {/* Adjusted gradient to match user login/register */}
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4">
+      {" "}
+      {/* Adjusted gradient to match user login/register */}
       {/* Decorative elements (copied from user register page style) */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
       <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
-
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         className="w-full max-w-md"
       >
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden"> {/* Increased shadow and rounded corners */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          {" "}
+          {/* Increased shadow and rounded corners */}
           {/* Header section with gradient - Adapted from user register page image */}
           <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 text-center">
             <motion.div
@@ -99,14 +113,17 @@ export default function VendorRegister() {
               }}
               className="inline-block mb-4"
             >
-              <ShoppingBag className="w-12 h-12 text-white" strokeWidth={1.5} /> {/* Using ShoppingBag icon */}
+              <ShoppingBag className="w-12 h-12 text-white" strokeWidth={1.5} />{" "}
+              {/* Using ShoppingBag icon */}
             </motion.div>
             <h2 className="text-2xl font-bold text-white">
               Become a LocalCart Vendor
             </h2>
-            <p className="text-green-100 mt-1">Register your shop and start selling!</p> {/* Vendor-specific tagline */}
+            <p className="text-green-100 mt-1">
+              Register your shop and start selling!
+            </p>{" "}
+            {/* Vendor-specific tagline */}
           </div>
-
           {/* Registration Form */}
           <div className="p-8">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
@@ -119,7 +136,9 @@ export default function VendorRegister() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5"> {/* Consistent spacing */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {" "}
+              {/* Consistent spacing */}
               {/* Name Field */}
               <div>
                 <label
@@ -127,10 +146,12 @@ export default function VendorRegister() {
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   Your Full Name
-                </label> {/* Label change */}
+                </label>{" "}
+                {/* Label change */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" /> {/* Icon color to match image */}
+                    <User className="h-5 w-5 text-gray-400" />{" "}
+                    {/* Icon color to match image */}
                   </div>
                   <input
                     type="text"
@@ -144,7 +165,6 @@ export default function VendorRegister() {
                   />
                 </div>
               </div>
-
               {/* Email Field */}
               <div>
                 <label
@@ -152,7 +172,8 @@ export default function VendorRegister() {
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   Vendor Email Address
-                </label> {/* Label change */}
+                </label>{" "}
+                {/* Label change */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Mail className="h-5 w-5 text-gray-400" />
@@ -169,7 +190,6 @@ export default function VendorRegister() {
                   />
                 </div>
               </div>
-
               {/* Password Field */}
               <div>
                 <label
@@ -205,9 +225,11 @@ export default function VendorRegister() {
                     )}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">At least 8 characters with a number and symbol</p> {/* Helper text from image */}
+                <p className="mt-1 text-xs text-gray-500">
+                  At least 8 characters with a number and symbol
+                </p>{" "}
+                {/* Helper text from image */}
               </div>
-
               {/* Confirm Password Field (Added for consistency with user register image) */}
               <div>
                 <label
@@ -244,7 +266,6 @@ export default function VendorRegister() {
                   </button>
                 </div>
               </div>
-
               {/* Store Name Field */}
               <div>
                 <label
@@ -252,10 +273,12 @@ export default function VendorRegister() {
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   Store Name
-                </label> {/* Label change */}
+                </label>{" "}
+                {/* Label change */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Store className="h-5 w-5 text-gray-400" /> {/* Icon color to match image */}
+                    <Store className="h-5 w-5 text-gray-400" />{" "}
+                    {/* Icon color to match image */}
                   </div>
                   <input
                     type="text"
@@ -269,7 +292,6 @@ export default function VendorRegister() {
                   />
                 </div>
               </div>
-
               {/* Phone Field */}
               <div>
                 <label
@@ -277,10 +299,12 @@ export default function VendorRegister() {
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   Phone Number
-                </label> {/* Label change */}
+                </label>{" "}
+                {/* Label change */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Phone className="h-5 w-5 text-gray-400" /> {/* Icon color to match image */}
+                    <Phone className="h-5 w-5 text-gray-400" />{" "}
+                    {/* Icon color to match image */}
                   </div>
                   <input
                     type="tel"
@@ -294,7 +318,6 @@ export default function VendorRegister() {
                   />
                 </div>
               </div>
-
               {/* Terms Checkbox */}
               <label className="flex items-start mt-2">
                 <input
@@ -319,7 +342,6 @@ export default function VendorRegister() {
                   </Link>
                 </span>
               </label>
-
               {/* Submit Button */}
               <motion.button
                 type="submit"
@@ -360,9 +382,10 @@ export default function VendorRegister() {
               </motion.button>
             </form>
           </div>
-
           {/* Footer - Already have an account? */}
-          <div className="bg-gray-50 px-8 py-4 text-center border-t border-gray-200"> {/* Added border-t to match design */}
+          <div className="bg-gray-50 px-8 py-4 text-center border-t border-gray-200">
+            {" "}
+            {/* Added border-t to match design */}
             <p className="text-sm text-gray-600">
               Already have an account?{" "}
               <Link
