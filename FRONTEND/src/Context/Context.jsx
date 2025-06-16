@@ -392,7 +392,6 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
       setIsLoggedIn(true);
-      toast.success("Registration successful!");
       return {
         success: true,
         message: "Registration successful!",
@@ -415,7 +414,6 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
       setIsLoggedIn(true);
-      toast.success("Login successful!");
     } catch (error) {
       toast.error(
         error.response?.data?.message || "Login failed from context."
