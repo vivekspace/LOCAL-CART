@@ -394,6 +394,7 @@ exports.getVendorOrders = async (req, res) => {
                 paymentStatus: order.paymentDetails.status,
                 paymentMethod: order.paymentDetails.method,
                 orderDate: order.createdAt,
+                status: order.status,
                 items: vendorItems.map(item => ({
                     name: item.name,
                     quantity: item.quantity,
