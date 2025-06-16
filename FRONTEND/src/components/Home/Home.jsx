@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import { ShoppingBag, Truck, ShieldCheck, ArrowRight, Star, Leaf } from "lucide-react";
 import {motion}  from "framer-motion";
+import { ToastContainer } from "react-toastify";
 
 export default function Home() {
   return (
     <div className="bg-white text-gray-800 overflow-hidden">
+      <ToastContainer position="top-center"/>
       {/* Hero Section */}
       <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 text-center">
         {/* Background decoration */}
