@@ -40,6 +40,7 @@ import VendorProductsPage from "./components/VendorProducts/VendorProducts.jsx";
 import VendorAnalytics from "./components/VendorAnalytics/VendorAnalytics.jsx";
 import OrderPage from "./components/VendorOrder/VendorOrder.jsx";
 import OrderedItemsPage from "./components/CustomerOrders/CustomerOrders.jsx";
+import VendorsPage from "./components/VendorListPage/VendorListPage.jsx";
 import Orders from "./components/Orders/Orders.jsx";
 
 const router = createBrowserRouter(
@@ -78,6 +79,7 @@ const router = createBrowserRouter(
       <Route path="/admin/applications" element={<VendorApplication />} />
       <Route path="/admin/users" element={<UserManagement />} />
       <Route path="/admin/users-row" element={<UserRow />} />
+      <Route path="/admin/vendors" element={<VendorsPage/>}/>
       <Route path="*" element={<NotFoundPage />} />
     </Route>
   )
