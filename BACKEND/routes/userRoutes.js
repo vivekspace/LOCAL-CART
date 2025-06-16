@@ -8,8 +8,16 @@ const router = express.Router();
 router.use(protect); // Use the directly imported protect function
 
 router.get('/me', userController.getMe, userController.getUser);
-router.patch('/updateMe', userController.updateMe);
-// router.patch('/updateMyPassword', authController.updatePassword);
+
+// Correct and comprehensive /updateMe route (REMOVE THE DUPLICATE)
+router.patch(
+  '/updateMe',
+  userController.uploadUserPhoto, // Use multer to process the photo
+  userController.resizeUserPhoto, // Optional: for image processing (recommended)
+  userController.updateMe // Then update user data, including the photo path
+);
+
+// router.patch('/updateMyPassword', authController.updatePassword); // Uncomment if you have this route defined
 
 // Address routes
 router
@@ -23,6 +31,6 @@ router
     .delete(userController.deleteAddress);
 
 // NEW ROUTE FOR SETTING DEFAULT ADDRESS
-router.patch('/me/addresses/:addressId/default', userController.setAsDefaultAddress); // <--- ADD THIS LINE
+router.patch('/me/addresses/:addressId/default', userController.setAsDefaultAddress);
 
 module.exports = router;

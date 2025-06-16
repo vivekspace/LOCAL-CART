@@ -19,7 +19,6 @@ router.get('/vendors', protectAdmin, async (req, res) => {
         // Replace `Vendor.find({})` with your actual database query to get all vendors
         // Ensure your Vendor model is correctly defined and connected to your database
         const vendors = await Vendor.find({}); // Example: Fetching all vendors from a Mongoose model
-                console.log("Backend sending vendors:", JSON.stringify(vendors, null, 2)); // Log the actual data
 
 
         // Send the fetched vendors as a JSON response
