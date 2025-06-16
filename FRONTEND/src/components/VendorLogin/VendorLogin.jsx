@@ -7,57 +7,55 @@ import { toast, ToastContainer } from "react-toastify"; // Ensure ToastContainer
 
 const VendorLogin = () => {
   const [email, setEmail] = useState("");
+
   const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
+
   const [error, setError] = useState("");
+
   const navigate = useNavigate();
-  const { setUser } = useContext(AuthContext); // Assuming setUser is for the authenticated vendor user
+
+  const { setUser } = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setIsLoading(true);
-    setError(""); // Clear previous errors on new submission
+
+    setError("");
 
     try {
-      if (!email || !password) {
-        throw new Error("Please fill in all fields.");
-      }
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/vendor/login`,
+        {
+          method: "POST",
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/vendor/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+          headers: { "Content-Type": "application/json" },
+
+          body: JSON.stringify({ email, password }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Vendor login failed.");
+
+        throw new Error(errorData.message || "Login failed");
       }
 
       const data = await response.json();
 
-      // Check for success data from backend
-      if (!data.token || !data.user) {
-        throw new Error(data.message || "Authentication data missing from response.");
-      }
-
       localStorage.setItem("vendorToken", data.token);
-      localStorage.setItem("vendorInfo", JSON.stringify(data.user)); // Changed key to vendorInfo for clarity
-      setUser(data.user); // Set the user (vendor) in context
 
-      toast.success("Vendor Login successful!");
-      navigate("/vendor/dashboard"); // Navigate to vendor dashboard
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      setUser(data.user);
+
+      navigate("/vendor/dashboard");
     } catch (err) {
-      console.error("Vendor Login error:", err);
-      // Ensure the error message displayed is user-friendly
-      const errorMessage =
-        err.message || "An unexpected error occurred during login.";
-      setError(errorMessage);
-      toast.error(errorMessage);
-      // Clear any stored data if login fails
-      localStorage.removeItem("vendorToken");
-      localStorage.removeItem("vendorInfo");
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -92,10 +90,11 @@ const VendorLogin = () => {
               {/* Changed to ShoppingBag, similar to the user login icon but still relevant for commerce */}
               <ShoppingBag className="w-12 h-12 text-white" strokeWidth={1.5} />
             </motion.div>
-            <h2 className="text-2xl font-bold text-white">
-              Welcome, Vendor!
-            </h2>
-            <p className="text-green-100 mt-1">Manage your shop on LocalCart</p> {/* Vendor-specific tagline */}
+            <h2 className="text-2xl font-bold text-white">Welcome, Vendor!</h2>
+            <p className="text-green-100 mt-1">
+              Manage your shop on LocalCart
+            </p>{" "}
+            {/* Vendor-specific tagline */}
           </div>
 
           {/* Form section */}
@@ -106,7 +105,9 @@ const VendorLogin = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6"> {/* Changed spacing to match user login form */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {" "}
+              {/* Changed spacing to match user login form */}
               {/* Email Field */}
               <div>
                 <label
@@ -114,10 +115,12 @@ const VendorLogin = () => {
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   Vendor Email Address
-                </label> {/* Label change */}
+                </label>{" "}
+                {/* Label change */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" /> {/* Adjusted icon color to match image */}
+                    <Mail className="h-5 w-5 text-gray-400" />{" "}
+                    {/* Adjusted icon color to match image */}
                   </div>
                   <input
                     type="email"
@@ -130,7 +133,6 @@ const VendorLogin = () => {
                   />
                 </div>
               </div>
-
               {/* Password Field */}
               <div>
                 <label
@@ -141,7 +143,8 @@ const VendorLogin = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" /> {/* Adjusted icon color to match image */}
+                    <Lock className="h-5 w-5 text-gray-400" />{" "}
+                    {/* Adjusted icon color to match image */}
                   </div>
                   <input
                     type={showPassword ? "text" : "password"}
@@ -165,15 +168,19 @@ const VendorLogin = () => {
                   </button>
                 </div>
               </div>
-
               {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between mb-6"> {/* Adjusted margin-bottom to match image */}
+              <div className="flex items-center justify-between mb-6">
+                {" "}
+                {/* Adjusted margin-bottom to match image */}
                 <label className="flex items-center">
                   <input
                     type="checkbox"
                     className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded" // Matched checkbox styling
                   />
-                  <span className="ml-2 block text-sm text-gray-700">Remember me</span> {/* Matched text styling */}
+                  <span className="ml-2 block text-sm text-gray-700">
+                    Remember me
+                  </span>{" "}
+                  {/* Matched text styling */}
                 </label>
                 <Link
                   to="/forgot-password"
@@ -182,12 +189,12 @@ const VendorLogin = () => {
                   Forgot password?
                 </Link>
               </div>
-
               {/* Submit Button */}
               <motion.button // Added motion for consistency
                 type="submit"
                 disabled={isLoading}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ${ // Matched button styling
+                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ${
+                  // Matched button styling
                   isLoading ? "opacity-80 cursor-not-allowed" : ""
                 }`}
                 whileHover={{ scale: 1.02 }} // Added animations
@@ -225,7 +232,9 @@ const VendorLogin = () => {
           </div>
 
           {/* Footer - Replicating the "Don't have an account?" section */}
-          <div className="bg-green-50 px-8 py-4 text-center border-t border-gray-200"> {/* Adjusted background and border to match image */}
+          <div className="bg-green-50 px-8 py-4 text-center border-t border-gray-200">
+            {" "}
+            {/* Adjusted background and border to match image */}
             <p className="text-sm text-gray-600">
               New to LocalCart?{" "}
               <Link
