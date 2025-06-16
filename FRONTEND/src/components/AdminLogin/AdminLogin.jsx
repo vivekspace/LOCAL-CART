@@ -14,17 +14,16 @@ import { motion } from "framer-motion"; // Add framer-motion for animations
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // State for toggling password visibility
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { setAdmin } = useContext(AuthContext);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!email || !password) {
-      setError("Please fill in all fields.");
+      setError("Please fill in all fields");
       return;
     }
 
@@ -46,50 +45,43 @@ const AdminLogin = () => {
           timeout: 10000,
         }
       );
+      setAdmin(response.data);
 
-      // Check for backend success indicator within the response data
       if (
         !response.data.success ||
         !response.data.token ||
         !response.data.user
       ) {
-        throw new Error(response.data.message || "Authentication failed.");
+        throw new Error(response.data.message || "Authentication failed");
       }
 
       // ✅ Store token and user info
       localStorage.setItem("adminToken", response.data.token);
       localStorage.setItem("adminInfo", JSON.stringify(response.data.user));
-      setAdmin(response.data.user); // Update admin state in context
+      setAdmin(response.data.user);
 
-      toast.success("Admin Login successful!");
+      toast.success("Login successful");
 
       // ✅ Navigate to admin panel
       navigate("/admin-panel", { replace: true });
     } catch (err) {
-      let errorMessage = "Login failed. Please try again.";
+      let errorMessage = "Login failed. Please try again. " + err.message;
 
       if (err.response) {
-        // Server responded with a status other than 2xx
         errorMessage =
           err.response.data.message ||
           (err.response.status === 401
-            ? "Invalid admin credentials."
+            ? "Invalid credentials"
             : `Server error: ${err.response.status}`);
       } else if (err.request) {
-        // Request was made but no response was received
-        errorMessage = "Network error. Please check your internet connection.";
+        errorMessage = "Network error. Please check your connection.";
       } else if (err.code === "ECONNABORTED") {
-        // Request timeout
-        errorMessage = "Request timed out. Please try again.";
-      } else {
-        // Something else happened in setting up the request that triggered an Error
-        errorMessage = err.message || "An unexpected error occurred.";
+        errorMessage = "Request timeout. Please try again.";
       }
 
       setError(errorMessage);
       toast.error(errorMessage);
-      localStorage.removeItem("adminToken"); // Clear token on failure
-      localStorage.removeItem("adminInfo"); // Clear user info on failure
+      localStorage.removeItem("adminToken");
     } finally {
       setLoading(false);
     }
