@@ -52,7 +52,6 @@ ChartJS.register(
 );
 
 const AdminPanel = () => {
-  const [darkMode, setDarkMode] = useState(false);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -183,9 +182,8 @@ const AdminPanel = () => {
   return (
     <div
       className={`min-h-screen ${
-        darkMode
-          ? "bg-gray-900 text-gray-100 duration-300"
-          : "bg-gray-50 text-gray-900 duration-300"
+        
+           "bg-gray-50 text-gray-900 duration-300"
       }`}
     >
       {/* fixed inset-y-0 left-0 z-50 */}
@@ -230,7 +228,7 @@ const AdminPanel = () => {
                   <div
                     key={index}
                     className={`p-6 rounded-xl shadow ${
-                      darkMode ? "bg-gray-800" : "bg-white"
+                       "bg-white"
                     }`}
                   >
                     <div className="flex justify-between">
@@ -268,7 +266,7 @@ const AdminPanel = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div
                   className={`p-6 rounded-xl shadow ${
-                    darkMode ? "bg-gray-800" : "bg-white"
+                     "bg-white"
                   } lg:col-span-2`}
                 >
                   <h3 className="font-medium mb-4">Sales Overview</h3>
@@ -286,7 +284,7 @@ const AdminPanel = () => {
                 </div>
                 <div
                   className={`p-6 rounded-xl shadow ${
-                    darkMode ? "bg-gray-800" : "bg-white"
+                    "bg-white"
                   }`}
                 >
                   <h3 className="font-medium mb-4">Order Status</h3>
@@ -310,7 +308,7 @@ const AdminPanel = () => {
               {/* Recent Orders */}
               <div
                 className={`p-6 rounded-xl shadow ${
-                  darkMode ? "bg-gray-800" : "bg-white"
+                   "bg-white"
                 }`}
               >
                 <div className="flex justify-between items-center mb-4">
@@ -376,7 +374,7 @@ const AdminPanel = () => {
           {activeTab === "products" && (
             <div
               className={`p-6 rounded-xl shadow ${
-                darkMode ? "bg-gray-800" : "bg-white"
+                 "bg-white"
               }`}
             >
               <div className="flex justify-between items-center mb-6">
@@ -395,18 +393,16 @@ const AdminPanel = () => {
                     type="text"
                     placeholder="Search products..."
                     className={`pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none ${
-                      darkMode
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-white border-gray-300"
+                      
+                        "bg-white border-gray-300"
                     }`}
                   />
                 </div>
                 <div className="flex space-x-2">
                   <select
                     className={`px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none ${
-                      darkMode
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-white border-gray-300"
+                     
+                         "bg-white border-gray-300"
                     }`}
                   >
                     <option>All Categories</option>
@@ -417,9 +413,7 @@ const AdminPanel = () => {
                   </select>
                   <select
                     className={`px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none ${
-                      darkMode
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-white border-gray-300"
+                       "bg-white border-gray-300"
                     }`}
                   >
                     <option>Sort By</option>
@@ -484,7 +478,7 @@ const AdminPanel = () => {
           {activeTab === "vendors" && (
             <div
               className={`p-6 rounded-xl shadow ${
-                darkMode ? "bg-gray-800" : "bg-white"
+                 "bg-white"
               }`}
             >
               <div className="flex justify-between items-center mb-6">
