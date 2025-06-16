@@ -21,7 +21,6 @@ const Layout = () => {
   const role = user?.role || admin?.role;
   const isAdminRoute = location.pathname.startsWith("/admin");
 
-
   if (loading) {
     return <Loader />;
   }
@@ -29,15 +28,15 @@ const Layout = () => {
   // Admin layout
   if (isAdminRoute && role === "admin") {
     return (
-      <div className="flex">
-        <AdminSidebar />
-        <div className="flex-1">
-          <AdminTopbar />
-          <main className="min-h-screen  lg:md:p-4">
-            <Outlet />
-          </main>
-        </div>
+     <div className="flex h-screen overflow-hidden overflow-x-scroll"> {/* Add h-screen and overflow-hidden here */}
+      <AdminSidebar />
+      <div className="flex-1 flex flex-col"> {/* Use flex-col for column layout */}
+        <AdminTopbar />
+        <main className="flex-1 overflow-y-auto lg:md:p-4"> {/* Make main content scrollable */}
+          <Outlet />
+        </main>
       </div>
+    </div>
     );
   }
 
