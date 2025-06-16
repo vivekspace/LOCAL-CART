@@ -1,3 +1,4 @@
+// src/pages/ProfilePage.js
 import React, { useContext, useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Dialog } from "@headlessui/react";
@@ -15,6 +16,8 @@ import {
   ChevronRight,
   Plus,
   Trash2,
+  Image,
+  Upload,
 } from "lucide-react";
 import { AuthContext } from "../../Context/Context";
 
@@ -27,8 +30,11 @@ const ProfilePage = () => {
   const [submittingChanges, setSubmittingChanges] = useState(false);
   const [orders, setOrders] = useState([]);
   const [addresses, setAddresses] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const navigate = useNavigate();
-  // Separate forms for profile and address
+
   const profileForm = useForm({
     mode: "onChange",
     defaultValues: {
@@ -38,7 +44,6 @@ const ProfilePage = () => {
     },
   });
 
-  // Update your address form initialization
   const addressForm = useForm({
     mode: "onChange",
     defaultValues: {
@@ -60,10 +65,14 @@ const ProfilePage = () => {
     }
 
     const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
       ...options.headers,
+      Authorization: `Bearer ${token}`,
     };
+
+    // Don't set Content-Type for FormData (handled automatically with boundary)
+    if (!(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
 
     const response = await fetch(url, { ...options, headers });
 
@@ -82,27 +91,26 @@ const ProfilePage = () => {
   const fetchUserProfile = useCallback(async () => {
     try {
       const data = await makeAuthenticatedFetch(`${API_BASE_URL}/api/users/me`);
+      // Remove: await data.json();
       setUser(data.data.user);
       return data.data.user;
     } catch (error) {
-      console.error("fetchUserProfile: FAILED:", error);
-      toast.error(error.message || "Failed to load profile data.");
-      throw error;
+      console.log("From Profile ", error);
+      // ...
     }
   }, [API_BASE_URL, makeAuthenticatedFetch, setUser]);
-
   const fetchUserOrders = useCallback(async () => {
     try {
       const data = await makeAuthenticatedFetch(`${API_BASE_URL}/api/orders`);
+      // Remove: await data.json();
       if (!data || !Array.isArray(data.orders)) {
         throw new Error("Invalid response format for orders from server");
       }
       setOrders(data.orders);
       return data.orders;
     } catch (error) {
-      console.error("fetchUserOrders: FAILED:", error);
-      toast.error(error.message || "Failed to load order history.");
-      return [];
+      console.log("From Orders ", error);
+      // ...
     }
   }, [API_BASE_URL, makeAuthenticatedFetch]);
 
@@ -111,11 +119,11 @@ const ProfilePage = () => {
       const data = await makeAuthenticatedFetch(
         `${API_BASE_URL}/api/users/me/addresses`
       );
+      // Remove: await data.json();
       setAddresses(data.data?.addresses || []);
     } catch (error) {
-      console.error("fetchUserAddresses error:", error);
-      toast.error(error.message || "Failed to load addresses.");
-      setAddresses([]);
+      console.log("From Address ", error);
+      // ...
     }
   }, [API_BASE_URL, makeAuthenticatedFetch]);
 
@@ -152,19 +160,60 @@ const ProfilePage = () => {
     fetchAllData();
   }, [fetchAllData]);
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.match("image.*")) {
+      toast.error("Please select an image file (JPEG, PNG)");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size should be less than 5MB");
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Corrected onSubmitProfile excerpt:
   const onSubmitProfile = async (data) => {
     setSubmittingChanges(true);
     try {
+      const formData = new FormData();
+      if (data.name) formData.append("name", data.name);
+      if (data.email) formData.append("email", data.email);
+      if (data.bio) formData.append("bio", data.bio);
+      if (selectedFile) {
+        formData.append("photo", selectedFile);
+      }
+
+      // makeAuthenticatedFetch already returns the parsed JSON
       const responseData = await makeAuthenticatedFetch(
+        // Changed variable name from 'response' to 'responseData' for clarity
         `${API_BASE_URL}/api/users/updateMe`,
         {
           method: "PATCH",
-          body: JSON.stringify(data),
+          body: formData,
         }
       );
+
+      // No need for 'await response.json()' here. 'responseData' is already the parsed JSON object.
       setUser(responseData.data.user);
       toast.success("Profile updated successfully!");
       setIsEditModalOpen(false);
+      setSelectedFile(null);
+      setPreviewImage(null);
     } catch (error) {
       console.error("Error updating profile:", error);
       toast.error(error.message || "Failed to update profile.");
@@ -178,7 +227,6 @@ const ProfilePage = () => {
     try {
       const addressData = {
         name: data.name,
-        // fullAddress,
         street: data.street,
         apartment: data.apartment,
         city: data.city,
@@ -229,7 +277,6 @@ const ProfilePage = () => {
     }
   };
 
-  // Effect to reset profile form when modal opens or user changes
   useEffect(() => {
     if (isEditModalOpen && user) {
       profileForm.reset({
@@ -237,10 +284,11 @@ const ProfilePage = () => {
         email: user.email || "",
         bio: user.bio || "",
       });
+      setPreviewImage(user.photo || null);
+      setSelectedFile(null);
     }
   }, [isEditModalOpen, user]);
 
-  // Effect to reset address form when modal opens/closes or editingAddress changes
   useEffect(() => {
     if (isAddressModalOpen) {
       addressForm.reset(
@@ -275,7 +323,7 @@ const ProfilePage = () => {
             Please log in to view your profile.
           </p>
           <button
-            onClick={navigate("/login")}
+            onClick={() => navigate("/login")}
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition"
           >
             Go to Login
@@ -287,7 +335,7 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header with green Green Background */}
+      {/* Header with green Background */}
       <div className="bg-gradient-to-r from-green-500 to-green-600 text-white py-6 shadow-md">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold">My Account</h1>
@@ -305,7 +353,12 @@ const ProfilePage = () => {
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6 -mt-16">
               <div className="relative">
                 <img
-                  src={user?.photo || "https://via.placeholder.com/150"}
+                  src={
+                    previewImage || // This is for local preview before upload
+                    (user?.photo
+                      ? `${import.meta.env.VITE_API_URL}/uploads/${user.photo}`
+                      : "https://via.placeholder.com/150") // Corrected line
+                  }
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md"
                 />
@@ -458,8 +511,9 @@ const ProfilePage = () => {
                           </h3>
                           <p className="text-gray-600 mt-1 text-sm">
                             {address.street}
-                            {address.apartment && `, ${address.apartment}`},{" "}
-                            {address.city}, {address.state} {address.zipCode}{" "}
+                            {address.apartment &&
+                              `, ${address.apartment}`}, {address.city},{" "}
+                            {address.state} {address.zipCode}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -643,6 +697,46 @@ const ProfilePage = () => {
               onSubmit={profileForm.handleSubmit(onSubmitProfile)}
               className="p-6 space-y-5"
             >
+              {/* Profile Image Upload */}
+              <div className="flex flex-col items-center">
+                <div className="relative mb-4">
+                  <img
+                    src={
+                      previewImage || // This is for local preview before upload
+                      (user?.photo
+                        ? `${import.meta.env.VITE_API_URL}/uploads/${
+                            user.photo
+                          }`
+                        : "https://via.placeholder.com/150") // Corrected line
+                    }
+                    alt="Profile Preview"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
+                  />
+                  <label
+                    htmlFor="profile-upload"
+                    className="absolute bottom-0 right-0 bg-green-500 p-2 rounded-full text-white hover:bg-green-700 transition shadow-md cursor-pointer"
+                  >
+                    <Upload size={16} />
+                    <input
+                      id="profile-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                {selectedFile && (
+                  <p className="text-sm text-gray-600 mb-2">
+                    {selectedFile.name} ({Math.round(selectedFile.size / 1024)}
+                    KB)
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 text-center">
+                  JPG, PNG (max 5MB)
+                </p>
+              </div>
+
               <div>
                 <label
                   htmlFor="name"
@@ -725,14 +819,22 @@ const ProfilePage = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingChanges || !profileForm.formState.isValid}
+                  disabled={
+                    submittingChanges ||
+                    !profileForm.formState.isValid ||
+                    isUploading
+                  }
                   className={`flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition font-medium ${
-                    submittingChanges || !profileForm.formState.isValid
+                    submittingChanges ||
+                    !profileForm.formState.isValid ||
+                    isUploading
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }`}
                 >
-                  {submittingChanges ? "Saving..." : "Save Changes"}
+                  {submittingChanges || isUploading
+                    ? "Saving..."
+                    : "Save Changes"}
                 </button>
               </div>
             </form>
