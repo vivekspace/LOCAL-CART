@@ -23,6 +23,7 @@
     "i": "^0.3.7",
     "jspdf": "^3.0.1",
     "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^0.511.0",
     "mongoose": "^8.15.1",
     "motion": "^12.12.2",
