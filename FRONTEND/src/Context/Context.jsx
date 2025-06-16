@@ -29,7 +29,6 @@ export const AuthProvider = ({ children }) => {
   const [admin, setAdmin] = useState(null);
   const [error, setError] = useState(null); // General error state for context
   const [token , setToken] = useState(null);
-
   // --- Location Constants ---
   const USER_LOCATION_KEY = "user_preferred_location_v2";
   const LOCATION_TYPE_CURRENT = "current_location";
@@ -433,12 +432,7 @@ export const AuthProvider = ({ children }) => {
     toast.success("Logged out successfully");
   }, []);
 
-  const adminSignOut = useCallback(() => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminInfo");
-    setAdmin(null);
-    toast.success("Admin logged out successfully");
-  }, []);
+
 
   // Function to update user's selected location, either manual or re-acquire current
   const updateUserLocation = useCallback(
@@ -528,7 +522,6 @@ export const AuthProvider = ({ children }) => {
         setUser,
         isLoggedIn,
         setIsLoggedIn,
-        adminSignOut,
         admin,
         setAdmin,
         login,
