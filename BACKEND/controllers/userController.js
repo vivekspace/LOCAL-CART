@@ -4,6 +4,9 @@ const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const mongoose = require('mongoose'); // Keep this line as you've correctly added it
+const multer = require('multer');
+const path = require('path'); // Import path module
+const sharp = require('sharp'); // Import sharp if you intend to use it for resizing/processing
 
 // Helper function to filter allowed fields
 const filterObj = (obj, ...allowedFields) => {
@@ -14,13 +17,111 @@ const filterObj = (obj, ...allowedFields) => {
     return newObj;
 };
 
-// 1. Get Me (Logged-in user's data)
+// --- MULTER CONFIGURATION FOR IMAGE UPLOADS ---
+
+// 1. Storage Strategy: Use memory storage if you're processing images (e.g., resizing with sharp)
+// and then saving them, or if uploading directly to cloud storage like S3.
+// If you save directly to disk without processing, use diskStorage.
+// For robust image handling (resizing, optimizing), memoryStorage + sharp is generally preferred.
+const multerStorage = multer.memoryStorage(); // Store image in buffer
+
+// 2. File Filter: Check if the uploaded file is an image
+const multerFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image')) {
+    cb(null, true);
+  } else {
+    // If not an image, reject the upload
+    cb(new AppError('Not an image! Please upload only images.', 400), false);
+  }
+};
+
+// 3. Initialize Multer upload middleware
+// 'photo' is the name of the field in the FormData on the frontend
+const upload = multer({
+  storage: multerStorage,
+  fileFilter: multerFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // Limit file size to 5MB (matches frontend validation)
+});
+
+exports.uploadUserPhoto = upload.single('photo'); // 'photo' is the name of the field in your form
+
+// --- Image Resizing/Processing Middleware (Optional but recommended) ---
+// This should run AFTER uploadUserPhoto if you're using memoryStorage.
+exports.resizeUserPhoto = catchAsync(async (req, res, next) => {
+  if (!req.file) return next(); // If no file was uploaded, skip this middleware
+
+  // Define the filename for the processed image.
+  // Corrected template literal syntax.
+  // Ensure 'photo' field in User model
+  req.file.filename = `user-${req.user.id}-${Date.now()}.jpeg`; // Force JPEG for consistency
+
+  // Use sharp to resize and save the image
+  // This saves the processed image to the 'uploads' directory
+  // Make sure 'uploads' directory is accessible by your static file server (server.js)
+  const outputPath = path.join(__dirname, '../uploads', req.file.filename);
+  console.log('Saving processed image to:', outputPath); // Debugging log
+
+  await sharp(req.file.buffer) // Use the buffer from memory storage
+    .resize(500, 500, {
+      fit: sharp.fit.cover, // Crop to cover both dimensions, maintaining aspect ratio
+      withoutEnlargement: true // Don't enlarge images smaller than dimensions
+    })
+    .toFormat('jpeg') // Convert to JPEG format
+    .jpeg({ quality: 90 }) // Set JPEG quality
+    .toFile(outputPath);
+
+  next();
+});
+
+// --- Controller Function for updating profile including photo ---
+// This function needs to be able to accept the 'photo' filename from req.file.filename
+// after the upload and resize middleware have run.
+exports.updateMe = catchAsync(async (req, res, next) => {
+    // 1) Create error if user POSTs password data
+    if (req.body.password || req.body.passwordConfirm) {
+        return next(
+            new AppError(
+                'This route is not for password updates. Please use /updateMyPassword.',
+                400
+            )
+        );
+    }
+
+    // 2) Filtered out unwanted fields names that are not allowed to be updated
+    // Note: 'photo' field will be added separately if a file was uploaded
+    const filteredBody = filterObj(req.body, 'name', 'email', 'bio');
+
+    // 3) If there's an uploaded file (processed by multer and sharp)
+    // The filename is set by `resizeUserPhoto`
+    if (req.file && req.file.filename) {
+      filteredBody.photo = req.file.filename; // Store the filename in the 'photo' field
+    }
+
+    // 4) Update user document
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
+        new: true, // Return the updated document
+        runValidators: true // Run validators defined in the schema
+    }).select('-password'); // Exclude password from the returned object
+
+    if (!updatedUser) {
+        return next(new AppError('No user found with that ID', 404));
+    }
+
+    res.status(200).json({
+        status: 'success',
+        data: {
+            user: updatedUser
+        }
+    });
+});
+
+// 1. Get Me (Logged-in user's data) - Existing
 exports.getMe = (req, res, next) => {
     req.params.id = req.user.id;
     next();
 };
 
-// Generic get user by ID
+// Generic get user by ID - Existing
 exports.getUser = catchAsync(async (req, res, next) => {
     const user = await User.findById(req.params.id);
 
@@ -36,33 +137,7 @@ exports.getUser = catchAsync(async (req, res, next) => {
     });
 });
 
-// 2. Update Me (Logged-in user updates their own data)
-exports.updateMe = catchAsync(async (req, res, next) => {
-    if (req.body.password || req.body.passwordConfirm) {
-        return next(
-            new AppError(
-                'This route is not for password updates. Please use /updateMyPassword.',
-                400
-            )
-        );
-    }
-
-    const filteredBody = filterObj(req.body, 'name', 'email', 'bio', 'avatar');
-
-    const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
-        new: true,
-        runValidators: true
-    });
-
-    res.status(200).json({
-        status: 'success',
-        data: {
-            user: updatedUser
-        }
-    });
-});
-
-// >>> MODIFIED FUNCTIONS <<<
+// >>> MODIFIED FUNCTIONS (Keep your existing address functions as they are correct) <<<
 
 // Function to fetch addresses for the logged-in user
 exports.getAddresses = catchAsync(async (req, res, next) => {
@@ -105,7 +180,7 @@ exports.addAddress = catchAsync(async (req, res, next) => {
     console.log('User addresses after push:', user.addresses); // Check after push
 
     await user.save();
-     // <<< Potential issue point for 500 (validation or database error)
+      // <<< Potential issue point for 500 (validation or database error)
 
     res.status(201).json({
         status: 'success',
@@ -157,7 +232,6 @@ exports.updateAddress = catchAsync(async (req, res, next) => {
 });
 
 // Function to delete an address
-// Function to delete an address
 exports.deleteAddress = catchAsync(async (req, res, next) => {
     const { addressId } = req.params;
     console.log('deleteAddress: addressId from params:', addressId); //
@@ -179,8 +253,8 @@ exports.deleteAddress = catchAsync(async (req, res, next) => {
 
     // Check if an address was actually removed
     if (user.addresses.length === initialAddressCount) {
-         // This means no address with that ID was found and pulled
-         return next(new AppError('Address not found or already deleted', 404));
+          // This means no address with that ID was found and pulled
+          return next(new AppError('Address not found or already deleted', 404));
     }
     // --- END CHANGE ---
 
