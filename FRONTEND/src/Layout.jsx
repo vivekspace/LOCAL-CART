@@ -9,6 +9,7 @@ import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
 import Loader from "./components/Loader/Loader";
 import { useAuth } from "/src/Context/Context.jsx";
+import ChatbotToggle from "./components/ChatBotToggle/ChatBotToggle";
 
 const Layout = () => {
   const { loading } = useAuth();
@@ -61,6 +62,7 @@ const Layout = () => {
         <Outlet />
       </main>
       <Footer />
+      <ChatbotToggle/>
     </>
   );
 };

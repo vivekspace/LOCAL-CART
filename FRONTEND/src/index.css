@@ -54,3 +54,8 @@
     }
 }
 
+/* In your main CSS file (e.g., src/index.css or src/App.css) */
+body, html {
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+    width: 100%; /* Ensure they take up exactly 100% of the viewport width */
+}
