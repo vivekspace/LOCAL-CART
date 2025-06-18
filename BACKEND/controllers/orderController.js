@@ -297,6 +297,7 @@ exports.createOrder = async (req, res) => {
     }
 };
 
+
 // Helper function to send email
 async function sendVendorEmail(to, { orderId, items, customer, paymentMethod, shippingAddress, overallTotal }) {
     // Ensure customer name is properly formatted
@@ -408,6 +409,75 @@ exports.getVendorOrders = async (req, res) => {
     } catch (error) {
         console.error("Error fetching vendor orders:", error);
         res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    }
+};
+exports.getPublicOrderDetails = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        console.log('Fetching PUBLIC order details for:', orderId);
+
+
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid order ID format'
+            });
+        }
+
+        // Here, we *only* query by _id. No customerId check.
+        const order = await Order.findById(orderId);
+        console.log("Order object retrieved from DB:", order); // <-- The most important debug line here
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found with the provided ID.'
+            });
+        }
+
+
+        const subtotal = order.subtotal || order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const tax = order.tax || 0;
+        const shippingCost = order.shippingCost || 0;
+        const discount = order.discount || 0;
+        const total = order.totalAmount || (subtotal + tax + shippingCost - discount);
+
+        const response = {
+            orderId: order._id.toString(), // Renamed to orderId for frontend consistency
+            createdAt: order.createdAt,
+            status: order.status,
+            items: order.cartItems.map(item => ({
+                id: item._id ? item._id.toString() : null, // Ensure _id is string
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                image: item.image || '/placeholder-product.jpg',
+                // Consider if seller ID should be public or only seller name
+            })),
+            subtotal,
+            discount,
+            shippingCost,
+            tax,
+            total,
+            // Only include minimal shipping address for public view
+            shippingAddress: {
+                city: order.shippingAddress?.city || order.customerDetails?.city || 'N/A',
+                state: order.shippingAddress?.state || order.customerDetails?.state || 'N/A',
+                pincode: order.shippingAddress?.zip || order.customerDetails?.zip || 'N/A' // Use pincode if available
+            },
+            estimatedDelivery: order.estimatedDelivery, // Add estimated delivery if available in model
+            trackingNumber: order.trackingNumber // Add tracking number if available
+        };
+
+        res.status(200).json({ success: true, data: response }); // Wrap in data property for consistency
+
+    } catch (error) {
+        console.error('[getPublicOrderDetails] Server Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch public order details',
+            error: error.message
+        });
     }
 };
 
