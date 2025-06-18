@@ -65,10 +65,10 @@ export const AuthProvider = ({ children }) => {
         if (existingItemIndex !== -1) {
           const updatedItems = [...prevItems];
           updatedItems[existingItemIndex].quantity = quantity;
-          toast.success(`Cart updated: ${product.name} (${quantity})`);
+          // toast.success(`Cart updated: ${product.name} (${quantity})`);
           return updatedItems;
         } else {
-          toast.success(`${product.name} added to cart`);
+          // toast.success(`${product.name} added to cart`);
           return [...prevItems, { ...product, quantity }];
         }
       });
@@ -122,7 +122,8 @@ export const AuthProvider = ({ children }) => {
       console.log("Context: Reverse geocoding successful:", detectedCity);
       return detectedCity;
     } catch (error) {
-      toast.error("Could not determine city name for your location.", error);
+      console.log("Error in fetching location :" ,error);
+      // toast.error("Could not determine city name for your location.", error);
       return "Current Location"; // Fallback name for display
     }
   }, []);
