@@ -10,6 +10,10 @@ import {
   FiShoppingCart,
   FiStar,
   FiTrendingUp,
+  FiBox, // For total products
+  FiClock, // For pending orders
+  FiMessageSquare, // For total reviews
+  FiAward, // For average rating
 } from "react-icons/fi";
 import {
   Chart as ChartJS,
@@ -22,6 +26,17 @@ import {
   Legend,
 } from "chart.js";
 
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({
     totalProducts: 0,
@@ -29,10 +44,17 @@ const Dashboard = () => {
     outOfStockProducts: 0,
     totalOrders: 0,
     deliveredOrders: 0,
+    pendingOrders: 0, // New
     totalSales: 0,
+    totalCustomers: 0, // New
+    totalRevenue: 0, // New
+    averageOrderValue: 0, // New
+    totalReviews: 0, // New
+    averageRating: "0.00", // New
     conversionRate: "0.00",
     topProducts: [],
-    salesChartData: [],
+    salesChartData: { labels: [], data: [] }, // Initialize with empty arrays
+    recentOrders: [],
   });
 
   const [loading, setLoading] = useState(true);
@@ -45,8 +67,8 @@ const Dashboard = () => {
         const token = localStorage.getItem("vendorToken");
 
         if (!token) {
-          setError("No token found");
-          console.log(error);
+          setError("Authentication token not found. Please log in.");
+          setLoading(false);
           return;
         }
 
@@ -61,6 +83,7 @@ const Dashboard = () => {
           config
         );
 
+        // Assuming the API returns data directly or under a 'data' key
         setDashboardData(response.data.data || response.data);
       } catch (error) {
         console.error(
@@ -68,7 +91,8 @@ const Dashboard = () => {
           error.response?.data || error.message
         );
         setError(
-          error.response?.data?.message || "Failed to fetch dashboard data"
+          error.response?.data?.message ||
+            "Failed to fetch dashboard data. Please try again."
         );
       } finally {
         setLoading(false);
@@ -76,20 +100,43 @@ const Dashboard = () => {
     };
 
     fetchDashboard();
-  }, []);
-  ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend
-  );
+  }, []); // Empty dependency array means this effect runs once on mount
 
-  const salesData = dashboardData?.salesChart ?? {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    data: [dashboardData?.totalSales || 0, 1200, 1500, 800, 2000, 1700, 2200],
+  // Prepare data for the sales chart
+  const salesChartConfig = {
+    labels: dashboardData.salesChartData.labels,
+    datasets: [
+      {
+        label: "Sales",
+        data: dashboardData.salesChartData.data,
+        fill: true,
+        backgroundColor: "rgba(16, 185, 129, 0.1)", // Green-ish background
+        borderColor: "#10b981", // Green border
+        tension: 0.4, // Smooth curve
+        pointRadius: 4,
+        pointBackgroundColor: "#10b981",
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false, // Allows chart to fill container
+    plugins: {
+      legend: { display: false }, // Hide legend
+      title: { display: false }, // Hide title
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { color: "#6b7280" }, // Gray ticks
+        grid: { color: "#e5e7eb" }, // Light gray grid lines
+      },
+      x: {
+        ticks: { color: "#6b7280" },
+        grid: { display: false }, // Hide x-axis grid lines
+      },
+    },
   };
 
   if (loading) {
@@ -102,8 +149,12 @@ const Dashboard = () => {
 
   if (error) {
     return (
-      <div className="p-6 bg-red-50 text-red-600 rounded-lg">
-        Error: {error}
+      <div className="p-6 bg-red-50 text-red-600 rounded-lg max-w-xl mx-auto mt-10 shadow-md">
+        <h2 className="text-lg font-semibold mb-2">Error Loading Dashboard</h2>
+        <p>{error}</p>
+        <p className="mt-4 text-sm">
+          Please ensure you are logged in and the API server is running.
+        </p>
       </div>
     );
   }
@@ -113,7 +164,7 @@ const Dashboard = () => {
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex lg:flex-row flex-col justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Vendor Dashboard</h1>
           <div className="flex items-center lg:md:mt-0 mt-2 space-x-4">
             <div className="relative">
               <input
@@ -159,31 +210,59 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             icon={<FiDollarSign className="w-6 h-6" />}
-            title="Total Sales"
-            value={`${dashboardData?.totalSales ?? 0}`}
-            change="+12.5%"
-            changeType="increase"
+            title="Total Revenue"
+            value={`₹${dashboardData?.totalRevenue?.toFixed(2) ?? "0.00"}`}
+            change="+12.5%" // Placeholder, ideally from API
+            changeType="increase" // Placeholder, ideally from API
+          />
+          <StatCard
+            icon={<FiShoppingCart className="w-6 h-6" />}
+            title="Total Orders"
+            value={dashboardData?.totalOrders ?? 0}
+            change="+5.2%" // Placeholder
+            changeType="increase" // Placeholder
           />
           <StatCard
             icon={<FiPackage className="w-6 h-6" />}
-            title="New Orders"
-            value={`₹${dashboardData?.newOrders ?? 0}`}
-            change="+5.2%"
-            changeType="increase"
+            title="Total Products"
+            value={dashboardData?.totalProducts ?? 0}
+            change="+3.0%" // Placeholder
+            changeType="increase" // Placeholder
           />
           <StatCard
             icon={<FiUsers className="w-6 h-6" />}
-            title="Customers"
-            value={`₹${dashboardData?.customers ?? 0}`}
-            change="+8.1%"
-            changeType="increase"
+            title="Total Customers"
+            value={dashboardData?.totalCustomers ?? 0}
+            change="+8.1%" // Placeholder
+            changeType="increase" // Placeholder
+          />
+          <StatCard
+            icon={<FiClock className="w-6 h-6" />}
+            title="Pending Orders"
+            value={dashboardData?.pendingOrders ?? 0}
+            change="-2.1%" // Placeholder
+            changeType="decrease" // Placeholder
           />
           <StatCard
             icon={<FiTrendingUp className="w-6 h-6" />}
             title="Conversion Rate"
-            value={`${dashboardData?.conversionRate ?? 0}%`}
-            change="-0.7%"
-            changeType="decrease"
+            value={`${dashboardData?.conversionRate ?? "0.00"}%`}
+            change="+0.7%" // Placeholder
+            changeType="increase" // Placeholder
+          />
+          <StatCard
+            icon={<FiMessageSquare className="w-6 h-6" />}
+            title="Total Reviews"
+            value={dashboardData?.totalReviews ?? 0}
+            change="+15.0%" // Placeholder
+            changeType="increase" // Placeholder
+          />
+          <StatCard
+            icon={<FiStar className="w-6 h-6" />}
+            title="Average Rating"
+            value={`${dashboardData?.averageRating ?? "0.00"}/5`}
+            change="+0.1" // Placeholder
+            changeType="increase" // Placeholder
           />
         </div>
 
@@ -199,45 +278,19 @@ const Dashboard = () => {
                 <option>Last 7 days</option>
                 <option>Last 30 days</option>
                 <option>Last 90 days</option>
+                <option>This Year</option>
               </select>
             </div>
-            <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
-              <Line
-                data={{
-                  labels: salesData.labels,
-                  datasets: [
-                    {
-                      label: "Sales",
-                      data: salesData.data,
-                      fill: true,
-                      backgroundColor: "rgba(16, 185, 129, 0.1)",
-                      borderColor: "#10b981",
-                      tension: 0.4,
-                      pointRadius: 4,
-                      pointBackgroundColor: "#10b981",
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  plugins: {
-                    legend: { display: false },
-                    title: { display: false },
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      ticks: { color: "#6b7280" },
-                      grid: { color: "#e5e7eb" },
-                    },
-                    x: {
-                      ticks: { color: "#6b7280" },
-                      grid: { display: false },
-                    },
-                  },
-                }}
-              />
-              {/* Replace with your actual chart component */}
+            <div className="h-80">
+              {" "}
+              {/* Removed bg-gray-50, Chart.js renders its own background */}
+              {dashboardData.salesChartData?.labels?.length > 0 ? (
+                <Line data={salesChartConfig} options={chartOptions} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No sales data available for the selected period.
+                </div>
+              )}
             </div>
           </div>
 
@@ -251,37 +304,44 @@ const Dashboard = () => {
               Array.isArray(dashboardData.topProducts)
                 ? dashboardData.topProducts
                 : []
-              ).map((product) => (
-                <div key={product.id} className="flex items-center">
-                  <div className="w-10 h-10 rounded-md flex items-center justify-center mr-4">
-                    <img
-                      className=" rounded-full object-cover"
-                      src={
-                        product.images?.[0]
-                          ? `${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`
-                          : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
-                      }
-                      alt={product.name}
-                      onError={(e) => {
-                        console.log("Image failed to load:", e.target.src);
-                        e.target.src =
-                          `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
-                      }}
-                    />
+              ).length > 0 ? (
+                (dashboardData.topProducts || []).map((product) => (
+                  <div key={product.id} className="flex items-center">
+                    <div className="w-10 h-10 rounded-md flex items-center justify-center mr-4 overflow-hidden">
+                      <img
+                        className="w-full h-full object-cover" // Ensure image covers the area
+                        src={
+                          product.images?.[0]
+                            ? `${import.meta.env.VITE_API_URL}/uploads/${
+                                product.images[0]
+                              }`
+                            : `/default-product.png` // Fallback if no image or error
+                        }
+                        alt={product.name}
+                        onError={(e) => {
+                          console.log("Image failed to load:", e.target.src);
+                          e.target.src = `/default-product.png`; // Set a local fallback image
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-800">
+                        {product.name}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {product.sales} sales
+                      </p>
+                    </div>
+                    <div className="text-green-600 font-medium">
+                      ₹{product.price?.toFixed(2) ?? "0.00"}
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-800">
-                      {product.name}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {product.sales} sales
-                    </p>
-                  </div>
-                  <div className="text-green-600 font-medium">
-                    ${product.price.toFixed(2)}
-                  </div>
+                ))
+              ) : (
+                <div className="text-gray-500 text-center py-4">
+                  No top products to display.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
@@ -293,86 +353,91 @@ const Dashboard = () => {
               Recent Orders
             </h2>
             <Link
-              to="/past-orders"
+              to="/vendor/orders" // Changed to a more appropriate route for vendor orders
               className="text-green-600 hover:text-green-800 text-sm font-medium"
             >
               View All
             </Link>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Order ID
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Customer
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Amount
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Status
-                  </th>
-                  <th scope="col" className="relative px-6 py-3">
-                    <span className="sr-only">Action</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {(dashboardData.recentOrders &&
-                Array.isArray(dashboardData.recentOrders)
-                  ? dashboardData.recentOrders
-                  : []
-                ).map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{order.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {order.customer}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${order.amount}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          order.status === "Delivered"
-                            ? "bg-green-100 text-green-800"
-                            : order.status === "Shipped"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        to={`/orders/${order.id}`}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        View
-                      </Link>
-                    </td>
+            {dashboardData.recentOrders &&
+            dashboardData.recentOrders.length > 0 ? (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Order ID
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Customer
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Amount
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Status
+                    </th>
+                    <th scope="col" className="relative px-6 py-3">
+                      <span className="sr-only">Action</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {(dashboardData.recentOrders || []).map((order) => (
+                    <tr key={order.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        #{order.id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {order.customer}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ₹{order.amount?.toFixed(2) ?? "0.00"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            order.status === "Delivered"
+                              ? "bg-green-100 text-green-800"
+                              : order.status === "Shipped"
+                              ? "bg-blue-100 text-blue-800"
+                              : order.status === "Pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800" // Default for other statuses
+                          }`}
+                        >
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Link
+                          to={`/vendor/orders/${order.id}`} // Changed to vendor specific order detail route
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-gray-500 text-center py-4">
+                No recent orders to display.
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -380,7 +445,7 @@ const Dashboard = () => {
   );
 };
 
-// Stat Card Component
+// Stat Card Component (remains largely the same)
 const StatCard = ({ icon, title, value, change, changeType }) => {
   return (
     <div className="bg-white p-6 rounded-xl shadow-md">
