@@ -9,6 +9,8 @@ const { protect } = require('../middleware/authMiddleware')
 // Customer routes (protected)
 router.get('/', protect, orderController.getCustomerOrders); // ✅ Changed to match your controller
 router.post('/', protect, orderController.createOrder);
+router.get('/track/:orderId', orderController.getPublicOrderDetails);
+
 router.get('/:orderId', protect, orderController.getOrderDetails);
 
 // Vendor routes
