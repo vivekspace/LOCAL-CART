@@ -1,9 +1,10 @@
 // controllers/orderController.js
 const Order = require('../models/Order');
 const Vendor = require('../models/Vendor');
+const Product = require('../models/Product'); // <-- ADD THIS LINE: Import Product model
 const nodemailer = require('nodemailer');
-const User = require('../models/User')
-const mongoose = require('mongoose') // Ensure mongoose is imported
+const User = require('../models/User');
+const mongoose = require('mongoose'); // Ensure mongoose is imported
 require('dotenv').config();
 
 const { v4: uuidv4 } = require('uuid');
@@ -18,7 +19,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Get all orders (for customers)
-exports.getCustomerOrders = async (req, res) => {  // ✅ Changed from getAllOrders
+exports.getCustomerOrders = async (req, res) => {
     try {
         // 1. ENFORCE AUTHENTICATION - MUST come from protect middleware
         if (!req.user) {
@@ -28,22 +29,50 @@ exports.getCustomerOrders = async (req, res) => {  // ✅ Changed from getAllOrd
             });
         }
 
-        // 2. DATA ISOLATION - Only get orders for the current user
+        // 2. DATA ISOLATION & POPULATION - Only get orders for the current user and populate product images
         const orders = await Order.find({
             customerId: req.user._id // Critical security filter
-        }).sort({ createdAt: -1 });
+        })
+            .populate({
+                path: 'cartItems.productId', // Path to the product ID within each cart item
+                model: 'Product',            // The model to use for population
+                select: 'images',            // Select only the 'images' array from the Product document
+            })
+            .sort({ createdAt: -1 })
+            .lean(); // Use .lean() for faster query results if you don't need Mongoose document methods
 
-        // 3. TRANSFORM DATA - Only include what's needed
+
+        // 3. TRANSFORM DATA - Include image URL in the transformed output
         const transformedOrders = orders.map(order => ({
             _id: order._id,
             orderNumber: order._id.toString().slice(-8).toUpperCase(),
+            firstProductName: order.cartItems.length > 0 ? order.cartItems[0].name : null, // <--- ADD THIS LINE
             status: order.status,
             createdAt: order.createdAt,
             totalAmount: order.totalAmount ||
                 order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
             itemCount: order.cartItems.length,
             paymentMethod: order.paymentDetails.method,
-            paymentStatus: order.paymentDetails.status
+            paymentStatus: order.paymentDetails.status,
+            // Include cartItems with image URLs
+            cartItems: order.cartItems.map(item => {
+                let imageUrl = '/placeholder-product.png'; // Default fallback image path
+
+                // Check if productId was successfully populated and has images
+                if (item.productId && item.productId.images && item.productId.images.length > 0) {
+                    imageUrl = item.productId.images[0]; // Take the first image from the array
+                }
+
+                return {
+                    productId: item.productId ? item.productId._id : null, // Keep product ID
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                    imageUrl: imageUrl, // Add the image URL here
+                    // Optionally include seller if frontend needs it for individual items
+                    // seller: item.seller
+                };
+            })
         }));
 
         res.status(200).json({
@@ -53,7 +82,7 @@ exports.getCustomerOrders = async (req, res) => {  // ✅ Changed from getAllOrd
         });
 
     } catch (error) {
-        console.error('Error fetching orders:', error);
+        console.error('Error fetching customer orders:', error); // More specific error message
         res.status(500).json({
             success: false,
             message: 'Failed to fetch your orders',
@@ -61,7 +90,8 @@ exports.getCustomerOrders = async (req, res) => {  // ✅ Changed from getAllOrd
         });
     }
 };
-// Get orders by customer email (if you don't have user auth)
+
+// Get orders by customer email (if you don't have user auth) - No change needed here for images unless this route is also used for detailed user view
 exports.getOrdersByEmail = async (req, res) => {
     try {
         const { email } = req.query;
@@ -73,6 +103,7 @@ exports.getOrdersByEmail = async (req, res) => {
             });
         }
 
+        // If you want images here too, you'd add .populate similarly
         const orders = await Order.find({ 'customerDetails.email': email }).sort({ createdAt: -1 });
 
         const transformedOrders = orders.map(order => ({
@@ -111,18 +142,15 @@ exports.createOrder = async (req, res) => {
     }
 
     try {
-        // ADD THIS AUTHENTICATION CHECK (ensure protect middleware is active on route)
-        if (!req.user) {
+        if (!req.user) { // Redundant check, but harmless if middleware handles it
             return res.status(401).json({
                 success: false,
                 message: "Not authorized - please login"
             });
         }
 
-        // Destructure `shipping` from req.body, which contains the nested address
         const { customerDetails, cartItems, paymentDetails, shipping, pricing, orderStatus } = req.body;
 
-        // Validate required fields
         if (!customerDetails || !cartItems || cartItems.length === 0 || !shipping || !shipping.address) {
             return res.status(400).json({
                 success: false,
@@ -130,13 +158,11 @@ exports.createOrder = async (req, res) => {
             });
         }
 
-        // *** NEW: Fetch product details to get seller information ***
         const enrichedCartItems = await Promise.all(
             cartItems.map(async (item) => {
                 try {
-                    // Fetch product details if productId exists
                     if (item.productId) {
-                        const Product = require('../models/Product'); // Adjust path as needed
+                        const Product = require('../models/Product'); // Ensure Product model is required locally or globally
                         const product = await Product.findById(item.productId);
 
                         if (product && product.seller) {
@@ -146,9 +172,7 @@ exports.createOrder = async (req, res) => {
                             };
                         }
                     }
-
-                    // If no productId or product not found, return item as is
-                    return item;
+                    return item; // If no productId or product not found, return item as is
                 } catch (error) {
                     console.error(`Error fetching product ${item.productId}:`, error);
                     return item;
@@ -156,60 +180,45 @@ exports.createOrder = async (req, res) => {
             })
         );
 
-        // Backend calculations (your existing logic)
         const subtotal = enrichedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const tax = subtotal * 0.08;
-        const shippingCost = subtotal > 50 ? 0 : 10; // This might be overridden by frontend's `shipping.cost`
+        const shippingCost = subtotal > 50 ? 0 : 10;
         const discount = 0;
-        const totalAmount = subtotal + tax + shippingCost - discount; // Use your backend calculation
+        const totalAmount = subtotal + tax + shippingCost - discount;
 
-        // Normalize cart items (your existing logic)
         const normalizedItems = enrichedCartItems.map(item => {
             let sellerId;
-
             if (typeof item.seller === 'object' && item.seller !== null && (item.seller._id || item.seller.id)) {
                 sellerId = item.seller._id || item.seller.id;
             } else {
-
                 sellerId = item.seller;
             }
 
-
-            let finalSellerId = null; // Initialize to null
-
+            let finalSellerId = null;
             if (sellerId && typeof sellerId === 'string' && mongoose.Types.ObjectId.isValid(sellerId)) {
-                // If it's a valid ObjectId string, convert it
                 finalSellerId = new mongoose.Types.ObjectId(sellerId);
             } else if (sellerId && typeof sellerId === 'object' && sellerId instanceof mongoose.Types.ObjectId) {
-                // If it's already a mongoose ObjectId (less likely if coming from frontend payload directly)
                 finalSellerId = sellerId;
             } else {
-
                 console.error(`Invalid or missing seller ID for cart item: ${item.name || 'Unknown Item'}. Received sellerId:`, sellerId);
                 throw new Error(`Missing or invalid seller ID for product: ${item.name || 'an item in your cart'}`);
-
             }
-
             return {
                 ...item,
-                seller: finalSellerId // Ensure this is a valid ObjectId or null/undefined if allowed by schema
+                seller: finalSellerId
             };
         });
 
-
         const finalShippingAddress = {
-            street: shipping.address.line1, // Map frontend line1 to backend street
+            street: shipping.address.line1,
             city: shipping.address.city,
             state: shipping.address.state,
-            zip: shipping.address.pincode,  // Map frontend pincode to backend zip
-            country: shipping.address.country || 'India', // Ensure country is saved
-
+            zip: shipping.address.pincode,
+            country: shipping.address.country || 'India',
         };
 
-        // Create and save the order
         const allowedStatuses = ['pending', 'processing', 'completed', 'shipped', 'failed'];
         const safeStatus = allowedStatuses.includes(orderStatus) ? orderStatus : 'processing';
-
 
         const newOrder = new Order({
             customerId: req.user._id,
@@ -229,7 +238,6 @@ exports.createOrder = async (req, res) => {
                 status: paymentDetails.status ||
                     (paymentDetails.method?.toLowerCase() === 'cod' ? 'pending' : 'paid')
             },
-
             shippingAddress: finalShippingAddress,
             subtotal,
             tax,
@@ -239,11 +247,9 @@ exports.createOrder = async (req, res) => {
             status: safeStatus
         });
 
-
         const savedOrder = await newOrder.save();
-        // Group items by vendor
+
         const vendorItemsMap = normalizedItems.reduce((map, item) => {
-            // Ensure the key is a string for the map, as map keys are strings
             const key = item.seller.toString();
             if (!map[key]) {
                 map[key] = [];
@@ -252,17 +258,15 @@ exports.createOrder = async (req, res) => {
             return map;
         }, {});
 
-        // Send email to each vendor
         await Promise.all(
             Object.entries(vendorItemsMap).map(async ([sellerId, items]) => {
                 try {
-                    // Find vendor by ID (sellerId will be a string here from Object.entries)
                     const vendor = await Vendor.findById(sellerId);
                     if (vendor && vendor.email) {
                         await sendVendorEmail(vendor.email, {
                             orderId: savedOrder._id,
                             items,
-                            customer: { // Pass all customer details as an object
+                            customer: {
                                 email: customerDetails.email,
                                 firstname: customerDetails.firstname,
                                 lastname: customerDetails.lastname,
@@ -270,8 +274,8 @@ exports.createOrder = async (req, res) => {
                                 name: `${customerDetails.firstname || ''} ${customerDetails.lastname || ''}`.trim()
                             },
                             paymentMethod: paymentDetails.method,
-                            shippingAddress: finalShippingAddress, // Pass the entire finalShippingAddress object
-                            overallTotal: savedOrder.totalAmount // Pass the overall order total if relevant
+                            shippingAddress: finalShippingAddress,
+                            overallTotal: savedOrder.totalAmount
                         });
                     } else {
                         console.warn(`Vendor with ID ${sellerId} not found or missing email.`);
@@ -297,14 +301,11 @@ exports.createOrder = async (req, res) => {
     }
 };
 
-
 // Helper function to send email
 async function sendVendorEmail(to, { orderId, items, customer, paymentMethod, shippingAddress, overallTotal }) {
-    // Ensure customer name is properly formatted
     const customerFullName = (customer.name && customer.name.trim() !== '') ? customer.name : `${customer.firstname || ''} ${customer.lastname || ''}`.trim();
-    const displayCustomerName = customerFullName || 'N/A'; // Fallback if still empty
+    const displayCustomerName = customerFullName || 'N/A';
 
-    // Calculate subtotal for the items relevant to this specific vendor
     const vendorSubtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
     const itemRows = items.map(item => `
@@ -366,17 +367,12 @@ async function sendVendorEmail(to, { orderId, items, customer, paymentMethod, sh
 
     await transporter.sendMail(mailOptions);
 }
+
 // controllers/orderController.js (Updated getVendorOrders function)
-
-
-
-// controllers/orderController.js
-
 exports.getVendorOrders = async (req, res) => {
     try {
         const vendorId = req.vendor._id;
 
-        // Only orders that include at least one item from this vendor
         const orders = await Order.find({ 'cartItems.seller': vendorId })
             .sort({ createdAt: -1 }) // Latest first
             .lean(); // Optional: Makes result faster if no Mongoose methods needed
@@ -400,6 +396,8 @@ exports.getVendorOrders = async (req, res) => {
                     name: item.name,
                     quantity: item.quantity,
                     price: item.price,
+                    // If you want images for vendor view as well, populate in getVendorOrders too.
+                    // For now, only for customer view.
                 })),
                 totalAmount: vendorItems.reduce((acc, item) => acc + item.quantity * item.price, 0)
             };
@@ -411,11 +409,11 @@ exports.getVendorOrders = async (req, res) => {
         res.status(500).json({ success: false, message: "Server Error", error: error.message });
     }
 };
+
 exports.getPublicOrderDetails = async (req, res) => {
     try {
         const { orderId } = req.params;
         console.log('Fetching PUBLIC order details for:', orderId);
-
 
         if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
             return res.status(400).json({
@@ -425,8 +423,16 @@ exports.getPublicOrderDetails = async (req, res) => {
         }
 
         // Here, we *only* query by _id. No customerId check.
-        const order = await Order.findById(orderId);
-        console.log("Order object retrieved from DB:", order); // <-- The most important debug line here
+        // If you want images for public details, add .populate here too
+        const order = await Order.findById(orderId)
+            .populate({
+                path: 'cartItems.productId',
+                model: 'Product',
+                select: 'images'
+            })
+            .lean(); // Add lean for better performance
+
+        console.log("Order object retrieved from DB:", order);
 
         if (!order) {
             return res.status(404).json({
@@ -435,7 +441,6 @@ exports.getPublicOrderDetails = async (req, res) => {
             });
         }
 
-
         const subtotal = order.subtotal || order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const tax = order.tax || 0;
         const shippingCost = order.shippingCost || 0;
@@ -443,33 +448,37 @@ exports.getPublicOrderDetails = async (req, res) => {
         const total = order.totalAmount || (subtotal + tax + shippingCost - discount);
 
         const response = {
-            orderId: order._id.toString(), // Renamed to orderId for frontend consistency
+            orderId: order._id.toString(),
             createdAt: order.createdAt,
             status: order.status,
-            items: order.cartItems.map(item => ({
-                id: item._id ? item._id.toString() : null, // Ensure _id is string
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-                image: item.image || '/placeholder-product.jpg',
-                // Consider if seller ID should be public or only seller name
-            })),
+            items: order.cartItems.map(item => {
+                let imageUrl = '/placeholder-product.png';
+                if (item.productId && item.productId.images && item.productId.images.length > 0) {
+                    imageUrl = item.productId.images[0];
+                }
+                return {
+                    id: item._id ? item._id.toString() : null,
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                    image: imageUrl, // Use the populated image URL
+                };
+            }),
             subtotal,
             discount,
             shippingCost,
             tax,
             total,
-            // Only include minimal shipping address for public view
             shippingAddress: {
                 city: order.shippingAddress?.city || order.customerDetails?.city || 'N/A',
                 state: order.shippingAddress?.state || order.customerDetails?.state || 'N/A',
-                pincode: order.shippingAddress?.zip || order.customerDetails?.zip || 'N/A' // Use pincode if available
+                pincode: order.shippingAddress?.zip || order.customerDetails?.zip || 'N/A'
             },
-            estimatedDelivery: order.estimatedDelivery, // Add estimated delivery if available in model
-            trackingNumber: order.trackingNumber // Add tracking number if available
+            estimatedDelivery: order.estimatedDelivery,
+            trackingNumber: order.trackingNumber
         };
 
-        res.status(200).json({ success: true, data: response }); // Wrap in data property for consistency
+        res.status(200).json({ success: true, data: response });
 
     } catch (error) {
         console.error('[getPublicOrderDetails] Server Error:', error);
@@ -483,7 +492,6 @@ exports.getPublicOrderDetails = async (req, res) => {
 
 exports.getOrderDetails = async (req, res) => {
     try {
-        // ADD AUTHENTICATION CHECK
         if (!req.user) {
             return res.status(401).json({
                 success: false,
@@ -494,7 +502,6 @@ exports.getOrderDetails = async (req, res) => {
         const { orderId } = req.params;
         console.log('Fetching order details for:', orderId);
 
-        // Validate the ID format first
         if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
             return res.status(400).json({
                 success: false,
@@ -503,10 +510,17 @@ exports.getOrderDetails = async (req, res) => {
         }
 
         // ✅ CRITICAL SECURITY FIX: Only get orders for the authenticated user
+        // ✅ ADD POPULATE HERE FOR DETAILED VIEW
         const order = await Order.findOne({
             _id: orderId,
-            customerId: req.user._id  // Only user's own orders
-        });
+            customerId: req.user._id
+        })
+            .populate({
+                path: 'cartItems.productId',
+                model: 'Product',
+                select: 'images' // Select only the images field
+            })
+            .lean(); // Use .lean() for better performance
 
         if (!order) {
             return res.status(404).json({
@@ -515,7 +529,6 @@ exports.getOrderDetails = async (req, res) => {
             });
         }
 
-        // Rest of your existing transformation logic...
         const subtotal = order.subtotal || order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const tax = order.tax || 0;
         const shippingCost = order.shippingCost || 0;
@@ -526,16 +539,22 @@ exports.getOrderDetails = async (req, res) => {
             orderNumber: order._id.toString(),
             createdAt: order.createdAt,
             status: order.status,
-            items: order.cartItems.map(item => ({
-                id: item._id || uuidv4(),
-                name: item.name,
-                variant: item.variant || '',
-                price: item.price,
-                originalPrice: item.originalPrice || null,
-                quantity: item.quantity,
-                image: item.image || '/placeholder-product.jpg',
-                seller: item.seller
-            })),
+            items: order.cartItems.map(item => {
+                let imageUrl = '/placeholder-product.png';
+                if (item.productId && item.productId.images && item.productId.images.length > 0) {
+                    imageUrl = item.productId.images[0];
+                }
+                return {
+                    id: item._id || uuidv4(),
+                    name: item.name,
+                    variant: item.variant || '',
+                    price: item.price,
+                    originalPrice: item.originalPrice || null,
+                    quantity: item.quantity,
+                    image: imageUrl, // Use the populated image URL
+                    seller: item.seller
+                };
+            }),
             subtotal,
             discount,
             shippingCost,
@@ -580,7 +599,6 @@ exports.updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: 'Invalid status value' });
         }
 
-        // Fetch the order first
         const order = await Order.findOne({
             _id: orderId,
             'cartItems.seller': vendorId
@@ -590,23 +608,19 @@ exports.updateOrderStatus = async (req, res) => {
             return res.status(404).json({ message: 'Order not found or not authorized' });
         }
 
-        // Determine if payment status needs to be updated
         let paymentStatusUpdate = {};
         const currentPaymentMethod = order.paymentDetails?.method;
 
         if (status === 'completed') {
-            // ✅ If COD order, mark payment as paid when completed
             if (currentPaymentMethod === 'COD') {
                 paymentStatusUpdate['paymentDetails.status'] = 'paid';
             } else {
-                // For online payments, assume it's already paid, don't change status
                 paymentStatusUpdate = {};
             }
         } else if (status === 'failed') {
             paymentStatusUpdate['paymentDetails.status'] = 'failed';
         }
 
-        // Perform update
         const updatedOrder = await Order.findOneAndUpdate(
             {
                 _id: orderId,
@@ -621,7 +635,6 @@ exports.updateOrderStatus = async (req, res) => {
             { new: true }
         );
 
-        // Optional: send email notification
         try {
             await sendStatusUpdateEmail(updatedOrder);
         } catch (emailErr) {
