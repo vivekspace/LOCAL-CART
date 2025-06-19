@@ -25,6 +25,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { LayoutDashboard } from "lucide-react";
 
 // Register Chart.js components
 ChartJS.register(
@@ -164,7 +165,10 @@ const Dashboard = () => {
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex lg:flex-row flex-col justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Vendor Dashboard</h1>
+          <div className="flex justify-center items-center gap-3">
+          <LayoutDashboard className="inline bg-green-600 text-white rounded p-1" size={35}/>
+          <h1 className="text-3xl font-bold text-green-600">Vendor Dashboard</h1>
+          </div>
           <div className="flex items-center lg:md:mt-0 mt-2 space-x-4">
             <div className="relative">
               <input

@@ -7,6 +7,7 @@ import {
   FiCalendar,
   FiDownload,
   FiRefreshCw,
+  FiPieChart
 } from "react-icons/fi";
 import {
   LineChart,
@@ -62,7 +63,8 @@ const VendorAnalytics = () => {
             errorJson.message || JSON.stringify(errorJson)
           }`;
         } catch (e) {
-          const errorText = await response.text();
+          console.log("error displaying data in analytics " , e)
+          const errorText = await response.text(); 
           errorMessage = `HTTP ${response.status}: ${errorText.substring(
             0,
             200
@@ -197,7 +199,8 @@ const VendorAnalytics = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="lg:md:text-3xl text-2xl font-bold text-green-600">
+              <FiPieChart className="inline bg-green-600 text-white p-1.5  mr-3 rounded-xl" size={40}/>
               Analytics Dashboard
             </h1>
             <p className="text-gray-600">
