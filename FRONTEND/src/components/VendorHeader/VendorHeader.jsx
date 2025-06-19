@@ -74,7 +74,6 @@ const VendorNavbar = () => {
 
   // Enhanced navigation links with more features
   const orderCount = 5;
-  
 
   const navLinks = [
     {
@@ -108,7 +107,6 @@ const VendorNavbar = () => {
       icon: BarChart3,
       description: "Sales insights",
     },
-  
   ];
 
   // Sample notifications
@@ -192,20 +190,20 @@ const VendorNavbar = () => {
     }`;
 
   return (
-<nav className="bg-white shadow-sm border-b border-gray-100 fixed top-0 left-0 w-full z-50">
+    <nav className="bg-white shadow-sm border-b border-gray-100  w-full z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Left side: Logo and Desktop Navigation */}
-        <div className="flex justify-between items-center h-16 ">
-              <Link
-                to="vendor/dashboard"
-                className="flex items-center gap-2 text-2xl font-bold text-green-600 hover:text-green-700 transition-colors relative"
-              >
-                <img src={logo} alt="Logo" className="h-12 w-auto" />
-                <span className="text-xs font-medium text-gray-500 absolute top-2 right-12">
-                  Vendor
-                </span>
-              </Link>
+          <div className="flex justify-between items-center h-16 ">
+            <Link
+              to="vendor/dashboard"
+              className="flex items-center gap-2 text-2xl font-bold text-green-600 hover:text-green-700 transition-colors relative"
+            >
+              <img src={logo} alt="Logo" className="h-12 w-auto" />
+              <span className="text-xs font-medium text-gray-500 absolute top-2 right-12">
+                Vendor
+              </span>
+            </Link>
             {/* </div> */}
 
             {/* Desktop Navigation */}
@@ -408,24 +406,24 @@ const VendorNavbar = () => {
         />
 
         {/* Sliding Panel */}
-          <div
-            className={`fixed top-0 right-0 h-full w-80 bg-white shadow-2xl transform transition-transform duration-300 ${
-              isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
-            } flex flex-col`}
-          >
-            {/* Header */}
+        <div
+          className={`fixed top-0 right-0 h-full w-80 bg-white shadow-2xl transform transition-transform duration-300 ${
+            isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          } flex flex-col`}
+        >
+          {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-blue-50">
             <div className="flex items-center space-x-3">
               <div className="flex justify-between items-center h-10 ">
-              <Link
-                to="vendor/dashboard"
-                className="flex items-center gap-2 text-2xl font-bold text-green-600 hover:text-green-700 transition-colors relative"
-              >
-                <img src={logo} alt="Logo" className="h-12 w-auto" />
-                <span className="text-xs font-medium text-gray-500 absolute top-2 right-12">
-                  Vendor
-                </span>
-              </Link>
+                <Link
+                  to="vendor/dashboard"
+                  className="flex items-center gap-2 text-2xl font-bold text-green-600 hover:text-green-700 transition-colors relative"
+                >
+                  <img src={logo} alt="Logo" className="h-12 w-auto" />
+                  <span className="text-xs font-medium text-gray-500 absolute top-2 right-12">
+                    Vendor
+                  </span>
+                </Link>
               </div>
             </div>
             <button
