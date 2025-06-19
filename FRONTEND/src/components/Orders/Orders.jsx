@@ -10,6 +10,9 @@ import {
   TruckIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
+  EllipsisVerticalIcon, // For the action/settings icon
+  ChevronLeftIcon, // For pagination
+  ChevronRightIcon, // For pagination
 } from "@heroicons/react/24/outline";
 
 const PLACEHOLDER_IMAGE = `${
@@ -23,6 +26,9 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  // State for pagination (basic setup)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [ordersPerPage] = useState(5); // You can adjust this
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -62,17 +68,27 @@ const Orders = () => {
         }
 
         const responseData = await apiResponse.json();
-        console.log("order is", responseData);
+        console.log("order is", responseData); // Keep this for debugging
 
         if (!responseData || !Array.isArray(responseData.orders)) {
           throw new Error("Invalid response format from server");
         }
 
-        // Add a placeholder for itemCount and paymentDetails if they are sometimes missing
         const processedOrders = responseData.orders.map((order) => ({
           ...order,
-          itemCount: order.items ? order.items.length : 0, // Ensure itemCount is present
-          paymentDetails: order.paymentDetails || {}, // Ensure paymentDetails is an object
+          itemCount: order.cartItems ? order.cartItems.length : 0,
+          paymentDetails: order.paymentDetails || {},
+          // Extract first product name and image for display, if available
+          firstProductName: order.cartItems?.[0]?.name || null,
+          firstProductImage:
+            order.cartItems?.[0]?.images?.[0]?.url || PLACEHOLDER_IMAGE, // Assuming images array
+          // Extract customer name for the table UI
+          customerFullName: order.customerDetails
+            ? `${order.customerDetails.firstname || ""} ${
+                order.customerDetails.lastname || ""
+              }`.trim()
+            : "N/A",
+         
         }));
 
         setOrders(processedOrders);
@@ -125,15 +141,15 @@ const Orders = () => {
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
       case "processing":
-        return <ClockIcon className="w-5 h-5 text-amber-500" />;
+        return <ClockIcon className="w-4 h-4 text-amber-500 mr-1" />;
       case "shipped":
-        return <TruckIcon className="w-5 h-5 text-blue-500" />;
+        return <TruckIcon className="w-4 h-4 text-blue-500 mr-1" />;
       case "delivered":
-        return <CheckCircleIcon className="w-5 h-5 text-green-600" />;
+        return <CheckCircleIcon className="w-4 h-4 text-green-600 mr-1" />;
       case "cancelled":
-        return <ExclamationCircleIcon className="w-5 h-5 text-red-500" />;
+        return <ExclamationCircleIcon className="w-4 h-4 text-red-500 mr-1" />;
       default:
-        return <ShoppingBagIcon className="w-5 h-5 text-gray-500" />;
+        return <ShoppingBagIcon className="w-4 h-4 text-gray-500 mr-1" />;
     }
   };
 
@@ -157,7 +173,9 @@ const Orders = () => {
     .filter((order) => {
       const matchesSearch =
         order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.status?.toLowerCase().includes(searchTerm.toLowerCase());
+        order.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.firstProductName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customerFullName.toLowerCase().includes(searchTerm.toLowerCase()); // Search by customer name, no longer by address
       const matchesFilter =
         filterStatus === "all" || order.status?.toLowerCase() === filterStatus;
       return matchesSearch && matchesFilter;
@@ -177,15 +195,44 @@ const Orders = () => {
       }
     });
 
+  // Pagination Logic
+  const indexOfLastOrder = currentPage * ordersPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+  const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  // Helper for generating page numbers
+  const renderPageNumbers = () => {
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(
+        <button
+          key={i}
+          onClick={() => paginate(i)}
+          className={`px-3 py-1 mx-1 rounded-md text-sm font-medium ${
+            currentPage === i
+              ? "bg-green-600 text-white"
+              : "bg-green-200 text-green-700 hover:bg-green-300"
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    return pageNumbers;
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
+      <div className="flex justify-center items-center h-screen bg-green-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div> {/* Changed color to blue for user side */}
-          <p className="text-lg text-gray-700">Loading your orders...</p> 
-          <p className="text-sm text-gray-500">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>{" "}
+          <p className="text-lg text-green-700">Loading your orders...</p>
+          <p className="text-sm text-green-500">
             LocalCart is fetching your personalized experience
-          </p> {/* Changed text */}
+          </p>
         </div>
       </div>
     );
@@ -193,7 +240,7 @@ const Orders = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-green-50 p-4">
         <div className="text-center bg-white rounded-lg shadow-md p-8">
           <ExclamationCircleIcon className="mx-auto h-16 w-16 text-red-500 mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Error</h2>
@@ -211,7 +258,7 @@ const Orders = () => {
 
   if (!Array.isArray(orders)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-green-50 p-4">
         <div className="text-center bg-white rounded-lg shadow-md p-8">
           <ExclamationCircleIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
           <h3 className="text-2xl font-bold text-gray-900 mb-2">
@@ -226,33 +273,33 @@ const Orders = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-green-50 py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4 shadow-sm border border-green-200">
             <ShoppingBagIcon className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="text-4xl font-extrabold text-gray-900 leading-tight">
+          <h1 className="text-4xl font-extrabold text-green-600 leading-tight">
             Your Order History
           </h1>
-          <p className="mt-3 text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="mt-3 text-lg text-green-600 max-w-2xl mx-auto">
             Track and manage all your purchases with LocalCart
           </p>
         </div>
 
         {orders.length === 0 && !loading && !error ? (
-          <div className="text-center py-20 bg-white rounded-lg shadow-md border border-gray-100 max-w-2xl mx-auto">
-            <ShoppingBagIcon className="h-16 w-16 text-gray-400 mx-auto mb-8" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+          <div className="text-center py-20 bg-white rounded-lg shadow-md border border-green-100 max-w-2xl mx-auto">
+            <ShoppingBagIcon className="h-16 w-16 text-green-600 mx-auto mb-8" />
+            <h3 className="text-2xl font-bold text-green-600 mb-4">
               No Orders Yet
             </h3>
-            <p className="text-gray-600 mb-8 max-w-sm mx-auto">
+            <p className="text-green-600 mb-8 max-w-sm mx-auto">
               You haven't placed any orders yet. Start exploring our products
               and make your first purchase!
             </p>
             <Link
-              to="/" // Assuming your products page is at the root or /products
+              to="/shopping" // Assuming your products page is at the root or /products
               className="inline-flex items-center px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-all duration-200 shadow-md transform hover:scale-105"
             >
               <ShoppingBagIcon className="w-5 h-5 mr-2" />
@@ -262,28 +309,31 @@ const Orders = () => {
         ) : (
           <>
             {/* Filters and Search Section */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-100 p-6 mb-8">
+            <div className="bg-white rounded-lg shadow-md border border-green-100 p-6 mb-8">
               <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
                 {/* Search Input */}
                 <div className="relative flex-1 max-w-md w-full">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-400" />
                   <input
                     type="text"
-                    placeholder="Search orders by ID or status..."
+                    placeholder="Search orders by ID, status, customer, or product..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 transition-colors placeholder-gray-400 text-gray-800 text-sm"
+                    className="w-full pl-10 pr-4 py-2.5 border-2 border-green-300 rounded-md focus:ring-green-500 focus:border-green-500 transition-colors placeholder-black font-semibold text-black text-sm"
                   />
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
                   {/* Status Filter Dropdown */}
                   <div className="relative w-full sm:w-auto">
-                    <FunnelIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                    <FunnelIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-400 pointer-events-none" />
                     <select
                       value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="pl-10 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-gray-800 w-full"
+                      onChange={(e) => {
+                        setFilterStatus(e.target.value);
+                        setCurrentPage(1);
+                      }} // Reset page on filter change
+                      className="pl-10 pr-8 py-2.5  border-2 border-green-300 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-black font-semibold w-full"
                     >
                       <option value="all">All Status</option>
                       <option value="processing">Processing</option>
@@ -292,7 +342,7 @@ const Orders = () => {
                       <option value="cancelled">Cancelled</option>
                     </select>
                     {/* Custom arrow for select */}
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-green-700">
                       <svg
                         className="fill-current h-4 w-4"
                         xmlns="http://www.w3.org/2000/svg"
@@ -308,7 +358,7 @@ const Orders = () => {
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
-                      className="px-4 py-2.5 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-gray-800 w-full"
+                      className="px-4 py-2.5 border-2 border-green-300 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-black font-semibold w-full"
                     >
                       <option value="newest">Newest First</option>
                       <option value="oldest">Oldest First</option>
@@ -316,7 +366,7 @@ const Orders = () => {
                       <option value="amount-low">Lowest Amount</option>
                     </select>
                     {/* Custom arrow for select */}
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-green-700">
                       <svg
                         className="fill-current h-4 w-4"
                         xmlns="http://www.w3.org/2000/svg"
@@ -330,44 +380,32 @@ const Orders = () => {
               </div>
 
               {/* Results count */}
-              {(searchTerm ||
-                filterStatus !== "all" ||
-                filteredOrders.length !== orders.length) && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-sm text-gray-600">
-                    Showing{" "}
-                    <span className="font-semibold">
-                      {filteredOrders.length}
-                    </span>{" "}
-                    of <span className="font-semibold">{orders.length}</span>{" "}
-                    orders
-                    {searchTerm && (
-                      <span>
-                        {" "}
-                        matching "
-                        <span className="font-semibold">{searchTerm}</span>"
-                      </span>
-                    )}
-                    {filterStatus !== "all" && (
-                      <span>
-                        {" "}
-                        with status "
-                        <span className="font-semibold">{filterStatus}</span>"
-                      </span>
-                    )}
-                  </p>
+              <div className="mt-4 pt-4 border-t border-green-100 flex justify-between items-center text-sm text-green-600">
+                <p>
+                  <span className="font-semibold">
+                    {filteredOrders.length}
+                  </span>{" "}
+                  orders found
+                </p>
+                {/* Date range filter mock */}
+                <div className="flex items-center space-x-2">
+                  <CalendarIcon className="w-5 h-5 text-green-400" />
+                  <span className="text-green-700">31 Jul 2020</span>
+                  <span className="text-green-500">To</span>
+                  <CalendarIcon className="w-5 h-5 text-green-400" />
+                  <span className="text-green-700">03 Aug 2020</span>
                 </div>
-              )}
+              </div>
             </div>
 
-            {filteredOrders.length === 0 &&
+            {currentOrders.length === 0 &&
             (searchTerm || filterStatus !== "all") ? (
-              <div className="text-center py-16 bg-white rounded-lg shadow-md border border-gray-100 max-w-2xl mx-auto">
-                <MagnifyingGlassIcon className="h-16 w-16 text-gray-400 mx-auto mb-8" />
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              <div className="text-center py-16 bg-white rounded-lg shadow-md border border-green-100 max-w-2xl mx-auto">
+                <MagnifyingGlassIcon className="h-16 w-16 text-green-400 mx-auto mb-8" />
+                <h3 className="text-2xl font-bold text-green-900 mb-4">
                   No Matching Orders Found
                 </h3>
-                <p className="text-gray-600 mb-8 max-w-sm mx-auto">
+                <p className="text-green-600 mb-8 max-w-sm mx-auto">
                   Try adjusting your search term or filters.
                 </p>
                 <button
@@ -375,139 +413,194 @@ const Orders = () => {
                     setSearchTerm("");
                     setFilterStatus("all");
                   }}
-                  className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all duration-200 shadow-sm"
+                  className="inline-flex items-center px-6 py-3 border border-green-300 text-green-700 font-semibold rounded-lg hover:bg-green-50 transition-all duration-200 shadow-sm"
                 >
                   Clear Filters
                 </button>
               </div>
             ) : (
-              <div className="space-y-6">
-                {filteredOrders.map((order) => (
-                  <Link
-                    key={order._id}
-                    to={`/orders/${order._id}`}
-                    className="block group"
-                  >
-                    <div className="bg-white border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 p-6 transform hover:-translate-y-0.5">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        {/* Product Image Section */}
-                        <div className="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-md overflow-hidden border border-gray-200">
-                          <img
-                            src={order.items?.[0]?.image || PLACEHOLDER_IMAGE}
-                            alt={order.items?.[0]?.name || "Product image"}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null; // prevents looping
-                              e.target.src = PLACEHOLDER_IMAGE;
-                            }}
-                          />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-2">
-                            <h2 className="text-lg font-bold text-gray-900 truncate">
-                               {order.firstProductName || `Order #${order._id.slice(-8).toUpperCase()}`}
-
-                            </h2>
+              <div className="bg-white rounded-lg shadow-md border border-green-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-green-200">
+                    <thead className="bg-green-500">
+                      <tr>
+                        {/* New Image Header */}
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                        >
+                          Image
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                        >
+                          Id
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                        >
+                          Name
+                        </th>
+                        
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                        >
+                          Date
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                        >
+                          Price
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                        >
+                          Status
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                        >
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-green-200">
+                      {currentOrders.map((order) => (
+                        <tr
+                          key={order._id}
+                          className="hover:bg-green-50 cursor-pointer"
+                        >
+                          {/* New Image Data Cell */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <img
+                                className="h-10 w-10 rounded-md object-cover border border-green-200"
+                                src={order.firstProductImage}
+                                alt={order.firstProductName || "Product image"}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = PLACEHOLDER_IMAGE;
+                                }}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-900">
+                            <Link
+                              to={`/orders/${order._id}`}
+                              className="text-green-600 hover:text-green-800"
+                            >
+                              #{order._id.slice(-8).toUpperCase()}
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {/* Avatar/Initial Placeholder */}
+                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-200 flex items-center justify-center text-xs font-semibold text-green-600 uppercase">
+                                {order.firstProductName
+                                  ? order.firstProductName[0]
+                                  : "U"}
+                              </div>
+                              <div className="ml-4 text-sm font-medium text-green-900">
+                                {order.firstProductName || "N/A"} {/* Prioritize customer name */}
+                              </div>
+                            </div>
+                          </td>
+                          {/* Removed Address Data Cell */}
+                          {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
+                            {order.customerAddress}
+                          </td> */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-500">
+                            {new Date(order.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-900 font-semibold">
+                            ₹{(order.totalAmount || 0).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-500">
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(
                                 order.status
                               )}`}
                             >
+                              {getStatusIcon(order.status)}
                               {order.status
                                 ? order.status.charAt(0).toUpperCase() +
                                   order.status.slice(1)
                                 : "Unknown"}
                             </span>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mb-3">
-                            <div className="flex items-center">
-                              <CalendarIcon className="w-4 h-4 mr-1 text-gray-500" />
-                              {new Date(order.createdAt).toLocaleDateString(
-                                "en-US",
-                                {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                }
-                              )}
-                            </div>
-                            <div className="flex items-center">
-                              <ShoppingBagIcon className="w-4 h-4 mr-1 text-gray-500" />
-                              {order.itemCount || 0} item
-                              {(order.itemCount || 0) !== 1 ? "s" : ""}
-                            </div>
-                            {order.paymentDetails?.method && (
-                              <div className="flex items-center">
-                                <CurrencyRupeeIcon className="w-4 h-4 mr-1 text-gray-500" />
-                                <span className="capitalize">
-                                  {order.paymentDetails.method} payment
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {order.paymentDetails?.status && (
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                                order.paymentDetails.status === "paid"
-                                  ? "text-green-700 bg-green-100 border-green-200"
-                                  : "text-amber-800 bg-amber-100 border-amber-200"
-                              }`}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <Link
+                              to={`/orders/${order._id}`}
+                              className="text-green-500 hover:text-green-900 inline-flex items-center"
                             >
-                              Payment{" "}
-                              {order.paymentDetails.status
-                                .charAt(0)
-                                .toUpperCase() +
-                                order.paymentDetails.status.slice(1)}
-                            </span>
-                          )}
-                        </div>
+                              <EllipsisVerticalIcon className="h-5 w-5" />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                        <div className="mt-4 sm:mt-0 sm:ml-6 sm:text-right flex flex-col items-start sm:items-end">
-                          <p className="text-2xl font-bold text-green-700">
-                            ₹{(order.totalAmount || 0).toFixed(2)}
-                          </p>
-                          <div className="flex items-center text-green-600 group-hover:text-green-700 font-semibold mt-2">
-                            <span className="text-sm">View Details</span>
-                            <svg
-                              className="ml-1 w-4 h-4 transition-transform group-hover:translate-x-1"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 5l7 7-7 7"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
+                {/* Pagination Controls */}
+                {filteredOrders.length > 0 && (
+                  <nav
+                    className="bg-white px-4 py-3 flex items-center justify-between border-t border-green-200 sm:px-6"
+                    aria-label="Pagination"
+                  >
+                    <div className="hidden sm:block">
+                      <p className="text-sm text-green-700">
+                        Showing{" "}
+                        <span className="font-medium">
+                          {indexOfFirstOrder + 1}
+                        </span>{" "}
+                        to{" "}
+                        <span className="font-medium">
+                          {Math.min(indexOfLastOrder, filteredOrders.length)}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-medium">
+                          {filteredOrders.length}
+                        </span>{" "}
+                        results
+                      </p>
                     </div>
-                  </Link>
-                ))}
+                    <div className="flex-1 flex justify-between sm:justify-end">
+                      <button
+                        onClick={() => paginate(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeftIcon className="h-5 w-5 mr-2" /> Previous
+                      </button>
+                      <div className="hidden sm:flex ml-2">
+                        {renderPageNumbers()}
+                      </div>
+                      <button
+                        onClick={() => paginate(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="ml-2 relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next <ChevronRightIcon className="h-5 w-5 ml-2" />
+                      </button>
+                    </div>
+                  </nav>
+                )}
               </div>
             )}
-
-            {/* Load More Button (Conditional based on filtered results vs total) */}
-            {filteredOrders.length > 0 &&
-              filteredOrders.length < orders.length && (
-                <div className="mt-12 text-center">
-                  <div className="bg-white rounded-lg shadow-md border border-gray-100 p-8">
-                    <p className="text-gray-600 mb-6">
-                      You've viewed {filteredOrders.length} of {orders.length}{" "}
-                      total orders.
-                    </p>
-                    <button className="inline-flex items-center px-8 py-4 border-2 border-green-500 text-green-600 font-semibold rounded-lg hover:bg-green-50 transition-all duration-200 transform hover:scale-105 shadow-sm">
-                      Load More Orders
-                    </button>
-                  </div>
-                </div>
-              )}
           </>
         )}
       </div>
