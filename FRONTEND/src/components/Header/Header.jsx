@@ -19,11 +19,10 @@ import {
   Navigation,
   Store,
 } from "lucide-react";
-import { AuthContext } from "../../Context/Context.jsx"; // Correct path to your AuthContext
+import { AuthContext } from "../../Context/Context.jsx";
 import logo from "/src/assets/logo.svg";
 
 const Header = () => {
-  // Destructure relevant values from AuthContext
   const {
     cartItems,
     logout,
@@ -43,15 +42,15 @@ const Header = () => {
     "Loading Location..."
   );
   const [locationLoading, setLocationLoading] = useState(false);
-
-  // State to hold dynamically extracted product locations (remains local to Header)
   const [productLocations, setProductLocations] = useState([]);
 
-  // Refs for click outside functionality (remain local to Header for UI control)
+  // Refs for click outside functionality
   const locationDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
+  const mobileLocationDropdownRef = useRef(null);
+  const mobileMenuRef = useRef(null); // Add ref for mobile menu container
 
-  // Handle scroll effect (remains local)
+  // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -60,7 +59,7 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
- 
+  // Effect to close dropdowns when mobile menu closes
   useEffect(() => {
     if (!menuOpen) {
       setLocationDropdownOpen(false);
@@ -68,16 +67,84 @@ const Header = () => {
     }
   }, [menuOpen]);
 
-  // Function to fetch products and extract unique locations (remains local to Header)
-  // This is for populating the dropdown options, not setting the global selected location.
+  // Desktop click outside handlers
+  useEffect(() => {
+    const handleDesktopClickOutside = (event) => {
+      // Only handle desktop clicks when mobile menu is closed
+      if (menuOpen) return;
+
+      // Close desktop location dropdown
+      if (
+        locationDropdownRef.current &&
+        !locationDropdownRef.current.contains(event.target)
+      ) {
+        setLocationDropdownOpen(false);
+      }
+      // Close desktop user dropdown
+      if (
+        userDropdownRef.current &&
+        !userDropdownRef.current.contains(event.target)
+      ) {
+        setUserDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDesktopClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleDesktopClickOutside);
+    };
+  }, [menuOpen]);
+
+  // Mobile click outside handlers
+  useEffect(() => {
+    const handleMobileClickOutside = (event) => {
+      // Only handle when mobile menu is open
+      if (!menuOpen) return;
+
+      // Check if click is outside the entire mobile menu
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target)
+      ) {
+        // Close the entire mobile menu
+        setMenuOpen(false);
+        setLocationDropdownOpen(false);
+        setUserDropdownOpen(false);
+        return;
+      }
+
+      // If click is inside mobile menu but outside location dropdown, close location dropdown
+      if (
+        locationDropdownOpen &&
+        mobileLocationDropdownRef.current &&
+        !mobileLocationDropdownRef.current.contains(event.target)
+      ) {
+        setLocationDropdownOpen(false);
+      }
+    };
+
+    if (menuOpen) {
+      // Use a small delay to prevent immediate closing
+      const timeoutId = setTimeout(() => {
+        document.addEventListener("mousedown", handleMobileClickOutside);
+      }, 100);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener("mousedown", handleMobileClickOutside);
+      };
+    }
+  }, [menuOpen, locationDropdownOpen]);
+
+  // Function to fetch products and extract unique locations
   const fetchAndExtractProductLocations = async () => {
     try {
       console.log(
         "Header: Attempting to fetch unique location options from:",
-        `${import.meta.env.VITE_API_URL}/api/products/locations` // <-- NEW ENDPOINT
+        `${import.meta.env.VITE_API_URL}/api/products/locations`
       );
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/products/locations` // <-- NEW ENDPOINT
+        `${import.meta.env.VITE_API_URL}/api/products/locations`
       );
 
       if (!response.ok) {
@@ -91,7 +158,7 @@ const Header = () => {
       const rawData = await response.json();
       console.log("Header: Raw location API response for options:", rawData);
 
-      const extractedLocations = rawData?.data?.locations; // Assuming data structure is { data: { locations: [...] } }
+      const extractedLocations = rawData?.data?.locations;
 
       if (!Array.isArray(extractedLocations)) {
         console.warn(
@@ -100,39 +167,27 @@ const Header = () => {
         );
         return [];
       }
-
-      // The backend now returns the locations in the desired format, no complex frontend processing needed
       return extractedLocations;
     } catch (error) {
       console.error(
         "Header: Error during fetching and extracting product locations:",
         error
       );
-   
       return [];
     }
   };
 
-  // Initial fetch of product locations for the dropdown (remains local to Header)
   useEffect(() => {
     fetchAndExtractProductLocations().then((locations) => {
       setProductLocations(locations);
     });
   }, []);
 
-  // Initial fetch of product locations for the dropdown (remains local to Header)
-  useEffect(() => {
-    fetchAndExtractProductLocations().then((locations) => {
-      setProductLocations(locations);
-    });
-  }, []); // Run only once on mount to populate the dropdown options
-
-  // Effect to update display name when selectedLocation from context changes
   useEffect(() => {
     if (selectedLocation) {
       setCurrentLocationDisplayName(selectedLocation.name);
     }
-  }, [selectedLocation]); // Dependency on selectedLocation from context
+  }, [selectedLocation]);
 
   // Handle location selection from dropdown
   const handleLocationSelect = async (locationData) => {
@@ -141,43 +196,44 @@ const Header = () => {
 
     try {
       await updateUserLocation(locationData);
+      // Close the location dropdown after successful update
+      setLocationDropdownOpen(false);
     } catch (error) {
       console.error("Failed to update location:", error);
     } finally {
       setLocationLoading(false);
-      setLocationDropdownOpen(false);
     }
   };
 
   const navigate = useNavigate();
   const handleLogOut = () => {
-    setIsLoggedIn(false); // Update local state for immediate UI change
-    logout(); // Call context logout, which should handle clearing localStorage
+    setIsLoggedIn(false);
+    logout();
     setMenuOpen(false);
     setUserDropdownOpen(false);
     setLocationDropdownOpen(false);
     navigate("/");
   };
 
-  const toggleMenu = () => setMenuOpen(!menuOpen);
+  const toggleMenu = () => {
+    setMenuOpen(!menuOpen);
+    setUserDropdownOpen(false);
+    setLocationDropdownOpen(false);
+  };
 
   const toggleUserDropdown = () => {
     setUserDropdownOpen(!userDropdownOpen);
     if (!userDropdownOpen) {
-      setLocationDropdownOpen(false); // Close location dropdown when opening user dropdown
+      setLocationDropdownOpen(false);
     }
   };
 
   const toggleLocationDropdown = () => {
     setLocationDropdownOpen(!locationDropdownOpen);
     if (!locationDropdownOpen) {
-      setUserDropdownOpen(false); // Close user dropdown when opening location dropdown
+      setUserDropdownOpen(false);
     }
   };
-
-
-
-
 
   const navItemClasses = ({ isActive }) =>
     `px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${
@@ -186,8 +242,6 @@ const Header = () => {
         : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
     }`;
 
-  // Combined location options for the dropdown (Current Location + Product-based Locations)
-  // The 'Current Location' option's name is dynamically set by selectedLocation from context
   const combinedLocationOptions = [
     {
       name:
@@ -196,10 +250,10 @@ const Header = () => {
           ? selectedLocation.name
           : "Current Location",
       type: LOCATION_TYPE_CURRENT,
-      lat: selectedLocation?.lat, // Pass current coordinates from context for consistency
+      lat: selectedLocation?.lat,
       lng: selectedLocation?.lng,
     },
-    ...productLocations.sort((a, b) => a.name.localeCompare(b.name)), // Sort product locations alphabetically
+    ...productLocations.sort((a, b) => a.name.localeCompare(b.name)),
   ];
 
   return (
@@ -214,8 +268,13 @@ const Header = () => {
           <Link
             to="/"
             className="flex items-center gap-2 text-2xl font-bold text-green-600 hover:text-green-700 transition-colors"
+            onClick={() => {
+              setMenuOpen(false);
+              setLocationDropdownOpen(false);
+              setUserDropdownOpen(false);
+            }}
           >
-            <img src={logo} alt="Logo" className="h-12 w-auto min-w-[48px] min-h-[48px]" />
+            <img src={logo} alt="LocalCart Logo" className="h-12 w-auto min-w-[48px] min-h-[48px]" />
           </Link>
 
           {/* Desktop Navigation */}
@@ -260,9 +319,10 @@ const Header = () => {
                           ? option.type
                           : option.name || `product-loc-${index}`
                       }
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent event bubbling
-                        handleLocationSelect(option);
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        await handleLocationSelect(option);
                       }}
                       disabled={
                         locationLoading && option.type === LOCATION_TYPE_CURRENT
@@ -427,17 +487,19 @@ const Header = () => {
           menuOpen ? "opacity-100 visible" : "opacity-0 invisible"
         }`}
       >
+        {/* Background overlay */}
         <div
           className={`absolute inset-0 bg-black/30 transition-opacity duration-500 ${
             menuOpen ? "opacity-100" : "opacity-0"
           }`}
-          onClick={toggleMenu}
         />
+        
+        {/* Mobile menu container */}
         <div
+          ref={mobileMenuRef}
           className={`absolute right-0 top-0 h-screen w-80 bg-white shadow-xl transform transition-transform duration-500 ease-in-out ${
             menuOpen ? "translate-x-0" : "translate-x-full"
           }`}
-          onClick={(e) => e.stopPropagation()}
         >
           <div className="h-full flex flex-col">
             {/* Menu header */}
@@ -447,7 +509,7 @@ const Header = () => {
                 className="flex items-center gap-2 text-xl font-bold text-green-600"
                 onClick={toggleMenu}
               >
-                <img src={logo} alt="Logo" className="h-7 w-auto" />
+                <img src={logo} alt="LocalCart Logo" className="h-7 w-auto" />
               </Link>
               <button
                 onClick={toggleMenu}
@@ -458,14 +520,19 @@ const Header = () => {
             </div>
 
             {/* Location selector for mobile */}
-            {/* Location selector for mobile */}
             <div
               className="px-4 py-3 border-b border-gray-100"
-              ref={locationDropdownRef}
+              ref={mobileLocationDropdownRef}
             >
-              <div
-                className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg"
-                onClick={() => setLocationDropdownOpen(!locationDropdownOpen)}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleLocationDropdown();
+                }}
+                disabled={locationLoading}
+                className={`w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg transition-colors ${
+                  locationLoading ? "opacity-75 cursor-not-allowed" : ""
+                }`}
               >
                 <div className="flex items-center gap-2">
                   {locationLoading ? (
@@ -481,23 +548,12 @@ const Header = () => {
                       : currentLocationDisplayName}
                   </span>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLocationDropdownOpen(!locationDropdownOpen);
-                  }}
-                  disabled={locationLoading}
-                  className={`text-gray-500 hover:text-green-600 transition-colors ${
-                    locationLoading ? "opacity-50" : ""
+                <ChevronDown
+                  className={`h-5 w-5 transition-transform ${
+                    locationDropdownOpen ? "rotate-180" : ""
                   }`}
-                >
-                  <ChevronDown
-                    className={`h-5 w-5 transition-transform ${
-                      locationDropdownOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-              </div>
+                />
+              </button>
 
               {locationDropdownOpen && (
                 <div className="mt-2 bg-white rounded-lg shadow-inner p-2 space-y-1 overflow-y-auto max-h-[200px] border border-gray-100">
@@ -512,9 +568,10 @@ const Header = () => {
                           : option.name
                       }
                       onClick={async (e) => {
+                        e.preventDefault();
                         e.stopPropagation();
+                        console.log("Mobile location option clicked:", option.name);
                         await handleLocationSelect(option);
-                        setLocationDropdownOpen(false); // Close dropdown after selection
                       }}
                       disabled={
                         locationLoading && option.type === LOCATION_TYPE_CURRENT
@@ -551,6 +608,7 @@ const Header = () => {
                 </div>
               )}
             </div>
+
             <div className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
               <NavLink
                 to="/"
@@ -619,7 +677,6 @@ const Header = () => {
                   <button
                     onClick={() => {
                       handleLogOut();
-                      setMenuOpen(false); // Also close the mobile menu after logout
                     }}
                     className="px-4 py-3 w-full rounded-lg text-base font-medium text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 flex items-center gap-3 justify-center mt-2 transition-all hover:shadow-md"
                   >
