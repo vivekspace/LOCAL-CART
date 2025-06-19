@@ -306,10 +306,13 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-xl text-gray-600">Loading your profile...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div> {/* Changed color to blue for user side */}
+          <p className="text-lg text-gray-700">Loading your profile...</p> 
+          <p className="text-sm text-gray-500">
+            LocalCart is fetching your personalized experience
+          </p> {/* Changed text */}
         </div>
       </div>
     );
