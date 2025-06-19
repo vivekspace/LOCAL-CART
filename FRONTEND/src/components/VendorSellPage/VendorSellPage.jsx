@@ -117,7 +117,7 @@ const AddProduct = () => {
         JSON.stringify({
           type: "Point",
           coordinates: [geoLocation.lng, geoLocation.lat],
-          city: city
+          city: city,
         })
       );
       formDataToSend.append("city", city);
@@ -150,6 +150,18 @@ const AddProduct = () => {
       setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">Loading your sells page...</p>
+          
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">

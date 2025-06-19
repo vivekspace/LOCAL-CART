@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { FiPlus, FiSearch, FiEdit, FiTrash2, FiFilter } from "react-icons/fi";
 import axios from "axios"; // or your preferred HTTP client
 import { Link } from "react-router-dom";
+import { Box, Boxes } from "lucide-react";
 
 const VendorProductsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,8 +80,14 @@ const VendorProductsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">Loading your products...</p>
+          <p className="text-sm text-gray-500">
+            LocalCart is crunching the products
+          </p>
+        </div>
       </div>
     );
   }
@@ -96,13 +103,16 @@ const VendorProductsPage = () => {
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">My Products</h1>
+      <div className="flex flex-wrap lg:md:justify-between items-center mb-8">
+        <div className="flex justify-center  items-center gap-4 lg:md:mb-0 mb-2">
+          <Box className="bg-green-600 text-white rounded-xl p-1" size={35} />
+          <h1 className="text-3xl font-bold text-green-600">My Products</h1>
+        </div>
         <Link
           to={"/vendor-sell"}
-          className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition"
+          className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition  w-full lg:md:w-auto"
         >
-          <FiPlus className="mr-2" />
+          <FiPlus className="mr-2 " />
           Add New Product
         </Link>
       </div>
@@ -222,8 +232,9 @@ const VendorProductsPage = () => {
                                 "Image failed to load:",
                                 e.target.src
                               );
-                              e.target.src =
-                                `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                              e.target.src = `${
+                                import.meta.env.VITE_API_URL
+                              }/uploads/default-product.png`;
                             }}
                           />
                         </div>
