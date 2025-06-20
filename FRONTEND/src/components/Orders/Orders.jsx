@@ -88,7 +88,6 @@ const Orders = () => {
                 order.customerDetails.lastname || ""
               }`.trim()
             : "N/A",
-         
         }));
 
         setOrders(processedOrders);
@@ -174,7 +173,9 @@ const Orders = () => {
       const matchesSearch =
         order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.firstProductName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.firstProductName
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
         order.customerFullName.toLowerCase().includes(searchTerm.toLowerCase()); // Search by customer name, no longer by address
       const matchesFilter =
         filterStatus === "all" || order.status?.toLowerCase() === filterStatus;
@@ -198,7 +199,10 @@ const Orders = () => {
   // Pagination Logic
   const indexOfLastOrder = currentPage * ordersPerPage;
   const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
-  const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+  const currentOrders = filteredOrders.slice(
+    indexOfFirstOrder,
+    indexOfLastOrder
+  );
   const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
@@ -274,337 +278,331 @@ const Orders = () => {
 
   return (
     <div className="min-h-screen  py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4 shadow-sm border border-green-200">
-            <ShoppingBagIcon className="w-8 h-8 text-green-600" />
-          </div>
-          <h1 className="text-4xl font-extrabold text-green-600 leading-tight">
-            Your Order History
-          </h1>
-          <p className="mt-3 text-lg text-black font-semibold max-w-2xl mx-auto">
-            Track and manage all your purchases with LocalCart
+      <div className="bg-gradient-to-r from-green-500 to-green-600 text-white py-6 shadow-md rounded-tl-2xl rounded-tr-2xl">
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl font-bold">My Orders</h1>
+          <p className="text-green-100 mt-1 font-semibold">
+            Track and manage all your orders with localcart
           </p>
         </div>
+      </div>
 
-        {orders.length === 0 && !loading && !error ? (
-          <div className="text-center py-20 bg-white rounded-lg shadow-md border border-green-100 max-w-2xl mx-auto">
-            <ShoppingBagIcon className="h-16 w-16 text-green-600 mx-auto mb-8" />
-            <h3 className="text-2xl font-bold text-green-600 mb-4">
-              No Orders Yet
-            </h3>
-            <p className="text-green-600 mb-8 max-w-sm mx-auto">
-              You haven't placed any orders yet. Start exploring our products
-              and make your first purchase!
-            </p>
-            <Link
-              to="/shopping" // Assuming your products page is at the root or /products
-              className="inline-flex items-center px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-all duration-200 shadow-md transform hover:scale-105"
-            >
-              <ShoppingBagIcon className="w-5 h-5 mr-2" />
-              Start Shopping
-            </Link>
-          </div>
-        ) : (
-          <>
-            {/* Filters and Search Section */}
-            <div className="bg-white rounded-lg shadow-md border border-green-100 p-6 mb-8">
-              <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-                {/* Search Input */}
-                <div className="relative flex-1 max-w-md w-full">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-400" />
-                  <input
-                    type="text"
-                    placeholder="Search orders by ID, status, customer, or product..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border-2 border-green-300 rounded-md focus:ring-green-500 focus:border-green-500 transition-colors placeholder-black font-semibold text-black text-sm"
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                  {/* Status Filter Dropdown */}
-                  <div className="relative w-full sm:w-auto">
-                    <FunnelIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-400 pointer-events-none" />
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => {
-                        setFilterStatus(e.target.value);
-                        setCurrentPage(1);
-                      }} // Reset page on filter change
-                      className="pl-10 pr-8 py-2.5  border-2 border-green-300 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-black font-semibold w-full"
-                    >
-                      <option value="all">All Status</option>
-                      <option value="processing">Processing</option>
-                      <option value="shipped">Shipped</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                    {/* Custom arrow for select */}
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-green-700">
-                      <svg
-                        className="fill-current h-4 w-4"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* Sort By Dropdown */}
-                  <div className="relative w-full sm:w-auto">
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      className="px-4 py-2.5 border-2 border-green-300 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-black font-semibold w-full"
-                    >
-                      <option value="newest">Newest First</option>
-                      <option value="oldest">Oldest First</option>
-                      <option value="amount-high">Highest Amount</option>
-                      <option value="amount-low">Lowest Amount</option>
-                    </select>
-                    {/* Custom arrow for select */}
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-green-700">
-                      <svg
-                        className="fill-current h-4 w-4"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
+      {orders.length === 0 && !loading && !error ? (
+        <div className="text-center py-20 bg-white rounded-lg shadow-md border border-green-100 max-w-2xl mx-auto">
+          <ShoppingBagIcon className="h-16 w-16 text-green-600 mx-auto mb-8" />
+          <h3 className="text-2xl font-bold text-green-600 mb-4">
+            No Orders Yet
+          </h3>
+          <p className="text-green-600 mb-8 max-w-sm mx-auto">
+            You haven't placed any orders yet. Start exploring our products and
+            make your first purchase!
+          </p>
+          <Link
+            to="/shopping" 
+            className="inline-flex items-center px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-all duration-200 shadow-md transform hover:scale-105"
+          >
+            <ShoppingBagIcon className="w-5 h-5 mr-2" />
+            Start Shopping
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* Filters and Search Section */}
+          <div className="bg-white rounded-lg shadow-md border border-green-100 p-6 mb-8">
+            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+              {/* Search Input */}
+              <div className="relative flex-1 max-w-md w-full">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
+                <input
+                  type="text"
+                  placeholder="Search orders by ID, status, customer, or product..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border-2 border-green-500 rounded-md focus:ring-green-500 focus:border-green-500 transition-colors placeholder-gray-400 font-semibold text-black text-sm"
+                />
               </div>
 
-              {/* Results count */}
-              <div className="mt-4 pt-4 border-t border-green-100 flex justify-between items-center text-sm text-green-600">
-                <p>
-                  <span className="font-semibold">
-                    {filteredOrders.length}
-                  </span>{" "}
-                  orders found
-                </p>
-                {/* Date range filter mock */}
-                <div className="flex items-center space-x-2">
-                  <CalendarIcon className="w-5 h-5 text-green-400" />
-                  <span className="text-green-700">31 Jul 2020</span>
-                  <span className="text-green-500">To</span>
-                  <CalendarIcon className="w-5 h-5 text-green-400" />
-                  <span className="text-green-700">03 Aug 2020</span>
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                {/* Status Filter Dropdown */}
+                <div className="relative w-full sm:w-auto">
+                  <FunnelIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500 pointer-events-none" />
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => {
+                      setFilterStatus(e.target.value);
+                      setCurrentPage(1);
+                    }} // Reset page on filter change
+                    className="pl-10 pr-8 py-2.5  border-2 border-green-500 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-gray-400 font-semibold w-full"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  {/* Custom arrow for select */}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-green-700">
+                    <svg
+                      className="fill-current h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Sort By Dropdown */}
+                <div className="relative w-full sm:w-auto">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="px-4 py-2.5 border-2 border-green-500 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-gray-400 font-semibold w-full"
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="amount-high">Highest Amount</option>
+                    <option value="amount-low">Lowest Amount</option>
+                  </select>
+                  {/* Custom arrow for select */}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-green-700">
+                    <svg
+                      className="fill-current h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                    </svg>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {currentOrders.length === 0 &&
-            (searchTerm || filterStatus !== "all") ? (
-              <div className="text-center py-16 bg-white rounded-lg shadow-md border border-green-100 max-w-2xl mx-auto">
-                <MagnifyingGlassIcon className="h-16 w-16 text-green-400 mx-auto mb-8" />
-                <h3 className="text-2xl font-bold text-green-900 mb-4">
-                  No Matching Orders Found
-                </h3>
-                <p className="text-green-600 mb-8 max-w-sm mx-auto">
-                  Try adjusting your search term or filters.
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setFilterStatus("all");
-                  }}
-                  className="inline-flex items-center px-6 py-3 border border-green-300 text-green-700 font-semibold rounded-lg hover:bg-green-50 transition-all duration-200 shadow-sm"
-                >
-                  Clear Filters
-                </button>
+            {/* Results count */}
+            <div className="mt-4 pt-4 border-t border-green-100 flex justify-between items-center text-sm text-green-600">
+              <p>
+                <span className="font-semibold">{filteredOrders.length}</span>{" "}
+                orders found
+              </p>
+              {/* Date range filter mock */}
+              <div className="flex items-center space-x-2">
+                <CalendarIcon className="w-5 h-5 text-green-400" />
+                <span className="text-green-700">31 Jul 2020</span>
+                <span className="text-green-500">To</span>
+                <CalendarIcon className="w-5 h-5 text-green-400" />
+                <span className="text-green-700">03 Aug 2020</span>
               </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-md border border-green-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-green-200">
-                    <thead className="bg-green-500">
-                      <tr>
-                        {/* New Image Header */}
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                        >
-                          Image
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                        >
-                          Id
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                        >
-                          Name
-                        </th>
-                        
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                        >
-                          Date
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                        >
-                          Price
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                        >
-                          Status
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                        >
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-green-200">
-                      {currentOrders.map((order) => (
-                        <tr
-                          key={order._id}
-                          className="hover:bg-green-50 cursor-pointer"
-                        >
-                          {/* New Image Data Cell */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <img
-                                className="h-10 w-10 rounded-md object-cover border border-green-200"
-                                src={order.firstProductImage}
-                                alt={order.firstProductName || "Product image"}
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = PLACEHOLDER_IMAGE;
-                                }}
-                              />
+            </div>
+          </div>
+
+          {currentOrders.length === 0 &&
+          (searchTerm || filterStatus !== "all") ? (
+            <div className="text-center py-16 bg-white rounded-lg shadow-md border border-green-100 max-w-2xl mx-auto">
+              <MagnifyingGlassIcon className="h-16 w-16 text-green-400 mx-auto mb-8" />
+              <h3 className="text-2xl font-bold text-green-900 mb-4">
+                No Matching Orders Found
+              </h3>
+              <p className="text-green-600 mb-8 max-w-sm mx-auto">
+                Try adjusting your search term or filters.
+              </p>
+              <button
+                onClick={() => {
+                  setSearchTerm("");
+                  setFilterStatus("all");
+                }}
+                className="inline-flex items-center px-6 py-3 border border-green-300 text-green-700 font-semibold rounded-lg hover:bg-green-50 transition-all duration-200 shadow-sm"
+              >
+                Clear Filters
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md border border-green-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-green-200">
+                  <thead className="bg-green-500">
+                    <tr>
+                      {/* New Image Header */}
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                      >
+                        Image
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                      >
+                        Id
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                      >
+                        Name
+                      </th>
+
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                      >
+                        Date
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                      >
+                        Price
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                      >
+                        Status
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+                      >
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-green-200">
+                    {currentOrders.map((order) => (
+                      <tr
+                        key={order._id}
+                        className="hover:bg-green-50 cursor-pointer"
+                      >
+                        {/* New Image Data Cell */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <img
+                              className="h-10 w-10 rounded-md object-cover border border-green-200"
+                              src={order.firstProductImage}
+                              alt={order.firstProductName || "Product image"}
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = PLACEHOLDER_IMAGE;
+                              }}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-900">
+                          <Link
+                            to={`/orders/${order._id}`}
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            #{order._id.slice(-8).toUpperCase()}
+                          </Link>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {/* Avatar/Initial Placeholder */}
+                            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-200 flex items-center justify-center text-xs font-semibold text-green-600 uppercase">
+                              {order.firstProductName
+                                ? order.firstProductName[0]
+                                : "U"}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-900">
-                            <Link
-                              to={`/orders/${order._id}`}
-                              className="text-green-600 hover:text-green-800"
-                            >
-                              #{order._id.slice(-8).toUpperCase()}
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              {/* Avatar/Initial Placeholder */}
-                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-200 flex items-center justify-center text-xs font-semibold text-green-600 uppercase">
-                                {order.firstProductName
-                                  ? order.firstProductName[0]
-                                  : "U"}
-                              </div>
-                              <div className="ml-4 text-sm font-medium text-green-900">
-                                {order.firstProductName || "N/A"} {/* Prioritize customer name */}
-                              </div>
+                            <div className="ml-4 text-sm font-medium text-green-900">
+                              {order.firstProductName || "N/A"}{" "}
+                              {/* Prioritize customer name */}
                             </div>
-                          </td>
-                          {/* Removed Address Data Cell */}
-                          {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
+                          </div>
+                        </td>
+                        {/* Removed Address Data Cell */}
+                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
                             {order.customerAddress}
                           </td> */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-500">
-                            {new Date(order.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              }
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-900 font-semibold">
-                            ₹{(order.totalAmount || 0).toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-500">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(
-                                order.status
-                              )}`}
-                            >
-                              {getStatusIcon(order.status)}
-                              {order.status
-                                ? order.status.charAt(0).toUpperCase() +
-                                  order.status.slice(1)
-                                : "Unknown"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <Link
-                              to={`/orders/${order._id}`}
-                              className="text-green-500 hover:text-green-900 inline-flex items-center"
-                            >
-                              <EllipsisVerticalIcon className="h-5 w-5" />
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination Controls */}
-                {filteredOrders.length > 0 && (
-                  <nav
-                    className="bg-white px-4 py-3 flex items-center justify-between border-t border-green-200 sm:px-6"
-                    aria-label="Pagination"
-                  >
-                    <div className="hidden sm:block">
-                      <p className="text-sm text-green-700">
-                        Showing{" "}
-                        <span className="font-medium">
-                          {indexOfFirstOrder + 1}
-                        </span>{" "}
-                        to{" "}
-                        <span className="font-medium">
-                          {Math.min(indexOfLastOrder, filteredOrders.length)}
-                        </span>{" "}
-                        of{" "}
-                        <span className="font-medium">
-                          {filteredOrders.length}
-                        </span>{" "}
-                        results
-                      </p>
-                    </div>
-                    <div className="flex-1 flex justify-between sm:justify-end">
-                      <button
-                        onClick={() => paginate(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <ChevronLeftIcon className="h-5 w-5 mr-2" /> Previous
-                      </button>
-                      <div className="hidden sm:flex ml-2">
-                        {renderPageNumbers()}
-                      </div>
-                      <button
-                        onClick={() => paginate(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="ml-2 relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next <ChevronRightIcon className="h-5 w-5 ml-2" />
-                      </button>
-                    </div>
-                  </nav>
-                )}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-500">
+                          {new Date(order.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-900 font-semibold">
+                          ₹{(order.totalAmount || 0).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-500">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(
+                              order.status
+                            )}`}
+                          >
+                            {getStatusIcon(order.status)}
+                            {order.status
+                              ? order.status.charAt(0).toUpperCase() +
+                                order.status.slice(1)
+                              : "Unknown"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <Link
+                            to={`/orders/${order._id}`}
+                            className="text-green-500 hover:text-green-900 inline-flex items-center"
+                          >
+                            <EllipsisVerticalIcon className="h-5 w-5" />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </>
-        )}
-      </div>
+
+              {/* Pagination Controls */}
+              {filteredOrders.length > 0 && (
+                <nav
+                  className="bg-white px-4 py-3 flex items-center justify-between border-t border-green-200 sm:px-6"
+                  aria-label="Pagination"
+                >
+                  <div className="hidden sm:block">
+                    <p className="text-sm text-green-700">
+                      Showing{" "}
+                      <span className="font-medium">
+                        {indexOfFirstOrder + 1}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-medium">
+                        {Math.min(indexOfLastOrder, filteredOrders.length)}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-medium">
+                        {filteredOrders.length}
+                      </span>{" "}
+                      results
+                    </p>
+                  </div>
+                  <div className="flex-1 flex justify-between sm:justify-end">
+                    <button
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeftIcon className="h-5 w-5 mr-2" /> Previous
+                    </button>
+                    <div className="hidden sm:flex ml-2">
+                      {renderPageNumbers()}
+                    </div>
+                    <button
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="ml-2 relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next <ChevronRightIcon className="h-5 w-5 ml-2" />
+                    </button>
+                  </div>
+                </nav>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
+    // </div>
   );
 };
 
