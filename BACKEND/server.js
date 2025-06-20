@@ -13,8 +13,10 @@ const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const userRoutes = require('./routes/userRoutes')
-const locationRoutes = require('./routes/locationRoutes'); // <--- ADDED THIS LINE (as per your snippet)
-const chatbotRoutes = require('./routes/chatbotRoutes'); // <--- NEW: Import chatbot routes
+const locationRoutes = require('./routes/locationRoutes'); 
+const chatbotRoutes = require('./routes/chatbotRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+
 
 
 dotenv.config(); // Load environment variables from .env file
@@ -66,6 +68,7 @@ app.use('/api/admin', adminAuthRoutes); // Handles admin authentication
 app.use('/api/users', userRoutes);     // Handles user-related API calls
 app.use('/api/locations', locationRoutes); // Mount location routes (assuming they are under /api/locations)
 app.use('/api/chatbot', chatbotRoutes); // <--- NEW: Mount chatbot specific routes here
+app.use('/api/admin/dashboard', dashboardRoutes);
 
 // Removed the conflicting app.get('/api/products') route as it's now handled by productRoutes.
 
