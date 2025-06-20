@@ -14,11 +14,10 @@ import {
   Truck,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm"; // For GitHub Flavored Markdown (tables, task lists)
-import rehypeHighlight from "rehype-highlight"; // For code syntax highlighting
-import "highlight.js/styles/github.css"; // Basic highlight.js theme
+import remarkGfm from "remark-gfm"; 
+import rehypeHighlight from "rehype-highlight"; 
+import "highlight.js/styles/github.css"; 
 
-// Custom components for ReactMarkdown
 const MarkdownComponents = {
   a: (props) => (
     <a
@@ -28,12 +27,8 @@ const MarkdownComponents = {
       rel="noopener noreferrer"
     />
   ),
-  ul: (props) => (
-    <ul {...props} className="list-disc pl-5 space-y-1 my-2" />
-  ),
-  ol: (props) => (
-    <ol {...props} className="list-decimal pl-5 space-y-1 my-2" />
-  ),
+  ul: (props) => <ul {...props} className="list-disc pl-5 space-y-1 my-2" />,
+  ol: (props) => <ol {...props} className="list-decimal pl-5 space-y-1 my-2" />,
   li: (props) => <li {...props} className="pl-2" />,
   table: (props) => (
     <div className="overflow-auto">
@@ -46,9 +41,7 @@ const MarkdownComponents = {
       className="px-4 py-2 bg-gray-100 border border-gray-200 font-semibold"
     />
   ),
-  td: (props) => (
-    <td {...props} className="px-4 py-2 border border-gray-200" />
-  ),
+  td: (props) => <td {...props} className="px-4 py-2 border border-gray-200" />,
   code: ({ inline, className, children, ...props }) => {
     if (inline) {
       return (
@@ -90,36 +83,56 @@ const TypingIndicator = () => (
 const OrderStatusCard = ({ order }) => {
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'processing': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'shipped': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "confirmed":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "processing":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "shipped":
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
+      case "delivered":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "cancelled":
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
   if (!order || Object.keys(order).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 my-3 shadow-sm text-gray-700">
-        <p className="font-semibold text-gray-800 mb-2">Order Details Not Found</p>
-        <p className="text-sm">We couldn't retrieve the details for this order. Please ensure the Order ID is correct.</p>
+        <p className="font-semibold text-gray-800 mb-2">
+          Order Details Not Found
+        </p>
+        <p className="text-sm">
+          We couldn't retrieve the details for this order. Please ensure the
+          Order ID is correct.
+        </p>
       </div>
     );
   }
 
   // Safely access shipping address, handling both string and object formats
-  const displayAddress = typeof order.shippingAddress === 'string'
-    ? order.shippingAddress
-    : (order.shippingAddress
-      ? `${order.shippingAddress.street || ''}, ${order.shippingAddress.city || ''}, ${order.shippingAddress.state || ''} ${order.shippingAddress.pincode || ''}`
-      : 'N/A');
+  const displayAddress =
+    typeof order.shippingAddress === "string"
+      ? order.shippingAddress
+      : order.shippingAddress
+      ? `${order.shippingAddress.street || ""}, ${
+          order.shippingAddress.city || ""
+        }, ${order.shippingAddress.state || ""} ${
+          order.shippingAddress.pincode || ""
+        }`
+      : "N/A";
 
-  const orderIdToDisplay = order.orderId || order._id || 'N/A';
-  const totalAmountToDisplay = order.totalAmount ? `₹${order.totalAmount.toFixed(2)}` : 'N/A';
-  const estimatedDeliveryDate = order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleDateString() : 'N/A';
-
+  const orderIdToDisplay = order.orderId || order._id || "N/A";
+  const totalAmountToDisplay = order.totalAmount
+    ? `₹${order.totalAmount.toFixed(2)}`
+    : "N/A";
+  const estimatedDeliveryDate = order.estimatedDelivery
+    ? new Date(order.estimatedDelivery).toLocaleDateString()
+    : "N/A";
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 my-3 shadow-sm">
@@ -128,15 +141,21 @@ const OrderStatusCard = ({ order }) => {
           <Package className="w-4 h-4" />
           Order Details
         </h3>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
-          {order.status || 'Unknown'}
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+            order.status
+          )}`}
+        >
+          {order.status || "Unknown"}
         </span>
       </div>
 
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-gray-600">Order ID:</span>
-          <code className="bg-gray-100 px-2 py-1 rounded text-xs break-all">{orderIdToDisplay}</code>
+          <code className="bg-gray-100 px-2 py-1 rounded text-xs break-all">
+            {orderIdToDisplay}
+          </code>
         </div>
 
         <div className="flex justify-between">
@@ -144,7 +163,7 @@ const OrderStatusCard = ({ order }) => {
           <span className="font-medium">{totalAmountToDisplay}</span>
         </div>
 
-        {displayAddress !== 'N/A' && (
+        {displayAddress !== "N/A" && (
           <div className="flex items-start gap-2 pt-2 border-t">
             <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
             <div className="text-gray-600 text-xs">{displayAddress}</div>
@@ -164,7 +183,10 @@ const OrderStatusCard = ({ order }) => {
           <div className="flex items-center gap-2 pt-1">
             <Truck className="w-4 h-4 text-gray-500" />
             <span className="text-gray-600 text-xs">
-              Tracking: <code className="bg-gray-100 px-1 rounded">{order.trackingNumber}</code>
+              Tracking:{" "}
+              <code className="bg-gray-100 px-1 rounded">
+                {order.trackingNumber}
+              </code>
             </span>
           </div>
         )}
@@ -174,7 +196,8 @@ const OrderStatusCard = ({ order }) => {
             <ul className="list-disc list-inside text-xs text-gray-600">
               {order.cartItems.map((item, index) => (
                 <li key={index}>
-                  {item.productName || item.name} ({item.quantity}) - ₹{item.price}
+                  {item.productName || item.name} ({item.quantity}) - ₹
+                  {item.price}
                 </li>
               ))}
             </ul>
@@ -185,10 +208,7 @@ const OrderStatusCard = ({ order }) => {
   );
 };
 
-
-// Chat message bubble with markdown support
 const ChatBubble = ({ message, isUser }) => {
-  // imageFilenameRegex is not used, so can be removed or used in ReactMarkdown's img component override
 
   return (
     <div
@@ -208,9 +228,7 @@ const ChatBubble = ({ message, isUser }) => {
             >
               {message.text}
             </ReactMarkdown>
-            {message.orderData && (
-              <OrderStatusCard order={message.orderData} />
-            )}
+            {message.orderData && <OrderStatusCard order={message.orderData} />}
           </>
         ) : (
           message.text
@@ -273,7 +291,7 @@ const ChatbotContent = memo(
 
     return (
       <div className="flex h-full flex-col overflow-hidden">
-        {(!isInToggle && !isMobile) && (
+        {!isInToggle && !isMobile && (
           <div
             className={`relative bg-gradient-to-r from-green-600 via-emerald-500 to-green-700 p-4 sm:p-5 transition-all duration-300 ${
               isHeaderVisible ? "" : "pb-2"
@@ -354,9 +372,7 @@ const ChatbotContent = memo(
             <div className="flex justify-start animate-fade-in">
               <div className="bg-white text-gray-800 p-3 rounded-2xl rounded-bl-sm shadow-md border border-gray-200/50 flex items-center space-x-3 max-w-xs">
                 <TypingIndicator />
-                <span className="text-sm text-gray-600">
-                  Thinking...
-                </span>
+                <span className="text-sm text-gray-600">Thinking...</span>
               </div>
             </div>
           )}
@@ -416,10 +432,13 @@ const ChatBot = ({ isInToggle = false, isMobile = false }) => {
   // Initialize messages from localStorage or a default welcome message
   const [messages, setMessages] = useState(() => {
     try {
-      const storedMessages = localStorage.getItem('chatMessages');
+      const storedMessages = localStorage.getItem("chatMessages");
       return storedMessages ? JSON.parse(storedMessages) : [];
     } catch (error) {
-      console.error("Failed to parse stored messages from localStorage:", error);
+      console.error(
+        "Failed to parse stored messages from localStorage:",
+        error
+      );
       return []; // Return empty array on error
     }
   });
@@ -432,7 +451,7 @@ const ChatBot = ({ isInToggle = false, isMobile = false }) => {
   // Effect to save messages to localStorage whenever they change
   useEffect(() => {
     try {
-      localStorage.setItem('chatMessages', JSON.stringify(messages));
+      localStorage.setItem("chatMessages", JSON.stringify(messages));
     } catch (error) {
       console.error("Failed to save messages to local storage:", error);
     }
@@ -440,7 +459,7 @@ const ChatBot = ({ isInToggle = false, isMobile = false }) => {
 
   // Enhanced API configuration
   const API_CONFIG = {
-    baseUrl: import.meta.env.VITE_API_URL, 
+    baseUrl: import.meta.env.VITE_API_URL,
     endpoints: {
       products: "/api/chatbot/products",
       orders: "/api/orders/track",
@@ -517,15 +536,19 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     try {
       const response = await fetch(`${API_CONFIG.baseUrl}${endpoint}`, {
         headers: {
-          'Content-Type': 'application/json',
-          ...options.headers
+          "Content-Type": "application/json",
+          ...options.headers,
         },
-        ...options
+        ...options,
       });
 
       if (!response.ok) {
-        let errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        let errorData = await response
+          .json()
+          .catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
 
       return await response.json();
@@ -549,7 +572,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
           : [`${p.name.toLowerCase().replace(/\s/g, "_")}_1.webp`],
         category: p.category || "Uncategorized",
         tags: p.tags || [],
-        availability: p.availability || 'in-stock', // Default availability
+        availability: p.availability || "in-stock", // Default availability
       }));
       setProducts(enhancedProducts);
       return enhancedProducts;
@@ -561,7 +584,9 @@ You'll receive an instant order confirmation via email and SMS with your unique 
 
   const fetchOrderDetails = async (orderId) => {
     try {
-      const result = await fetchFromAPI(`${API_CONFIG.endpoints.orders}/${orderId}`);
+      const result = await fetchFromAPI(
+        `${API_CONFIG.endpoints.orders}/${orderId}`
+      );
       return result.data || result; // Assuming backend returns { success: true, data: orderObject }
     } catch (error) {
       console.error(`Error fetching order ${orderId}:`, error);
@@ -572,7 +597,9 @@ You'll receive an instant order confirmation via email and SMS with your unique 
   // Actual Gemini API call function
   const callGeminiAPI = async (payload) => {
     if (!GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is not defined. Please set it in your .env file.");
+      console.error(
+        "GEMINI_API_KEY is not defined. Please set it in your .env file."
+      );
       throw new Error("API key not configured.");
     }
     const response = await fetch(
@@ -587,7 +614,9 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     if (!response.ok) {
       const errorBody = await response.json();
       console.error("Gemini API error:", response.status, errorBody);
-      throw new Error(`Gemini API error: ${errorBody.error?.message || response.statusText}`);
+      throw new Error(
+        `Gemini API error: ${errorBody.error?.message || response.statusText}`
+      );
     }
 
     const result = await response.json();
@@ -595,9 +624,16 @@ You'll receive an instant order confirmation via email and SMS with your unique 
   };
 
   // Enhanced AI processing with better context understanding
-  const processUserQuery = async (message) => {
-    const currentDate = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
-    const currentTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const processUserQuery = async (message, currentMessages) => {
+    const currentDate = new Date().toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const currentTime = new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     const currentLocation = "Navi Mumbai, Maharashtra, India";
 
     // --- SYSTEM INSTRUCTIONS for the Main AI Model ---
@@ -644,7 +680,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     `;
 
     let orderData = null;
-    let orderDetailsContext = ""; // This will hold the JSON string of order data or an error message
+    let orderDetailsContext = "";
 
     // --- PHASE 1: Intent Detection & Order ID Extraction (using Gemini) ---
     const intentDetectionPrompt = `
@@ -666,7 +702,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     `;
 
     const intentPayload = {
-      contents: [{ role: "user", parts: [{ text: intentDetectionPrompt }] }]
+      contents: [{ role: "user", parts: [{ text: intentDetectionPrompt }] }],
     };
 
     const intentDetectionResponse = await callGeminiAPI(intentPayload);
@@ -676,13 +712,16 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     let actualOrderId = null;
     if (intent.startsWith("ORDER_ID:")) {
       const potentialOrderId = intent.split(":")[1];
-      // Basic validation for MongoDB ObjectId format
       if (/^[0-9a-fA-F]{24}$/.test(potentialOrderId)) {
         actualOrderId = potentialOrderId;
         orderData = await fetchOrderDetails(actualOrderId);
 
         if (orderData) {
-          orderDetailsContext = `\n\n--- REAL-TIME ORDER DATA for Order ID ${actualOrderId} ---\n${JSON.stringify(orderData, null, 2)}\n-----------------------------------\n\n`;
+          orderDetailsContext = `\n\n--- REAL-TIME ORDER DATA for Order ID ${actualOrderId} ---\n${JSON.stringify(
+            orderData,
+            null,
+            2
+          )}\n-----------------------------------\n\n`;
         } else {
           orderDetailsContext = `\n\n--- ORDER NOT FOUND for Order ID ${actualOrderId} ---\n-----------------------------------\n\n`;
         }
@@ -692,7 +731,6 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     }
 
     // --- PHASE 3: Prepare comprehensive prompt for the main AI response ---
-    // Limit products array to prevent exceeding context window (e.g., first 100 products)
     const productsForContext = products.slice(0, 100);
 
     const knowledgeBaseContent = `
@@ -711,22 +749,80 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       ${orderDetailsContext}
     `;
 
-    const finalPrompt = `${systemInstructions}\n\n${knowledgeBaseContent}\n\nCustomer query: ${message}`;
+  
+    const conversationHistoryForGemini = currentMessages
+      .filter((msg) => msg.sender === "user" || msg.sender === "bot") // Only include actual chat turns
+      .map((msg) => ({
+        role: msg.sender === "user" ? "user" : "model", // Gemini expects 'model' for bot responses
+        parts: [{ text: msg.text }],
+      }));
+
+    // Add the current user query to the history
+    conversationHistoryForGemini.push({
+      role: "user",
+      parts: [{ text: message }],
+    });
+
+   
+    const finalGeminiContent = [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `${systemInstructions}\n\n${knowledgeBaseContent}\n\nCustomer query: ${message}`,
+          },
+        ],
+      },
+    
+    ];
+
+   
+
+    const contentsForGemini = [];
+
+  
+    contentsForGemini.push({
+      role: "user",
+      parts: [{ text: `${systemInstructions}\n\n${knowledgeBaseContent}` }],
+    });
+    // Then, the model's "response" to these instructions (often empty or a confirmation)
+    contentsForGemini.push({
+      role: "model",
+      parts: [
+        { text: "Acknowledged. How can I assist you with Local Cart today?" },
+      ],
+    });
+
+    // Append the actual conversation history
+    currentMessages
+      .filter((msg) => msg.sender === "user" || msg.sender === "bot")
+      .forEach((msg) => {
+        contentsForGemini.push({
+          role: msg.sender === "user" ? "user" : "model",
+          parts: [{ text: msg.text }],
+        });
+      });
+
+    contentsForGemini.push({ role: "user", parts: [{ text: message }] });
 
     const finalResponseText = await callGeminiAPI({
-      contents: [{ role: "user", parts: [{ text: finalPrompt }] }]
+      contents: contentsForGemini, // Pass the full conversation history
     });
 
     let botResponseText = finalResponseText;
 
-    // Post-processing for specific scenarios (e.g., if order ID was needed but not provided)
-    if (intent === "ORDER_QUERY_NO_ID" && !botResponseText.toLowerCase().includes("order id")) {
+    if (
+      intent === "ORDER_QUERY_NO_ID" &&
+      !botResponseText.toLowerCase().includes("order id")
+    ) {
       botResponseText = `No problem! Could you please provide your **Order ID**? It's a long string of numbers and letters, like \`684282d0aff5603f8baa3ede\`.`;
     }
 
     return {
-      text: botResponseText || "I'm sorry, I couldn't process your request fully. Please try again or provide more details.",
-      orderData: actualOrderId && orderData ? orderData : null, // Only pass orderData if successfully fetched
+      text:
+        botResponseText ||
+        "I'm sorry, I couldn't process your request fully. Please try again or provide more details.",
+      orderData: actualOrderId && orderData ? orderData : null,
     };
   };
 
@@ -735,54 +831,71 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     const initializeChatbot = async () => {
       setIsLoading(true);
       try {
-        await fetchProductsData(); // Use the enhanced fetchProductsData
+        await fetchProductsData(); 
         setIsProductsLoaded(true);
 
-        // Only add initial welcome message if there are no stored messages
         if (messages.length === 0) {
-          setMessages([{
-            text: "🛍️ **Welcome to Local Cart!** \n\nI'm your personal shopping assistant. I can help you with:\n\n* **Product Information** - Find items, prices, and availability\n* **Order Tracking** - Check your order status with Order ID\n* **Returns & Refunds** - Understand our return policy\n* **Shopping Guide** - Learn how to place orders\n* **General Support** - Any other questions\n\nWhat would you like to explore today?",
-            sender: "bot"
-          }]);
+          setMessages([
+            {
+              text: "🛍️ **Welcome to Local Cart!** \n\nI'm your personal shopping assistant. I can help you with:\n\n* **Product Information** - Find items, prices, and availability\n* **Order Tracking** - Check your order status with Order ID\n* **Returns & Refunds** - Understand our return policy\n* **Shopping Guide** - Learn how to place orders\n* **General Support** - Any other questions\n\nWhat would you like to explore today?",
+              sender: "bot",
+            },
+          ]);
         }
       } catch (error) {
-        console.log('error is ', error);
-        setMessages(prev => { // Use functional update to avoid overwriting stored messages if they exist
-          if (prev.length === 0 || (prev.length === 1 && prev[0].text.includes("Welcome to Local Cart"))) {
-            return [{
-              text: "⚠️ I'm having trouble connecting to our systems. Please try again later or contact support at +91-98765-43210.",
-              sender: "bot"
-            }];
+        console.log("error is ", error);
+        setMessages((prev) => {
+          if (
+            prev.length === 0 ||
+            (prev.length === 1 &&
+              prev[0].text.includes("Welcome to Local Cart"))
+          ) {
+            return [
+              {
+                text: "⚠️ I'm having trouble connecting to our systems. Please try again later or contact support at +91-98765-43210.",
+                sender: "bot",
+              },
+            ];
           }
-          return prev; // Keep existing messages if they were loaded from storage
+          return prev; 
         });
       } finally {
         setIsLoading(false);
       }
     };
     initializeChatbot();
-  }, []); // Empty dependency array means this runs once on mount
-
+  }, []); 
   const sendMessage = async () => {
     const message = userInput.trim();
     if (!message || isLoading || !isProductsLoaded) return;
 
-    // Add user message immediately for responsiveness
-    setMessages(prev => [...prev, { text: message, sender: "user" }]);
+    const userMessageObject = { text: message, sender: "user" };
+
+    
+    setMessages((prev) => [...prev, userMessageObject]);
     setUserInput("");
-    setIsLoading(true);
+    setIsLoading(true); 
 
     try {
-      const response = await processUserQuery(message); // Call the main processing function
-      setMessages(prev => [...prev, { ...response, sender: "bot" }]);
+      
+      const conversationHistoryForAI = [...messages, userMessageObject];
+
+      const response = await processUserQuery(message, conversationHistoryForAI);
+
+    
+      setMessages((prev) => [...prev, { ...response, sender: "bot" }]);
+
     } catch (error) {
       console.error("Error in sendMessage:", error);
-      setMessages(prev => [...prev, {
-        text: "⚠️ Something went wrong while getting my response. Please try again or contact support.",
-        sender: "bot"
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: "⚠️ Something went wrong while getting my response. Please try again or contact support.",
+          sender: "bot",
+        },
+      ]);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); 
     }
   };
 
