@@ -6,7 +6,6 @@ import {
   RouterProvider,
   createBrowserRouter,
   createRoutesFromElements,
-  ScrollRestoration, // Import ScrollRestoration
 } from "react-router-dom";
 import Layout from "./Layout.jsx";
 import Home from "./components/Home/Home.jsx";
@@ -44,14 +43,6 @@ import OrderedItemsPage from "./components/CustomerOrders/CustomerOrders.jsx";
 import VendorsPage from "./components/VendorListPage/VendorListPage.jsx";
 import Orders from "./components/Orders/Orders.jsx";
 
-// Import QueryClient and QueryClientProvider
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-// Optional: Import ReactQueryDevtools for development
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-
-// Create a client
-const queryClient = new QueryClient();
-
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<Layout />}>
@@ -88,7 +79,7 @@ const router = createBrowserRouter(
       <Route path="/admin/applications" element={<VendorApplication />} />
       <Route path="/admin/users" element={<UserManagement />} />
       <Route path="/admin/users-row" element={<UserRow />} />
-      <Route path="/admin/vendors" element={<VendorsPage />} />
+      <Route path="/admin/vendors" element={<VendorsPage/>}/>
       <Route path="*" element={<NotFoundPage />} />
     </Route>
   )
@@ -96,16 +87,8 @@ const router = createBrowserRouter(
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}> {/* Wrap with QueryClientProvider */}
-      <AuthProvider>
-        <RouterProvider
-          router={router}
-          fallbackElement={null}
-        >
-          <ScrollRestoration /> {/* Add ScrollRestoration here for consistent scroll behavior */}
-        </RouterProvider>
-      </AuthProvider>
-      <ReactQueryDevtools initialIsOpen={false} /> {/* Optional: React Query Devtools */}
-    </QueryClientProvider>
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </StrictMode>
 );
