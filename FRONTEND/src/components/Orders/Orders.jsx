@@ -226,7 +226,7 @@ const Orders = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-green-50">
+      <div className="flex justify-center items-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>{" "}
           <p className="text-lg text-black">Loading your orders...</p>
