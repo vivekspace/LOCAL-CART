@@ -10,6 +10,7 @@ import Footer from "./components/Footer/Footer";
 import Loader from "./components/Loader/Loader";
 import { useAuth } from "/src/Context/Context.jsx";
 import ChatbotToggle from "./components/ChatBotToggle/ChatBotToggle";
+import VendorChatbotToggle from "./components/VendorChatbotToggle/VendorChatbotToggle";
 
 const Layout = () => {
   const { loading } = useAuth();
@@ -50,6 +51,7 @@ const Layout = () => {
           <Outlet />
         </main>
         <Footer />
+        <VendorChatbotToggle/>
       </>
     );
   }
@@ -57,7 +59,7 @@ const Layout = () => {
   // Default user layout
   return (
     <>
-      <Header /> {/* or AdminTopbar / VendorNavbar */}
+      <Header /> 
       <main className="lg:md:p-4">
         <Outlet />
       </main>
