@@ -1,4 +1,4 @@
-// productRoutes.js
+// routes/productRoutes.js
 const express = require('express');
 const router = express.Router();
 const Vendor = require('../models/Vendor.js');
@@ -11,7 +11,10 @@ const {
     updateProduct,
     deleteProduct,
 } = require('../controllers/productController');
-const { protectVendor } = require('../middleware/vendorAuth');
+
+const { protectVendor } = require('../middleware/vendorAuth'); // For vendor-specific actions
+const { protectAdmin } = require('../middleware/adminAuthMiddleware'); // For admin-specific actions
+
 const multer = require('multer');
 
 const upload = multer({
@@ -19,17 +22,21 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// --- Vendor Protected Routes (for creation, update, deletion) ---
-router.post('/', protectVendor, upload.array('productImages', 10), createProduct);
-router.patch('/:id', protectVendor, upload.array('productImages', 10), updateProduct);
-router.delete('/:id', protectVendor, deleteProduct);
+
+router.post('/vendor', protectVendor, upload.array('productImages', 10), createProduct); 
+router.patch('/vendor/:id', protectVendor, upload.array('productImages', 10), updateProduct); 
+router.delete('/vendor/:id', protectVendor, deleteProduct); 
+
+// When this is used as part of /api/admin/products
+router.get('/admin', protectAdmin, getAllProducts); 
+router.get('/admin/:id', protectAdmin, getProductById); 
+router.patch('/admin/:id', protectAdmin, upload.array('productImages', 10), updateProduct); 
+router.delete('/admin/:id', protectAdmin, deleteProduct); 
 
 
-// --- Public GET Routes (ORDER IS CRUCIAL HERE) ---
 
-// 1. Specific static path FIRST: /api/products/nearby
 router.get('/nearby', async (req, res) => {
-      console.log('--- HIT: /api/products/nearby route ---');
+    console.log('--- HIT: /api/products/nearby route ---');
 
     const { lat, lng, distance = 10 } = req.query;
 
@@ -129,7 +136,7 @@ router.get('/nearby', async (req, res) => {
 
 // 2. Specific static path: /api/products/locations (for unique cities)
 router.get('/locations', async (req, res) => {
-      console.log('--- HIT: /api/products/locations route ---');
+    console.log('--- HIT: /api/products/locations route ---');
 
     try {
         const uniqueCities = await Product.aggregate([
@@ -175,10 +182,9 @@ router.get('/locations', async (req, res) => {
     }
 });
 
-// 3. Dynamic path with ID: /api/products/:id
-router.get('/:id', getProductById); // Now it won't mistakenly catch /api/products
+router.get('/:id', getProductById);
 
-// 4. General path (catch-all for /api/products with query parameters): /api/products
+
 router.get('/', getAllProducts);
 
 module.exports = router;
