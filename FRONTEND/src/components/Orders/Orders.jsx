@@ -283,7 +283,7 @@ const Orders = () => {
           <h1 className="text-4xl font-extrabold text-green-600 leading-tight">
             Your Order History
           </h1>
-          <p className="mt-3 text-lg text-green-600 max-w-2xl mx-auto">
+          <p className="mt-3 text-lg text-black font-semibold max-w-2xl mx-auto">
             Track and manage all your purchases with LocalCart
           </p>
         </div>
