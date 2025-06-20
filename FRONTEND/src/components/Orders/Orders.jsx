@@ -229,8 +229,8 @@ const Orders = () => {
       <div className="flex justify-center items-center h-screen bg-green-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>{" "}
-          <p className="text-lg text-green-700">Loading your orders...</p>
-          <p className="text-sm text-green-500">
+          <p className="text-lg text-black">Loading your orders...</p>
+          <p className="text-sm text-black">
             LocalCart is fetching your personalized experience
           </p>
         </div>
@@ -258,7 +258,7 @@ const Orders = () => {
 
   if (!Array.isArray(orders)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-green-50 p-4">
+      <div className="min-h-screen flex items-center justify-center  p-4">
         <div className="text-center bg-white rounded-lg shadow-md p-8">
           <ExclamationCircleIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
           <h3 className="text-2xl font-bold text-gray-900 mb-2">
@@ -273,7 +273,7 @@ const Orders = () => {
   }
 
   return (
-    <div className="min-h-screen bg-green-50 py-8 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen  py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="text-center mb-12">
