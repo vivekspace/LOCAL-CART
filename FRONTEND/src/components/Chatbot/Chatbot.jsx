@@ -14,9 +14,9 @@ import {
   Truck,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm"; 
-import rehypeHighlight from "rehype-highlight"; 
-import "highlight.js/styles/github.css"; 
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import "highlight.js/styles/github.css";
 
 const MarkdownComponents = {
   a: (props) => (
@@ -209,7 +209,6 @@ const OrderStatusCard = ({ order }) => {
 };
 
 const ChatBubble = ({ message, isUser }) => {
-
   return (
     <div
       className={`max-w-[90%] sm:max-w-md p-4 rounded-2xl shadow-md transition-all duration-300 ${
@@ -667,6 +666,16 @@ You'll receive an instant order confirmation via email and SMS with your unique 
 
       5.  **General Inquiries/FAQs:** Refer to the "General FAQs" for questions about store hours, payment methods, delivery locations, minimum order value, delivery fees, and how to contact human support.
 
+       **Special Instruction for "Who trained you?":**
+      If asked about your training or who created you, respond by stating that you are an AI assistant developed by Local Cart, powered by advanced Google AI technology. Do not explicitly state "trained by Google LLM" as your sole answer.
+
+      **Example Response (if asked):** "I am Local Cart Assistant, an AI designed by Local Cart to help you with your shopping needs."
+
+      **Current Context:**
+      - Date: ${currentDate}
+      - Time: ${currentTime}
+      - Location: ${currentLocation}
+
       **General Guidelines for All Responses:**
       * **Tone:** Friendly, helpful, and professional.
       * **Clarity:** Be direct and easy to understand.
@@ -749,7 +758,6 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       ${orderDetailsContext}
     `;
 
-  
     const conversationHistoryForGemini = currentMessages
       .filter((msg) => msg.sender === "user" || msg.sender === "bot") // Only include actual chat turns
       .map((msg) => ({
@@ -763,7 +771,6 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       parts: [{ text: message }],
     });
 
-   
     const finalGeminiContent = [
       {
         role: "user",
@@ -773,14 +780,10 @@ You'll receive an instant order confirmation via email and SMS with your unique 
           },
         ],
       },
-    
     ];
-
-   
 
     const contentsForGemini = [];
 
-  
     contentsForGemini.push({
       role: "user",
       parts: [{ text: `${systemInstructions}\n\n${knowledgeBaseContent}` }],
@@ -831,7 +834,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     const initializeChatbot = async () => {
       setIsLoading(true);
       try {
-        await fetchProductsData(); 
+        await fetchProductsData();
         setIsProductsLoaded(true);
 
         if (messages.length === 0) {
@@ -857,34 +860,33 @@ You'll receive an instant order confirmation via email and SMS with your unique 
               },
             ];
           }
-          return prev; 
+          return prev;
         });
       } finally {
         setIsLoading(false);
       }
     };
     initializeChatbot();
-  }, []); 
+  }, []);
   const sendMessage = async () => {
     const message = userInput.trim();
     if (!message || isLoading || !isProductsLoaded) return;
 
     const userMessageObject = { text: message, sender: "user" };
 
-    
     setMessages((prev) => [...prev, userMessageObject]);
     setUserInput("");
-    setIsLoading(true); 
+    setIsLoading(true);
 
     try {
-      
       const conversationHistoryForAI = [...messages, userMessageObject];
 
-      const response = await processUserQuery(message, conversationHistoryForAI);
+      const response = await processUserQuery(
+        message,
+        conversationHistoryForAI
+      );
 
-    
       setMessages((prev) => [...prev, { ...response, sender: "bot" }]);
-
     } catch (error) {
       console.error("Error in sendMessage:", error);
       setMessages((prev) => [
@@ -895,7 +897,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
         },
       ]);
     } finally {
-      setIsLoading(false); 
+      setIsLoading(false);
     }
   };
 
