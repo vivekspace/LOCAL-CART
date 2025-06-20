@@ -18,9 +18,9 @@ import remarkGfm from "remark-gfm"; // For GitHub Flavored Markdown (tables, tas
 import rehypeHighlight from "rehype-highlight"; // For code syntax highlighting
 import "highlight.js/styles/github.css"; // Basic highlight.js theme
 
-// Custom components for ReactMarkdown (no changes needed here, as ReactMarkdown will handle the core parsing)
+// Custom components for ReactMarkdown
 const MarkdownComponents = {
-  a: ({ node, ...props }) => (
+  a: (props) => (
     <a
       {...props}
       className="text-emerald-600 hover:text-emerald-700 underline font-medium"
@@ -28,28 +28,28 @@ const MarkdownComponents = {
       rel="noopener noreferrer"
     />
   ),
-  ul: ({ node, ...props }) => (
+  ul: (props) => (
     <ul {...props} className="list-disc pl-5 space-y-1 my-2" />
   ),
-  ol: ({ node, ...props }) => (
+  ol: (props) => (
     <ol {...props} className="list-decimal pl-5 space-y-1 my-2" />
   ),
-  li: ({ node, ...props }) => <li {...props} className="pl-2" />,
-  table: ({ node, ...props }) => (
+  li: (props) => <li {...props} className="pl-2" />,
+  table: (props) => (
     <div className="overflow-auto">
       <table {...props} className="min-w-full border border-gray-200 my-2" />
     </div>
   ),
-  th: ({ node, ...props }) => (
+  th: (props) => (
     <th
       {...props}
       className="px-4 py-2 bg-gray-100 border border-gray-200 font-semibold"
     />
   ),
-  td: ({ node, ...props }) => (
+  td: (props) => (
     <td {...props} className="px-4 py-2 border border-gray-200" />
   ),
-  code: ({ node, inline, className, children, ...props }) => {
+  code: ({ inline, className, children, ...props }) => {
     if (inline) {
       return (
         <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">
@@ -65,7 +65,7 @@ const MarkdownComponents = {
       </pre>
     );
   },
-  blockquote: ({ node, ...props }) => (
+  blockquote: (props) => (
     <blockquote
       {...props}
       className="border-l-4 border-emerald-400 pl-4 italic text-gray-600 my-2"
@@ -188,12 +188,7 @@ const OrderStatusCard = ({ order }) => {
 
 // Chat message bubble with markdown support
 const ChatBubble = ({ message, isUser }) => {
-  const imageFilenameRegex = /\b([\w-]+\.(?:webp|png|jpg|jpeg|gif|svg))\b(?![^<]*(?:>|$))/gi;
-
-  // This internal renderMessageContent is no longer needed as ReactMarkdown is used
-  // However, if you want to explicitly handle image links that are *not* part of markdown,
-  // you'd need a separate component or modify ReactMarkdown's image renderer.
-  // For now, let's remove it and rely on ReactMarkdown.
+  // imageFilenameRegex is not used, so can be removed or used in ReactMarkdown's img component override
 
   return (
     <div
@@ -418,11 +413,30 @@ const ChatbotContent = memo(
 
 // Main ChatBot component with enhanced database integration
 const ChatBot = ({ isInToggle = false, isMobile = false }) => {
-  const [messages, setMessages] = useState([]);
+  // Initialize messages from localStorage or a default welcome message
+  const [messages, setMessages] = useState(() => {
+    try {
+      const storedMessages = localStorage.getItem('chatMessages');
+      return storedMessages ? JSON.parse(storedMessages) : [];
+    } catch (error) {
+      console.error("Failed to parse stored messages from localStorage:", error);
+      return []; // Return empty array on error
+    }
+  });
+
   const [userInput, setUserInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [isProductsLoaded, setIsProductsLoaded] = useState(false);
+
+  // Effect to save messages to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('chatMessages', JSON.stringify(messages));
+    } catch (error) {
+      console.error("Failed to save messages to local storage:", error);
+    }
+  }, [messages]); // Dependency array: runs whenever 'messages' state changes
 
   // Enhanced API configuration
   const API_CONFIG = {
@@ -510,7 +524,6 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       });
 
       if (!response.ok) {
-        // Attempt to read error message from response body if available
         let errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
@@ -518,7 +531,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       return await response.json();
     } catch (error) {
       console.error(`API Error for ${endpoint}:`, error);
-      throw error; // Re-throw to be caught by the calling function
+      throw error;
     }
   };
 
@@ -542,20 +555,19 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       return enhancedProducts;
     } catch (error) {
       console.error("Error fetching products:", error);
-      throw error; // Propagate error for UI feedback
+      throw error;
     }
   };
 
-// In ChatBot.jsx
-const fetchOrderDetails = async (orderId) => {
+  const fetchOrderDetails = async (orderId) => {
     try {
-        const result = await fetchFromAPI(`${API_CONFIG.endpoints.orders}/${orderId}`);
-        return result.data || result; // Assuming backend returns { success: true, data: orderObject }
+      const result = await fetchFromAPI(`${API_CONFIG.endpoints.orders}/${orderId}`);
+      return result.data || result; // Assuming backend returns { success: true, data: orderObject }
     } catch (error) {
-        console.error(`Error fetching order ${orderId}:`, error);
-        return null;
+      console.error(`Error fetching order ${orderId}:`, error);
+      return null;
     }
-};
+  };
 
   // Actual Gemini API call function
   const callGeminiAPI = async (payload) => {
@@ -589,7 +601,6 @@ const fetchOrderDetails = async (orderId) => {
     const currentLocation = "Navi Mumbai, Maharashtra, India";
 
     // --- SYSTEM INSTRUCTIONS for the Main AI Model ---
-    // This is the core prompt guiding Gemini's behavior and access to information.
     const systemInstructions = `
       You are Local Cart Assistant, a friendly, knowledgeable, and helpful AI chatbot for a local e-commerce store operating in Navi Mumbai, India.
       Your primary goal is to assist customers with a wide range of queries by utilizing the provided information and by fetching real-time data when necessary.
@@ -636,7 +647,6 @@ const fetchOrderDetails = async (orderId) => {
     let orderDetailsContext = ""; // This will hold the JSON string of order data or an error message
 
     // --- PHASE 1: Intent Detection & Order ID Extraction (using Gemini) ---
-    // This dedicated mini-prompt helps Gemini identify if an order ID is present
     const intentDetectionPrompt = `
       You are an intent detector for Local Cart Assistant.
       Your task is to extract a MongoDB Order ID (a 24-character hexadecimal string) if present in the user's query,
@@ -728,16 +738,24 @@ const fetchOrderDetails = async (orderId) => {
         await fetchProductsData(); // Use the enhanced fetchProductsData
         setIsProductsLoaded(true);
 
-        setMessages([{
-          text: "🛍️ **Welcome to Local Cart!** \n\nI'm your personal shopping assistant. I can help you with:\n\n* **Product Information** - Find items, prices, and availability\n* **Order Tracking** - Check your order status with Order ID\n* **Returns & Refunds** - Understand our return policy\n* **Shopping Guide** - Learn how to place orders\n* **General Support** - Any other questions\n\nWhat would you like to explore today?",
-          sender: "bot"
-        }]);
+        // Only add initial welcome message if there are no stored messages
+        if (messages.length === 0) {
+          setMessages([{
+            text: "🛍️ **Welcome to Local Cart!** \n\nI'm your personal shopping assistant. I can help you with:\n\n* **Product Information** - Find items, prices, and availability\n* **Order Tracking** - Check your order status with Order ID\n* **Returns & Refunds** - Understand our return policy\n* **Shopping Guide** - Learn how to place orders\n* **General Support** - Any other questions\n\nWhat would you like to explore today?",
+            sender: "bot"
+          }]);
+        }
       } catch (error) {
-        console.log('error is ' ,error)
-        setMessages([{
-          text: "⚠️ I'm having trouble connecting to our systems. Please try again later or contact support at +91-98765-43210.",
-          sender: "bot"
-        }]);
+        console.log('error is ', error);
+        setMessages(prev => { // Use functional update to avoid overwriting stored messages if they exist
+          if (prev.length === 0 || (prev.length === 1 && prev[0].text.includes("Welcome to Local Cart"))) {
+            return [{
+              text: "⚠️ I'm having trouble connecting to our systems. Please try again later or contact support at +91-98765-43210.",
+              sender: "bot"
+            }];
+          }
+          return prev; // Keep existing messages if they were loaded from storage
+        });
       } finally {
         setIsLoading(false);
       }
