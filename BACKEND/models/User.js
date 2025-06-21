@@ -87,7 +87,10 @@ const userSchema = new mongoose.Schema({
         maxlength: [500, 'Bio cannot exceed 500 characters'],
         default: ''
     },
-    // CRITICAL CHANGE: Ensure addresses is always an array
+    lastLoginAt: {
+        type: Date,
+        default: null // Or Date.now if you want it set on creation
+    },
     addresses: {
         type: [addressSchema],
         default: [] // <<< THIS IS THE KEY CHANGE for new users / when fetching existing users without the field
