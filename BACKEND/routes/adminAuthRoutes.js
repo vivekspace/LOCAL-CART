@@ -3,7 +3,10 @@ const express = require('express');
 const router = express.Router();
 const adminAuthController = require('../controllers/adminAuthController');
 const { protectAdmin } = require('../middleware/adminAuthMiddleware');
-const Vendor = require('../models/Vendor'); // <--- ADD THIS LINE: Import your Vendor model
+const Vendor = require('../models/Vendor'); 
+const { getAllUsersForAdmin } = require('../controllers/dashboardController');
+const {getUserByIdForAdmin , getAllProductsForAdmin , createProduct , getProductByIdForAdmin , updateProduct , deleteProduct} = require('../controllers/dashboardController')
+
 
 
 router.post('/login', adminAuthController.login);
@@ -15,9 +18,6 @@ router.get('/dashboard', protectAdmin, (req, res) => {
 
 router.get('/vendors', protectAdmin, async (req, res) => {
     try {
-        // Fetch all vendors from your database
-        // Replace `Vendor.find({})` with your actual database query to get all vendors
-        // Ensure your Vendor model is correctly defined and connected to your database
         const vendors = await Vendor.find({}); // Example: Fetching all vendors from a Mongoose model
 
 
@@ -28,5 +28,11 @@ router.get('/vendors', protectAdmin, async (req, res) => {
         res.status(500).json({ success: false, message: "Server error fetching vendors" });
     }
 });
+
+router.get('/users', protectAdmin, getAllUsersForAdmin);
+router.get('/users/:id', protectAdmin, getUserByIdForAdmin);
+
+
+
 
 module.exports = router;
