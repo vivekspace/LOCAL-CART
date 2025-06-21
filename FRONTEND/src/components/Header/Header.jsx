@@ -185,9 +185,14 @@ const Header = () => {
 
   useEffect(() => {
     if (selectedLocation) {
-      setCurrentLocationDisplayName(selectedLocation.name);
+      // Modified: Show "Current Location (City Name)" if it's the current location type
+      if (selectedLocation.type === LOCATION_TYPE_CURRENT && selectedLocation.name) {
+        setCurrentLocationDisplayName(`${selectedLocation.name}`);
+      } else {
+        setCurrentLocationDisplayName(selectedLocation.name);
+      }
     }
-  }, [selectedLocation]);
+  }, [selectedLocation, LOCATION_TYPE_CURRENT]);
 
   // Handle location selection from dropdown
   const handleLocationSelect = async (locationData) => {
@@ -244,10 +249,10 @@ const Header = () => {
 
   const combinedLocationOptions = [
     {
+      // Modified: Always display "Current Location (City Name)" if available
       name:
-        selectedLocation?.type === LOCATION_TYPE_CURRENT &&
-        selectedLocation.name
-          ? selectedLocation.name
+        selectedLocation?.type === LOCATION_TYPE_CURRENT && selectedLocation.name
+          ? `${selectedLocation.name}`
           : "Current Location",
       type: LOCATION_TYPE_CURRENT,
       lat: selectedLocation?.lat,
