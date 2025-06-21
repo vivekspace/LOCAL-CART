@@ -1,8 +1,8 @@
 // controllers/dashboardController.js
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const User = require('../models/User'); // Assuming you have a User model for customers
-const Vendor = require('../models/Vendor'); // Assuming you have a Vendor model for vendors
+const User = require('../models/User'); 
+const Vendor = require('../models/Vendor'); 
 const mongoose = require('mongoose');
 
 // Existing Vendor Dashboard Controller
@@ -230,5 +230,211 @@ exports.getAdminDashboardStats = async (req, res) => {
     } catch (error) {
         console.error('Admin Dashboard Error:', error);
         res.status(500).json({ status: 'error', message: 'Failed to fetch admin dashboard data', error: error.message });
+    }
+};
+
+
+exports.getAllUsersForAdmin = async (req, res) => {
+    try {
+        console.log('getAllUsersForAdmin: Fetching all users for admin.');
+
+        const usersWithStats = await User.aggregate([
+            {
+                $lookup: {
+                    from: Order.collection.name, // The collection name for your Order model
+                    localField: '_id',          // Field from the User model
+                    foreignField: 'customerId', // Field from the Order model that links to User
+                    as: 'orders'                // Name of the array field to add to the User documents
+                }
+            },
+            {
+                $addFields: {
+                    transactionsCount: { $size: '$orders' }, // Count the number of orders
+                    // You can calculate other stats here too if needed
+                }
+            },
+            {
+                $project: {
+                    // Select the fields you want to send to the frontend
+                    _id: 1,
+                    name: 1,
+                    email: 1,
+                    role: 1,
+                    photo: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    lastLoginAt: 1, // Include the new field
+                    transactionsCount: 1, // Include the calculated count
+                    // Do NOT include 'password'
+                    // addresses: 1, // Include if you want to send addresses
+                }
+            }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            count: usersWithStats.length,
+            users: usersWithStats // Send the array of users with added stats
+        });
+        console.log('getAllUsersForAdmin: Successfully sent users data. Users count:', usersWithStats.length);
+
+    } catch (error) {
+        console.error('Error in getAllUsersForAdmin:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve user data for administration.',
+            error: error.message
+        });
+    }
+};
+
+
+exports.getUserByIdForAdmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`getUserByIdForAdmin: Fetching user with ID: ${id}`);
+
+        // You can use aggregation here too if you need transactionsCount for single user
+        const userWithStats = await User.aggregate([
+            { $match: { _id: new mongoose.Types.ObjectId(id) } }, // Match by ID
+            {
+                $lookup: {
+                    from: Order.collection.name,
+                    localField: '_id',
+                    foreignField: 'customerId',
+                    as: 'orders'
+                }
+            },
+            {
+                $addFields: {
+                    transactionsCount: { $size: '$orders' },
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    name: 1,
+                    email: 1,
+                    role: 1,
+                    status: 1, // Crucial for UserDetailPage also!
+                    photo: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    lastLoginAt: 1,
+                    transactionsCount: 1,
+                    orders: 0, // Remove the intermediate array
+                    // Add any other fields you want to display on the detail page
+                    addresses: 1, // Example
+                    phone: 1 // Example
+                }
+            }
+        ]);
+
+        if (userWithStats.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Successfully fetched user data.',
+            user: userWithStats[0], // Send the single user object
+        });
+        console.log(`getUserByIdForAdmin: Successfully sent user data for ID: ${id}`);
+
+    } catch (error) {
+        console.error('Error in getUserByIdForAdmin:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve user data.',
+            error: error.message
+        });
+    }
+};
+
+exports.getAllProductsForAdmin = async (req, res) => {
+    try {
+        // Log to see if this function is even being hit by the request
+        console.log("Attempting to fetch all products for admin...");
+
+        // Make sure your Product model is correctly imported and defined
+        if (!Product) {
+            console.error("ERROR: Product model is not defined!");
+            return res.status(500).json({ success: false, message: 'Server configuration error: Product model missing.' });
+        }
+
+        const products = await Product.find({}).select('-__v -description');
+
+        // Log the number of products found
+        console.log(`Successfully fetched ${products.length} products.`);
+
+        res.status(200).json({
+            success: true,
+            products,
+            message: 'Products fetched successfully for admin.'
+        });
+    } catch (error) {
+        // This catch block will specifically log what's going wrong on the server
+        console.error('SERVER ERROR in getAllProductsForAdmin:', error);
+        // Include error details in the response for debugging, but remove in production
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch products due to an internal server error.',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined // Only send detailed error in dev
+        });
+    }
+};
+exports.getProductByIdForAdmin = async (req, res) => {
+    try {
+        const product = await Product.findById(req.params.id);
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Product not found.' });
+        }
+        res.status(200).json({ success: true, product });
+    } catch (error) {
+        console.error('Error in getProductByIdForAdmin:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch product details.' });
+    }
+};
+
+// Create a new product
+exports.createProduct = async (req, res) => {
+    try {
+        // Implement logic to save product, handle image uploads etc.
+        const newProduct = await Product.create(req.body); // Simplified, assume req.body has all product fields
+        res.status(201).json({ success: true, message: 'Product created successfully.', product: newProduct });
+    } catch (error) {
+        console.error('Error in createProduct:', error);
+        res.status(400).json({ success: false, message: 'Failed to create product.', error: error.message });
+    }
+};
+
+// Update a product
+exports.updateProduct = async (req, res) => {
+    try {
+        const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+            new: true,
+            runValidators: true
+        });
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Product not found.' });
+        }
+        res.status(200).json({ success: true, message: 'Product updated successfully.', product });
+    } catch (error) {
+        console.error('Error in updateProduct:', error);
+        res.status(400).json({ success: false, message: 'Failed to update product.', error: error.message });
+    }
+};
+
+// Delete a product
+exports.deleteProduct = async (req, res) => {
+    try {
+        const product = await Product.findByIdAndDelete(req.params.id);
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Product not found.' });
+        }
+        res.status(200).json({ success: true, message: 'Product deleted successfully.' });
+    } catch (error) {
+        console.error('Error in deleteProduct:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete product.' });
     }
 };
