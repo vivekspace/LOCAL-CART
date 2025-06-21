@@ -41,13 +41,14 @@ ChartJS.register(
   Legend
 );
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [adminToken, setAdminToken] = useState(null);
+  const [screenWidth, setScreenWidth] = useState(window.innerWidth); // State to track screen width
 
   const [dashboardStats, setDashboardStats] = useState({
     totalSales: "0.00",
@@ -81,8 +82,19 @@ const AdminPanel = () => {
     if (token) {
       setAdminToken(token);
     } else {
-      console.warn("No adminToken found in localStorage. Admin features may be restricted.");
+      console.warn(
+        "No adminToken found in localStorage. Admin features may be restricted."
+      );
     }
+  }, []);
+
+  // Effect to update screenWidth on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setScreenWidth(window.innerWidth);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const getAuthHeaders = useCallback(() => {
@@ -103,14 +115,17 @@ const AdminPanel = () => {
         setLoading(true);
         setError(null);
         try {
-          const res = await axios.get(`${API_BASE_URL}/api/admin/dashboard/stats`, getAuthHeaders());
+          const res = await axios.get(
+            `${API_BASE_URL}/api/admin/dashboard/stats`,
+            getAuthHeaders()
+          );
           const data = res.data.data;
 
           setDashboardStats({
-            totalSales: `$${data.totalSales ? data.totalSales.toFixed(2) : '0.00'}`,
-            orders: data.totalOrders?.toLocaleString() || '0',
-            customers: data.totalCustomers?.toLocaleString() || '0',
-            products: data.totalProducts?.toLocaleString() || '0',
+            totalSales: `$${data.totalSales ? data.totalSales.toFixed(2) : "0.00"}`,
+            orders: data.totalOrders?.toLocaleString() || "0",
+            customers: data.totalCustomers?.toLocaleString() || "0",
+            products: data.totalProducts?.toLocaleString() || "0",
             salesChange: data.salesChange || "+0%",
             salesTrend: data.salesTrend || "up",
             ordersChange: data.ordersChange || "+0%",
@@ -140,7 +155,15 @@ const AdminPanel = () => {
             datasets: [
               {
                 data: data.orderStatus?.counts || [],
-                backgroundColor: ["#10B981", "#F59E0B", "#EF4444", "#3B82F6", "#6366F1", "#A855F7", "#EC4899"],
+                backgroundColor: [
+                  "#10B981",
+                  "#F59E0B",
+                  "#EF4444",
+                  "#3B82F6",
+                  "#6366F1",
+                  "#A855F7",
+                  "#EC4899",
+                ],
                 borderWidth: 0,
               },
             ],
@@ -150,12 +173,19 @@ const AdminPanel = () => {
         } catch (err) {
           console.error("Error fetching dashboard data:", err);
           setError("Failed to load dashboard data. Please try again.");
-          setDashboardStats({ totalSales: "$0", orders: "0", customers: "0", products: "0" });
+          setDashboardStats({
+            totalSales: "$0",
+            orders: "0",
+            customers: "0",
+            products: "0",
+          });
           setSalesOverviewData({ labels: [], datasets: [] });
           setOrderStatusChartData({ labels: [], datasets: [] });
           setRecentOrders([]);
           if (err.response && err.response.status === 401) {
-            console.log("Admin token invalid or expired. Please log in again.");
+            console.log(
+              "Admin token invalid or expired. Please log in again."
+            );
           }
         } finally {
           setLoading(false);
@@ -172,7 +202,10 @@ const AdminPanel = () => {
         setLoading(true);
         setError(null);
         try {
-          const { data } = await axios.get(`${API_BASE_URL}/api/products/admin`, getAuthHeaders());
+          const { data } = await axios.get(
+            `${API_BASE_URL}/api/products/admin`,
+            getAuthHeaders()
+          );
           setProducts(data.products);
         } catch (err) {
           console.error("Error fetching products:", err);
@@ -192,7 +225,10 @@ const AdminPanel = () => {
         setLoading(true);
         setError(null);
         try {
-          const { data } = await axios.get(`${API_BASE_URL}/api/admin/vendors`, getAuthHeaders());
+          const { data } = await axios.get(
+            `${API_BASE_URL}/api/admin/vendors`,
+            getAuthHeaders()
+          );
           setVendorRequests(data.vendors);
         } catch (err) {
           console.error("Error fetching vendor requests:", err);
@@ -222,52 +258,77 @@ const AdminPanel = () => {
     }
   };
 
-  const salesChartOptions = {
+  // Base sales chart options
+  const baseSalesChartOptions = {
     responsive: true,
+    maintainAspectRatio: false, // Critical for responsive height
     plugins: {
       legend: {
         position: "top",
         labels: {
-            color: 'rgb(107 114 128)'
-        }
+          color: "rgb(107 114 128)",
+        },
       },
       title: {
         display: false,
-        text: 'Sales Overview',
+        text: "Sales Overview",
       },
       tooltip: {
         callbacks: {
-          label: function(context) {
-            let label = context.dataset.label || '';
+          label: function (context) {
+            let label = context.dataset.label || "";
             if (label) {
-              label += ': ';
+              label += ": ";
             }
             if (context.parsed.y !== null) {
-              label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+              label += new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: "USD",
+              }).format(context.parsed.y);
             }
             return label;
-          }
-        }
-      }
+          },
+        },
+      },
     },
     scales: {
-        x: {
-            ticks: {
-                color: 'rgb(107 114 128)'
-            },
-            grid: {
-                color: 'rgba(107, 114, 128, 0.1)'
-            }
+      x: {
+        ticks: {
+          color: "rgb(107 114 128)",
         },
-        y: {
-            ticks: {
-                color: 'rgb(107 114 128)'
-            },
-            grid: {
-                color: 'rgba(107, 114, 128, 0.1)'
-            }
-        }
-    }
+        grid: {
+          color: "rgba(107, 114, 128, 0.1)",
+        },
+      },
+      y: {
+        ticks: {
+          color: "rgb(107 114 128)",
+        },
+        grid: {
+          color: "rgba(107, 114, 128, 0.1)",
+        },
+      },
+    },
+  };
+
+  // Dynamically adjust sales chart options based on screen width
+  const salesChartOptions = {
+    ...baseSalesChartOptions,
+    scales: {
+      ...baseSalesChartOptions.scales,
+      x: {
+        ...baseSalesChartOptions.scales.x,
+        ticks: {
+          ...baseSalesChartOptions.scales.x.ticks,
+          autoSkip: true, // Always enable auto-skipping
+          maxRotation: screenWidth < 768 ? 45 : 0, // Rotate labels on small screens
+          minRotation: screenWidth < 768 ? 45 : 0,
+          maxTicksLimit: screenWidth < 768 ? 5 : 10, // Adjust number of ticks
+          // You can also reduce font size for very small screens if needed:
+          // fontSize: screenWidth < 640 ? 8 : 12,
+        },
+      },
+    },
   };
 
   const orderStatusChartOptions = {
@@ -277,52 +338,80 @@ const AdminPanel = () => {
       legend: {
         position: "bottom",
         labels: {
-            color: 'rgb(107 114 128)'
-        }
+          color: "rgb(107 114 128)",
+        },
       },
       title: {
         display: false,
-        text: 'Order Status',
+        text: "Order Status",
       },
       tooltip: {
         callbacks: {
-          label: function(context) {
-            let label = context.label || '';
+          label: function (context) {
+            let label = context.label || "";
             if (label) {
-              label += ': ';
+              label += ": ";
             }
             if (context.parsed !== null) {
               label += context.parsed;
             }
             return label;
-          }
-        }
-      }
-    }
+          },
+        },
+      },
+    },
   };
 
   if (loading && activeTab === "dashboard") {
-    return <div className="p-6 text-center text-lg text-gray-700">Loading Dashboard Data...</div>;
+    return (
+      <div className="p-6 text-center text-lg text-gray-700">
+        Loading Dashboard Data...
+      </div>
+    );
   }
   if (loading) {
-    return <div className="p-6 text-center text-lg text-gray-700">Loading Data...</div>;
+    return (
+      <div className="p-6 text-center text-lg text-gray-700">
+        Loading Data...
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="p-6 text-center text-red-600">{error}</div>;
+    return (
+      <div className="p-6 text-center text-red-600">
+        <p>Error: {error}</p>
+        <button
+          onClick={() => {
+            // Optionally, clear the error and retry fetching data for the current tab
+            setError(null);
+            // This would trigger a re-fetch if the activeTab is still the same
+            // For example, if activeTab is 'dashboard', setting it to 'dashboard' again
+            // won't trigger useEffect, so a manual re-fetch might be needed
+            // depending on the desired behavior. For simplicity, just clearing error.
+          }}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 duration-300">
-      <div className="p-2 lg:p-6 duration-200">
-        <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Main content container with max-width and overflow-x-hidden */}
+      <div className="p-4 lg:p-6 mx-auto w-full max-w-full overflow-x-hidden duration-200">
+        <div className="flex-1 flex flex-col">
           {/* Dashboard Content */}
           {activeTab === "dashboard" && (
             <div className="space-y-6">
-              <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-6">
+                Admin Dashboard
+              </h1>
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {[
                   {
                     icon: <TrendingUp size={24} />,
@@ -355,19 +444,19 @@ const AdminPanel = () => {
                 ].map((stat, index) => (
                   <div
                     key={index}
-                    className="p-6 rounded-xl shadow bg-white"
+                    className="p-4 sm:p-6 rounded-xl shadow bg-white"
                   >
                     <div className="flex justify-between">
                       <div>
                         <p className="text-sm text-gray-500">
                           {stat.title}
                         </p>
-                        <h3 className="text-2xl font-bold mt-1 text-gray-900">
+                        <h3 className="text-xl sm:text-2xl font-bold mt-1 text-gray-900">
                           {stat.value}
                         </h3>
                       </div>
                       <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${
                           stat.trend === "up"
                             ? "bg-green-100 text-green-600"
                             : "bg-red-100 text-red-600"
@@ -377,7 +466,7 @@ const AdminPanel = () => {
                       </div>
                     </div>
                     <p
-                      className={`mt-4 text-sm ${
+                      className={`mt-3 sm:mt-4 text-xs sm:text-sm ${
                         stat.trend === "up" ? "text-green-600" : "text-red-600"
                       }`}
                     >
@@ -389,31 +478,34 @@ const AdminPanel = () => {
               </div>
 
               {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="p-6 rounded-xl shadow bg-white lg:col-span-2">
-                  <h3 className="text-xl font-semibold mb-4 text-gray-900">Sales Overview</h3>
+              <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="p-4 sm:p-6 rounded-xl shadow bg-white lg:col-span-2">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-4 text-gray-900">
+                    Sales Overview
+                  </h3>
                   {salesOverviewData.labels.length > 0 ? (
-                    <Bar
-                      data={salesOverviewData}
-                      options={salesChartOptions}
-                    />
+                    <div className="h-48 sm:h-64 relative"> {/* Added relative for potential absolute positioning of chart */}
+                        <Bar data={salesOverviewData} options={salesChartOptions} />
+                    </div>
                   ) : (
-                    <div className="h-64 flex items-center justify-center text-gray-500">
+                    <div className="h-48 sm:h-64 flex items-center justify-center text-gray-500">
                       <p>No sales data available.</p>
                     </div>
                   )}
                 </div>
-                <div className="p-6 rounded-xl shadow bg-white">
-                  <h3 className="text-xl font-semibold mb-4 text-gray-900">Order Status</h3>
+                <div className="p-4 sm:p-6 rounded-xl shadow bg-white">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-4 text-gray-900">
+                    Order Status
+                  </h3>
                   {orderStatusChartData.labels.length > 0 ? (
-                    <div className="h-64">
+                    <div className="h-48 sm:h-64">
                       <Pie
                         data={orderStatusChartData}
                         options={orderStatusChartOptions}
                       />
                     </div>
                   ) : (
-                    <div className="h-64 flex items-center justify-center text-gray-500">
+                    <div className="h-48 sm:h-64 flex items-center justify-center text-gray-500">
                       <p>No order status data available.</p>
                     </div>
                   )}
@@ -421,9 +513,11 @@ const AdminPanel = () => {
               </div>
 
               {/* Recent Orders */}
-              <div className="p-6 rounded-xl shadow bg-white mb-8">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-semibold text-gray-900">Recent Orders</h3>
+              <div className="p-4 sm:p-6 rounded-xl shadow bg-white mb-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-0">
+                    Recent Orders
+                  </h3>
                   <button className="text-sm text-green-600 hover:text-green-700">
                     View All
                   </button>
@@ -433,12 +527,24 @@ const AdminPanel = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Order ID
+                          </th>
+                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Customer
+                          </th>
+                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Amount
+                          </th>
+                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -447,10 +553,19 @@ const AdminPanel = () => {
                             key={order.id || order._id}
                             className="hover:bg-gray-50"
                           >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderId || order.id || order._id}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.customer || (order.customerId ? `${order.customerId.firstname} ${order.customerId.lastname}` : 'Guest User')}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${order.amount ? order.amount.toFixed(2) : '0.00'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {order.orderId || order.id || order._id}
+                            </td>
+                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
+                              {order.customer ||
+                                (order.customerId
+                                  ? `${order.customerId.firstname} ${order.customerId.lastname}`
+                                  : "Guest User")}
+                            </td>
+                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
+                              ${order.amount ? order.amount.toFixed(2) : "0.00"}
+                            </td>
+                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
                               <span
                                 className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                   order.status === "delivered"
@@ -469,15 +584,19 @@ const AdminPanel = () => {
                                 {order.status}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {order.createdAt && !isNaN(new Date(order.createdAt))
-                                ? format(new Date(order.createdAt), 'MMM dd, yyyy HH:mm')
-                                : 'N/A'}
+                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
+                              {order.createdAt &&
+                              !isNaN(new Date(order.createdAt))
+                                ? format(
+                                    new Date(order.createdAt),
+                                    "MMM dd, yyyy HH:mm"
+                                  ) // Adjusted format string here
+                                : "N/A"}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <button className="text-blue-600 hover:text-blue-700 mr-2">
-                                  <Edit size={16} />
-                                </button>
+                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
+                              <button className="text-blue-600 hover:text-blue-700 mr-2">
+                                <Edit size={16} />
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -493,38 +612,36 @@ const AdminPanel = () => {
 
           {/* Products Management */}
           {activeTab === "products" && (
-            <div className="p-6 rounded-xl shadow bg-white">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">Products</h3>
-                <button className="flex items-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+            <div className="p-4 sm:p-6 rounded-xl shadow bg-white">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-0">
+                  Products
+                </h3>
+                <button className="flex items-center bg-green-500 hover:bg-green-600 text-white px-3 py-1 sm:px-4 sm:py-2 rounded-lg text-sm">
                   <Plus size={16} className="mr-2" />
                   Add Product
                 </button>
               </div>
-              <div className="flex justify-between items-center mb-4">
-                <div className="relative">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-3 md:space-y-0">
+                <div className="relative w-full md:w-auto">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search size={16} className="text-gray-400" />
                   </div>
                   <input
                     type="text"
                     placeholder="Search products..."
-                    className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900"
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900"
                   />
                 </div>
-                <div className="flex space-x-2">
-                  <select
-                    className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900"
-                  >
+                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
+                  <select className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900 w-full sm:w-auto">
                     <option>All Categories</option>
                     <option>Fruits</option>
                     <option>Vegetables</option>
                     <option>Dairy</option>
                     <option>Bakery</option>
                   </select>
-                  <select
-                    className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900"
-                  >
+                  <select className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900 w-full sm:w-auto">
                     <option>Sort By</option>
                     <option>Newest</option>
                     <option>Price: Low to High</option>
@@ -537,24 +654,39 @@ const AdminPanel = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Product ID
+                        </th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Stock
+                        </th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price
+                        </th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {products.map((product) => (
-                        <tr
-                          key={product._id}
-                          className="hover:bg-gray-50"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product._id}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.stock}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.price?.toFixed(2) || '0.00'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <tr key={product._id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {product._id}
+                          </td>
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
+                            {product.name}
+                          </td>
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
+                            {product.stock}
+                          </td>
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${product.price?.toFixed(2) || "0.00"}
+                          </td>
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
                             <button className="text-blue-600 hover:text-blue-700 mr-2">
                               <Edit size={16} />
                             </button>
@@ -573,18 +705,26 @@ const AdminPanel = () => {
               ) : (
                 <p className="text-gray-500">No products found.</p>
               )}
-              <div className="flex justify-between items-center mt-4">
+              <div className="flex flex-col sm:flex-row justify-between items-center mt-4 space-y-3 sm:space-y-0">
                 <div className="text-sm text-gray-500">
                   Showing 1 to {products.length} of {products.length} entries
                 </div>
                 <div className="flex space-x-1">
-                  <button className="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100">Previous</button>
-                  <button className="px-3 py-1 rounded bg-green-500 text-white">
+                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
+                    Previous
+                  </button>
+                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded bg-green-500 text-white text-sm">
                     1
                   </button>
-                  <button className="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100">2</button>
-                  <button className="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100">3</button>
-                  <button className="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100">Next</button>
+                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
+                    2
+                  </button>
+                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
+                    3
+                  </button>
+                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
+                    Next
+                  </button>
                 </div>
               </div>
             </div>
@@ -592,32 +732,47 @@ const AdminPanel = () => {
 
           {/* Vendors Management */}
           {activeTab === "vendors" && (
-            <div className="p-6 rounded-xl shadow bg-white">
+            <div className="p-4 sm:p-6 rounded-xl shadow bg-white">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">Vendor Requests</h3>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                  Vendor Requests
+                </h3>
               </div>
               {vendorRequests.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Vendor ID
+                        </th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {vendorRequests.map((vendor) => (
-                        <tr
-                          key={vendor._id}
-                          className="hover:bg-gray-50"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{vendor._id}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vendor.name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vendor.email}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <tr key={vendor._id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {vendor._id}
+                          </td>
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
+                            {vendor.name}
+                          </td>
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
+                            {vendor.email}
+                          </td>
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
                             <span
                               className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                 vendor.status === "Approved"
@@ -630,7 +785,7 @@ const AdminPanel = () => {
                               {vendor.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
                             {vendor.status === "Pending" && (
                               <>
                                 <button className="text-green-600 hover:text-green-700 mr-2">
