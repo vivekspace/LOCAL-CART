@@ -35,13 +35,18 @@ import VendorProfile from "./components/VendorProfile/VendorProfile.jsx";
 import NotFoundPage from "./components/PageNotFound/PageNotFound.jsx";
 import OrderConfirmation from "./components/OrderConfirmed/OrderConfirm.jsx";
 import AuthProvider from "/src/Context/Context.jsx";
-import UserRow from "./components/AdminLayout/UserRow.jsx";
 import VendorProductsPage from "./components/VendorProducts/VendorProducts.jsx";
 import VendorAnalytics from "./components/VendorAnalytics/VendorAnalytics.jsx";
 import OrderPage from "./components/VendorOrder/VendorOrder.jsx";
 import OrderedItemsPage from "./components/CustomerOrders/CustomerOrders.jsx";
 import VendorsPage from "./components/VendorListPage/VendorListPage.jsx";
 import Orders from "./components/Orders/Orders.jsx";
+import UserDetailPage from "./components/AdminLayout/UserDetailPage.jsx";
+import AdminProducts from "./components/AdminLayout/AdminProducts.jsx";
+import EditProductPage from "./components/AdminLayout/EditProductPage.jsx";
+import ProductViewPage from "./components/AdminLayout/ProductViewPage.jsx";
+import AddProductPage from "./components/AdminLayout/AddProductPage.jsx";
+import AdminSettingsPage from "./components/AdminLayout/AdminSetting.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -78,8 +83,13 @@ const router = createBrowserRouter(
       <Route path="/admin-panel" element={<AdminPanel />} />
       <Route path="/admin/applications" element={<VendorApplication />} />
       <Route path="/admin/users" element={<UserManagement />} />
-      <Route path="/admin/users-row" element={<UserRow />} />
-      <Route path="/admin/vendors" element={<VendorsPage/>}/>
+      <Route path="/admin/users/:id" element={<UserDetailPage />} />
+      <Route path="/admin/vendors" element={<VendorsPage />} />
+      <Route path="/admin/products" element={<AdminProducts />} />
+      <Route path="/admin/products/new" element={<AddProductPage />} />
+      <Route path="/admin/products/edit/:id" element={<EditProductPage />} />
+      <Route path="/admin/products/view/:id" element={<ProductViewPage />} />
+      <Route path="/admin/settings" element={<AdminSettingsPage/>}/>
       <Route path="*" element={<NotFoundPage />} />
     </Route>
   )
