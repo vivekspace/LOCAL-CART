@@ -16,6 +16,7 @@ const userRoutes = require('./routes/userRoutes')
 const locationRoutes = require('./routes/locationRoutes'); 
 const chatbotRoutes = require('./routes/chatbotRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const adminProductRoutes = require('./routes/adminProductRoutes')
 
 
 
@@ -69,7 +70,7 @@ app.use('/api/users', userRoutes);     // Handles user-related API calls
 app.use('/api/locations', locationRoutes); // Mount location routes (assuming they are under /api/locations)
 app.use('/api/chatbot', chatbotRoutes); // <--- NEW: Mount chatbot specific routes here
 app.use('/api/admin/dashboard', dashboardRoutes);
-
+app.use('/api/admin/products', adminProductRoutes);
 // Removed the conflicting app.get('/api/products') route as it's now handled by productRoutes.
 
 // A basic root route for API status check
