@@ -29,18 +29,20 @@ const Layout = () => {
 
   // Admin layout
   if (isAdminRoute && role === "admin") {
-    return (
-     <div className="flex h-screen overflow-hidden overflow-x-scroll"> {/* Add h-screen and overflow-hidden here */}
+  return (
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <AdminSidebar />
-      <div className="flex-1 flex flex-col"> {/* Use flex-col for column layout */}
+      
+      <div className="flex-1 flex flex-col min-w-0"> 
         <AdminTopbar />
-        <main className="flex-1 overflow-y-auto lg:md:p-4"> {/* Make main content scrollable */}
+        
+        <main className="flex-1 overflow-auto p-1 md:p-2 lg:p-2 bg-gray-50">
           <Outlet />
         </main>
       </div>
     </div>
-    );
-  }
+  );
+}
 
   // Vendor layout
   if (role === "vendor") {
