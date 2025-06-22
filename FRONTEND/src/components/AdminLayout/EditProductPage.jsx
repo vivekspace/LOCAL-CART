@@ -92,9 +92,19 @@ export default function EditProductPage() {
         }
     };
 
-    if (!adminToken || isLoading) {
-        return <div className="flex justify-center items-center h-screen text-xl font-semibold text-gray-700">Loading product details...</div>;
-    }
+      if (isLoading || !adminToken) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">Loading your edit page...</p>
+          <p className="text-sm text-gray-500">
+            LocalCart is crunching the numbers
+          </p>
+        </div>
+      </div>
+    );
+  }
 
     if (error && !product) { // Only show error if no product data was loaded
         return (

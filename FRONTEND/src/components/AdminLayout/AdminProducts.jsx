@@ -172,7 +172,7 @@ export default function AdminProducts() {
                                             <img
                                                 src={product.images && product.images.length > 0 ? `${API_BASE_URL}/uploads/${product.images[0]}` : 'default-product.png'}
                                                 alt={product.name}
-                                                className="w-12 h-12 object-cover rounded-md"
+                                                className="w-12 h-auto object-cover rounded-md"
                                                 onError={(e) => {
                                                     e.target.onerror = null;
                                                     e.target.src = `${API_BASE_URL}/uploads/default-product.png`;

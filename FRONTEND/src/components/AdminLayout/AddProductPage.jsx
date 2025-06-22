@@ -33,7 +33,6 @@ export default function AddProductPage() {
         setIsLoading(true);
         setError(null);
         try {
-            // Make sure your backend route is set up to handle POST requests to /api/admin/products
             const response = await axios.post(`${API_BASE_URL}/api/admin/products`, formData, getAuthHeaders());
 
             if (response.data.success) {

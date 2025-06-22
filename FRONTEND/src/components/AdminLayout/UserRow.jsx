@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom'; // Import Link for navigation
-import { ShieldAlert, ShieldCheck, Edit, Trash } from 'lucide-react'; // Assuming you have lucide-react installed
+import { ShieldAlert, ShieldCheck, Edit, Trash, Eye } from 'lucide-react'; // Assuming you have lucide-react installed
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -38,7 +38,7 @@ export default function UserRow({ user, onToggleBlock }) {
     const isPending = currentUser.status === 'pending';
     const isVendor = currentUser.role === 'seller';
     const isAdmin = currentUser.role === 'admin';
-    const isSuperAdmin = currentUser.role === 'superadmin'; // Corrected from constIsSuperAdmin
+    const isSuperAdmin = currentUser.role === 'superadmin';
 
     // Memoized function to get authorization headers, dependent on localAdminToken state.
     const getAuthHeaders = useCallback(() => {
@@ -153,7 +153,7 @@ export default function UserRow({ user, onToggleBlock }) {
     const renderUserPhoto = () => {
         const photoUrl = currentUser.photo && currentUser.photo !== 'default.jpg'
             ? `${API_BASE_URL}/uploads/users/${currentUser.photo}`
-            : `${API_BASE_URL }/uploads/default-user-avatar.png`; // Fallback image path
+            : `${API_BASE_URL}/uploads/default-user-avatar.png`; // Fallback image path
 
         return (
             <img
@@ -172,7 +172,6 @@ export default function UserRow({ user, onToggleBlock }) {
         );
     };
 
-
     return (
         <>
             <div className="grid grid-cols-12 p-4 border-b border-gray-200 text-gray-900 hover:bg-gray-50">
@@ -180,7 +179,7 @@ export default function UserRow({ user, onToggleBlock }) {
                     {renderUserPhoto()}
                     {/* Fallback avatar div */}
                     <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3 text-gray-600 font-semibold text-lg uppercase fallback-avatar"
-                         style={{ display: (currentUser.photo && currentUser.photo !== 'default.jpg') ? 'none' : 'flex' }}>
+                        style={{ display: (currentUser.photo && currentUser.photo !== 'default.jpg') ? 'none' : 'flex' }}>
                         {currentUser.name ? currentUser.name.charAt(0) : '?'}
                     </div>
                     <div>
@@ -259,14 +258,14 @@ export default function UserRow({ user, onToggleBlock }) {
                             </button>
                         )}
 
-                        {/* Edit/View Details button - now linking to UserDetailPage */}
+                        {/* Edit/View Details button - now linking to UserEditPage for editing */}
                         <Link
-                            to={`/admin/users/${currentUser._id}`}
+                            to={`/admin/users/edit/${currentUser._id}`} // Changed to /edit/:id for an actual edit page
                             className="p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 focus:ring-offset-2 focus:ring-offset-white"
-                            title="View User Details" // Changed title to reflect navigation
+                            title="Edit User Details" // Updated title
                             disabled={isUpdating}
                         >
-                            <Edit size={16} /> {/* You might want a different icon for "view" */}
+                            <Edit size={16} /> {/* Keep Edit icon as it now links to an edit page */}
                         </Link>
                     </div>
                 </div>

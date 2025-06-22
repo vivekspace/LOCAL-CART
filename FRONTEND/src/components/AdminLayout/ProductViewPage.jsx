@@ -64,7 +64,7 @@ export default function ProductViewPage() {
     fetchProduct();
   }, [id, adminToken, navigate]);
 
- if (isLoading || !adminToken) {
+  if (isLoading || !adminToken) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-center">
@@ -147,8 +147,10 @@ export default function ProductViewPage() {
                     key={index}
                     src={`${API_BASE_URL}/uploads/${img}`}
                     alt={`${product.name} - ${index + 1}`}
-                    className="lg:md:w-32 lg:md:h-32 h-20 w-20 object-cover rounded-md shadow-sm"
+                    // IMPORTANT FIX: Changed object-cover to object-contain here
+                    className="lg:md:w-32 lg:md:h-32 h-20 w-20 object-contain rounded-md shadow-sm"
                     onError={(e) =>
+                      // Ensure fallback also uses object-contain
                       (e.target.src = `${API_BASE_URL}/uploads/default-product.png`)
                     }
                   />
@@ -157,7 +159,8 @@ export default function ProductViewPage() {
                 <img
                   src="/uploads/default-product.png"
                   alt="No product image"
-                  className="w-32 h-32 object-cover rounded-md shadow-sm border border-gray-200"
+                  // IMPORTANT FIX: Changed object-cover to object-contain here as well
+                  className="w-32 h-32 object-contain rounded-md shadow-sm border border-gray-200"
                 />
               )}
             </div>
