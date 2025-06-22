@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useContext } from "react";
+import React, { useEffect, useState, useRef, useContext, useMemo } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -27,11 +27,14 @@ const Header = () => {
     cartItems,
     logout,
     isLoggedIn,
-    setIsLoggedIn,
+    user,
     selectedLocation,
     updateUserLocation,
+    availableLocations, // Provided by AuthContext, contains product-based cities
+    locationsLoading: authLocationsLoading,
     LOCATION_TYPE_CURRENT,
     LOCATION_TYPE_PRODUCT_BASED,
+    DEFAULT_FALLBACK_LOCATION // Added for better reference
   } = useContext(AuthContext);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -41,14 +44,12 @@ const Header = () => {
   const [currentLocationDisplayName, setCurrentLocationDisplayName] = useState(
     "Loading Location..."
   );
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [productLocations, setProductLocations] = useState([]);
 
   // Refs for click outside functionality
   const locationDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
   const mobileLocationDropdownRef = useRef(null);
-  const mobileMenuRef = useRef(null); // Add ref for mobile menu container
+  const mobileMenuRef = useRef(null);
 
   // Handle scroll effect
   useEffect(() => {
@@ -70,17 +71,14 @@ const Header = () => {
   // Desktop click outside handlers
   useEffect(() => {
     const handleDesktopClickOutside = (event) => {
-      // Only handle desktop clicks when mobile menu is closed
-      if (menuOpen) return;
+      if (menuOpen) return; // Don't interfere with mobile menu
 
-      // Close desktop location dropdown
       if (
         locationDropdownRef.current &&
         !locationDropdownRef.current.contains(event.target)
       ) {
         setLocationDropdownOpen(false);
       }
-      // Close desktop user dropdown
       if (
         userDropdownRef.current &&
         !userDropdownRef.current.contains(event.target)
@@ -98,22 +96,18 @@ const Header = () => {
   // Mobile click outside handlers
   useEffect(() => {
     const handleMobileClickOutside = (event) => {
-      // Only handle when mobile menu is open
       if (!menuOpen) return;
 
-      // Check if click is outside the entire mobile menu
       if (
         mobileMenuRef.current &&
         !mobileMenuRef.current.contains(event.target)
       ) {
-        // Close the entire mobile menu
         setMenuOpen(false);
         setLocationDropdownOpen(false);
         setUserDropdownOpen(false);
         return;
       }
 
-      // If click is inside mobile menu but outside location dropdown, close location dropdown
       if (
         locationDropdownOpen &&
         mobileLocationDropdownRef.current &&
@@ -124,7 +118,6 @@ const Header = () => {
     };
 
     if (menuOpen) {
-      // Use a small delay to prevent immediate closing
       const timeoutId = setTimeout(() => {
         document.addEventListener("mousedown", handleMobileClickOutside);
       }, 100);
@@ -136,83 +129,48 @@ const Header = () => {
     }
   }, [menuOpen, locationDropdownOpen]);
 
-  // Function to fetch products and extract unique locations
-  const fetchAndExtractProductLocations = async () => {
-    try {
-      console.log(
-        "Header: Attempting to fetch unique location options from:",
-        `${import.meta.env.VITE_API_URL}/api/products/locations`
-      );
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/products/locations`
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `Header: Location API HTTP error! Status: ${response.status}, Message: ${errorText}`
-        );
-        throw new Error(`Failed to fetch location options: ${response.status}`);
-      }
-
-      const rawData = await response.json();
-      console.log("Header: Raw location API response for options:", rawData);
-
-      const extractedLocations = rawData?.data?.locations;
-
-      if (!Array.isArray(extractedLocations)) {
-        console.warn(
-          "Header: Locations array not found or not an array in API response:",
-          extractedLocations
-        );
-        return [];
-      }
-      return extractedLocations;
-    } catch (error) {
-      console.error(
-        "Header: Error during fetching and extracting product locations:",
-        error
-      );
-      return [];
-    }
-  };
-
-  useEffect(() => {
-    fetchAndExtractProductLocations().then((locations) => {
-      setProductLocations(locations);
-    });
-  }, []);
-
+  // Effect to update the display name of the current location in the header button
   useEffect(() => {
     if (selectedLocation) {
-      // Modified: Show "Current Location (City Name)" if it's the current location type
-      if (selectedLocation.type === LOCATION_TYPE_CURRENT && selectedLocation.name) {
-        setCurrentLocationDisplayName(`${selectedLocation.name}`);
-      } else {
+      if (selectedLocation.type === LOCATION_TYPE_CURRENT) {
+        // Handle "Current Location (CityName)"
+        if (selectedLocation.city && selectedLocation.city.toLowerCase() !== 'current location' && selectedLocation.city.toLowerCase() !== DEFAULT_FALLBACK_LOCATION.city.toLowerCase()) {
+            const formattedCity = selectedLocation.city.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            setCurrentLocationDisplayName(`Current Location (${formattedCity})`);
+        }
+        // Handle "Current Location (Unavailable)" or fallback to default message if geo failed
+        else if (selectedLocation.name && selectedLocation.name.startsWith("Current Location (Unavailable")) {
+            setCurrentLocationDisplayName(selectedLocation.name);
+        }
+        // Generic "Current Location" if no specific city is available or it's the fallback city without explicit name
+        else {
+            setCurrentLocationDisplayName("Current Location"); 
+        }
+      } else if (selectedLocation.name) {
+        // For product-based locations, just use their name
         setCurrentLocationDisplayName(selectedLocation.name);
+      } else {
+        setCurrentLocationDisplayName("Select Location"); // Fallback for uninitialized or invalid locations
       }
+    } else {
+      setCurrentLocationDisplayName("Loading Location..."); // Initial loading state
     }
-  }, [selectedLocation, LOCATION_TYPE_CURRENT]);
+  }, [selectedLocation, LOCATION_TYPE_CURRENT, DEFAULT_FALLBACK_LOCATION]);
+
 
   // Handle location selection from dropdown
   const handleLocationSelect = async (locationData) => {
     console.log("Header: handleLocationSelect triggered with:", locationData);
-    setLocationLoading(true);
-
     try {
       await updateUserLocation(locationData);
-      // Close the location dropdown after successful update
-      setLocationDropdownOpen(false);
+      setLocationDropdownOpen(false); // Close dropdown on selection
     } catch (error) {
       console.error("Failed to update location:", error);
-    } finally {
-      setLocationLoading(false);
     }
   };
 
   const navigate = useNavigate();
   const handleLogOut = () => {
-    setIsLoggedIn(false);
     logout();
     setMenuOpen(false);
     setUserDropdownOpen(false);
@@ -247,19 +205,67 @@ const Header = () => {
         : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
     }`;
 
-  const combinedLocationOptions = [
-    {
-      // Modified: Always display "Current Location (City Name)" if available
-      name:
-        selectedLocation?.type === LOCATION_TYPE_CURRENT && selectedLocation.name
-          ? `${selectedLocation.name}`
-          : "Current Location",
+  // FINAL REFINED: Construct combinedLocationOptions to avoid functional duplicates
+  const generateCombinedLocationOptions = () => {
+    const options = [];
+    // Using a Set to track cities (lowercase) already explicitly added from *product-based* locations,
+    // or if the 'Current Location' resolved to a specific city.
+    const addedCities = new Set(); 
+
+    // 1. Prepare the "Current Location" option. This will always be the first entry.
+    let currentGeoCityName = null;
+    if (selectedLocation?.type === LOCATION_TYPE_CURRENT && selectedLocation?.city) {
+        const cityLower = selectedLocation.city.toLowerCase();
+        // Only consider it a "resolved city" if it's not the generic "current location" placeholder city
+        // AND not the city of the DEFAULT_FALLBACK_LOCATION if that's what it resolved to.
+        if (cityLower !== 'current location' && cityLower !== DEFAULT_FALLBACK_LOCATION.city.toLowerCase()) {
+            currentGeoCityName = cityLower;
+        }
+    }
+
+    const currentLocationOption = {
+      name: currentGeoCityName ? `Current Location (${currentGeoCityName.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')})` : "Current Location",
       type: LOCATION_TYPE_CURRENT,
-      lat: selectedLocation?.lat,
+      lat: selectedLocation?.lat, // Keep lat/lng if available for current location
       lng: selectedLocation?.lng,
-    },
-    ...productLocations.sort((a, b) => a.name.localeCompare(b.name)),
-  ];
+      city: currentGeoCityName || 'current location', // Store the resolved city or the generic placeholder
+    };
+    options.push(currentLocationOption);
+
+    // If "Current Location" successfully resolved to a specific city, add it to our tracking set.
+    if (currentGeoCityName) {
+        addedCities.add(currentGeoCityName);
+    }
+
+    // 2. Add product-based locations from availableLocations, avoiding duplicates.
+    if (Array.isArray(availableLocations)) {
+      availableLocations.forEach(loc => {
+        const locationCityLower = loc.city?.toLowerCase();
+        
+        // Only add a product-based location if:
+        // - It has a valid city name.
+        // - This city has NOT been added yet (either as the resolved 'Current Location' city, or another product location).
+        // - It's explicitly a product-based type (to avoid issues if availableLocations somehow contained generic current_location types).
+        if (locationCityLower && !addedCities.has(locationCityLower) && loc.type === LOCATION_TYPE_PRODUCT_BASED) {
+          options.push({
+            name: loc.name,
+            city: locationCityLower,
+            type: LOCATION_TYPE_PRODUCT_BASED,
+            lat: loc.lat, // Can be null/undefined for product-based cities from API
+            lng: loc.lng, // Can be null/undefined for product-based cities from API
+          });
+          addedCities.add(locationCityLower); // Mark this city as added
+        }
+      });
+    }
+
+    // Sort product-based options (everything after the first "Current Location" option) alphabetically by name.
+    const sortedProductOptions = options.slice(1).sort((a, b) => a.name.localeCompare(b.name));
+    return [options[0], ...sortedProductOptions]; // Combine and return
+  };
+
+  const combinedLocationOptions = useMemo(generateCombinedLocationOptions, [selectedLocation, availableLocations, LOCATION_TYPE_CURRENT, DEFAULT_FALLBACK_LOCATION]);
+
 
   return (
     <nav
@@ -288,14 +294,14 @@ const Header = () => {
             <div className="relative mr-2" ref={locationDropdownRef}>
               <button
                 onClick={toggleLocationDropdown}
-                disabled={locationLoading}
+                disabled={authLocationsLoading}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-300 ${
                   locationDropdownOpen
                     ? "bg-green-50 text-green-600"
                     : "hover:bg-gray-50 text-gray-700 hover:text-green-600"
-                } ${locationLoading ? "opacity-75 cursor-not-allowed" : ""}`}
+                } ${authLocationsLoading ? "opacity-75 cursor-not-allowed" : ""}`}
               >
-                {locationLoading ? (
+                {authLocationsLoading ? (
                   <div className="animate-spin h-5 w-5">
                     <Navigation className="h-5 w-5 text-green-600" />
                   </div>
@@ -317,48 +323,51 @@ const Header = () => {
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 mb-2">
                     Select Location
                   </div>
-                  {combinedLocationOptions.map((option, index) => (
-                    <button
-                      key={
-                        option.type === LOCATION_TYPE_CURRENT
-                          ? option.type
-                          : option.name || `product-loc-${index}`
-                      }
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        await handleLocationSelect(option);
-                      }}
-                      disabled={
-                        locationLoading && option.type === LOCATION_TYPE_CURRENT
-                      }
-                      className={`w-full px-4 py-2.5 text-sm text-left font-medium rounded-md flex items-center justify-between transition-colors ${
-                        selectedLocation &&
-                        (option.type === LOCATION_TYPE_CURRENT
-                          ? selectedLocation.type === option.type
-                          : selectedLocation.name === option.name)
-                          ? "bg-green-50 text-green-600"
-                          : "text-gray-700 hover:bg-green-50 hover:text-green-600"
-                      } ${
-                        locationLoading && option.type === LOCATION_TYPE_CURRENT
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        {option.type === LOCATION_TYPE_CURRENT && (
-                          <Navigation className="h-4 w-4" />
-                        )}
-                        {option.name}
-                      </span>
-                      {selectedLocation &&
-                        (option.type === LOCATION_TYPE_CURRENT
-                          ? selectedLocation.type === option.type
-                          : selectedLocation.name === option.name) && (
+                  {combinedLocationOptions.map((option, index) => {
+                    // Create a unique key for each option
+                    const uniqueKey = option.type === LOCATION_TYPE_CURRENT 
+                      ? "current_location_desktop" // Fixed key for the single current location option
+                      : `product_${option.city}_${index}`; // Use city and index for product locations
+                    
+                    // Check if this option is selected
+                    const isSelected = selectedLocation && (
+                      (option.type === LOCATION_TYPE_CURRENT && selectedLocation.type === LOCATION_TYPE_CURRENT) ||
+                      (option.type === LOCATION_TYPE_PRODUCT_BASED && 
+                       selectedLocation.type === LOCATION_TYPE_PRODUCT_BASED &&
+                       selectedLocation.city?.toLowerCase() === option.city?.toLowerCase())
+                    );
+
+                    return (
+                      <button
+                        key={uniqueKey}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          await handleLocationSelect(option);
+                        }}
+                        disabled={authLocationsLoading && option.type === LOCATION_TYPE_CURRENT}
+                        className={`w-full px-4 py-2.5 text-sm text-left font-medium rounded-md flex items-center justify-between transition-colors ${
+                          isSelected
+                            ? "bg-green-50 text-green-600"
+                            : "text-gray-700 hover:bg-green-50 hover:text-green-600"
+                        } ${
+                          authLocationsLoading && option.type === LOCATION_TYPE_CURRENT
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          {option.type === LOCATION_TYPE_CURRENT && (
+                            <Navigation className="h-4 w-4" />
+                          )}
+                          {option.name}
+                        </span>
+                        {isSelected && (
                           <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></span>
                         )}
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -386,7 +395,7 @@ const Header = () => {
                   <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
                     <User className="h-5 w-5" />
                   </div>
-                  <span>Account</span>
+                  <span>{user?.name ? `Hi, ${user.name.split(' ')[0]}` : "Account"}</span>
                   <ChevronDown
                     className={`h-4 w-4 transition-transform duration-200 ${
                       userDropdownOpen ? "transform rotate-180" : ""
@@ -534,13 +543,13 @@ const Header = () => {
                   e.stopPropagation();
                   toggleLocationDropdown();
                 }}
-                disabled={locationLoading}
+                disabled={authLocationsLoading}
                 className={`w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg transition-colors ${
-                  locationLoading ? "opacity-75 cursor-not-allowed" : ""
+                  authLocationsLoading ? "opacity-75 cursor-not-allowed" : ""
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  {locationLoading ? (
+                  {authLocationsLoading ? (
                     <div className="animate-spin">
                       <Navigation className="h-5 w-5 text-green-600" />
                     </div>
@@ -552,12 +561,12 @@ const Header = () => {
                       ? currentLocationDisplayName.substring(0, 20) + "..."
                       : currentLocationDisplayName}
                   </span>
+                  <ChevronDown
+                    className={`h-5 w-5 transition-transform ${
+                      locationDropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
                 </div>
-                <ChevronDown
-                  className={`h-5 w-5 transition-transform ${
-                    locationDropdownOpen ? "rotate-180" : ""
-                  }`}
-                />
               </button>
 
               {locationDropdownOpen && (
@@ -565,51 +574,54 @@ const Header = () => {
                   <div className="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Select Location
                   </div>
-                  {combinedLocationOptions.map((option) => (
-                    <button
-                      key={
-                        option.type === LOCATION_TYPE_CURRENT
-                          ? "current_location"
-                          : option.name
-                      }
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log("Mobile location option clicked:", option.name);
-                        await handleLocationSelect(option);
-                      }}
-                      disabled={
-                        locationLoading && option.type === LOCATION_TYPE_CURRENT
-                      }
-                      className={`w-full px-3 py-2.5 text-sm rounded-md flex items-center justify-between transition-colors ${
-                        selectedLocation &&
-                        (option.type === LOCATION_TYPE_CURRENT
-                          ? selectedLocation.type === option.type
-                          : selectedLocation.name === option.name)
-                          ? "bg-green-50 text-green-600"
-                          : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
-                      } ${
-                        locationLoading && option.type === LOCATION_TYPE_CURRENT
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        {option.type === LOCATION_TYPE_CURRENT && (
-                          <Navigation className="h-4 w-4" />
-                        )}
-                        {option.name.length > 20
-                          ? option.name.substring(0, 20) + "..."
-                          : option.name}
-                      </span>
-                      {selectedLocation &&
-                        (option.type === LOCATION_TYPE_CURRENT
-                          ? selectedLocation.type === option.type
-                          : selectedLocation.name === option.name) && (
+                  {combinedLocationOptions.map((option, index) => {
+                    // Create a unique key for each option
+                    const uniqueKey = option.type === LOCATION_TYPE_CURRENT 
+                      ? "current_location_mobile" 
+                      : `product_mobile_${option.city}_${index}`;
+                    
+                    // Check if this option is selected
+                    const isSelected = selectedLocation && (
+                      (option.type === LOCATION_TYPE_CURRENT && selectedLocation.type === LOCATION_TYPE_CURRENT) ||
+                      (option.type === LOCATION_TYPE_PRODUCT_BASED && 
+                       selectedLocation.type === LOCATION_TYPE_PRODUCT_BASED &&
+                       selectedLocation.city?.toLowerCase() === option.city?.toLowerCase())
+                    );
+
+                    return (
+                      <button
+                        key={uniqueKey}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log("Mobile location option clicked:", option.name);
+                          await handleLocationSelect(option);
+                        }}
+                        disabled={authLocationsLoading && option.type === LOCATION_TYPE_CURRENT}
+                        className={`w-full px-3 py-2.5 text-sm rounded-md flex items-center justify-between transition-colors ${
+                          isSelected
+                            ? "bg-green-50 text-green-600"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                        } ${
+                          authLocationsLoading && option.type === LOCATION_TYPE_CURRENT
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          {option.type === LOCATION_TYPE_CURRENT && (
+                            <Navigation className="h-4 w-4" />
+                          )}
+                          {option.name.length > 20
+                            ? option.name.substring(0, 20) + "..."
+                            : option.name}
+                        </span>
+                        {isSelected && (
                           <ChevronRight className="h-4 w-4 text-green-500" />
                         )}
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

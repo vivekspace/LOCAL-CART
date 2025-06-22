@@ -11,56 +11,39 @@ import { Link } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
 const CartPage = () => {
-  const { cartItems, setCartItems } = useContext(AuthContext);
-  console.log(cartItems);
+  // Destructure all relevant cart functions and state from AuthContext
+  const {
+    cartItems,
+    setCartItems, // We still need this if quantity updates are initiated from CartPage
+    updateCartItemQuantity, // Correct function to update quantity
+    removeFromCart, // Correct function to remove item
+  } = useContext(AuthContext);
 
-  useEffect(() => {
-    const consolidatedCart = consolidateCartItems(cartItems);
-
-    if (JSON.stringify(consolidatedCart) !== JSON.stringify(cartItems)) {
-      setCartItems(consolidatedCart);
-    }
-  }, []);
-
-  // Function to consolidate duplicate items
-  const consolidateCartItems = (items) => {
-    const uniqueItems = {};
-
-    // Group items by id and sum their quantities
-    items.forEach((item) => {
-      const itemId = item.id;
-      if (!uniqueItems[itemId]) {
-        uniqueItems[itemId] = { ...item, quantity: item.quantity || 1 };
-      } else {
-        uniqueItems[itemId].quantity += item.quantity || 1;
-      }
-    });
-
-    // Convert back to array
-    return Object.values(uniqueItems);
-  };
+  // Added console.log for debugging what CartPage sees
+  console.log("CartPage: Rendering with cartItems:", cartItems);
 
   const handleIncrease = (itemId) => {
-    const updatedCart = cartItems.map((item) =>
-      item.id === itemId
-        ? { ...item, quantity: (item.quantity || 1) + 1 }
-        : item
-    );
-    setCartItems(updatedCart);
+    // Use the updateCartItemQuantity from AuthContext
+    const itemToUpdate = cartItems.find(item => item._id === itemId);
+    if (itemToUpdate) {
+      updateCartItemQuantity(itemId, (itemToUpdate.quantity || 1) + 1);
+    }
   };
 
   const handleDecrease = (itemId) => {
-    const updatedCart = cartItems.map((item) =>
-      item.id === itemId && (item.quantity || 1) > 1
-        ? { ...item, quantity: item.quantity - 1 }
-        : item
-    );
-    setCartItems(updatedCart);
+    // Use the updateCartItemQuantity from AuthContext
+    const itemToUpdate = cartItems.find(item => item._id === itemId);
+    if (itemToUpdate && (itemToUpdate.quantity || 1) > 1) {
+      updateCartItemQuantity(itemId, (itemToUpdate.quantity || 1) - 1);
+    } else if (itemToUpdate && (itemToUpdate.quantity || 1) <= 1) {
+      // If quantity is 1 or less, remove the item
+      removeFromCart(itemId);
+    }
   };
 
   const handleRemove = (itemId) => {
-    const updatedCart = cartItems.filter((item) => item.id !== itemId);
-    setCartItems(updatedCart);
+    // Use the removeFromCart from AuthContext
+    removeFromCart(itemId);
   };
 
   const totalPrice = cartItems.reduce((sum, item) => {
@@ -118,9 +101,10 @@ const CartPage = () => {
                 <div className="divide-y divide-gray-100">
                   {cartItems.map((item) => (
                     <div
-                      key={item.id}
+                      key={item._id}
                       className="p-3 lg:md:p-6 flex items-center hover:bg-gray-50 transition"
                     >
+                      {/* CORRECTED LINE 122 HERE: rounded-lg instead of rounded-1g and flex-shrink-0 fixed */}
                       <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 h-20 w-20 flex-shrink-0">
                         <img
                           src={
@@ -132,7 +116,8 @@ const CartPage = () => {
                           className="w-full h-full object-contain"
                           onError={(e) => {
                             e.target.src =
-                              `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; // Full URL from backend
+                              `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                            e.target.onerror = null;
                           }}
                         />
                       </div>
@@ -156,7 +141,7 @@ const CartPage = () => {
 
                         <div className="flex items-center space-x-1">
                           <button
-                            onClick={() => handleDecrease(item.id)}
+                            onClick={() => handleDecrease(item._id)}
                             className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition"
                           >
                             <span className="text-gray-600">−</span>
@@ -167,14 +152,14 @@ const CartPage = () => {
                           </span>
 
                           <button
-                            onClick={() => handleIncrease(item.id)}
+                            onClick={() => handleIncrease(item._id)}
                             className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition"
                           >
                             <span className="text-gray-600">+</span>
                           </button>
 
                           <button
-                            onClick={() => handleRemove(item.id)}
+                            onClick={() => handleRemove(item._id)}
                             className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 text-red-500 ml-2 transition"
                           >
                             <Trash2 size={16} />

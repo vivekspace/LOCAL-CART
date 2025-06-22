@@ -15,6 +15,7 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
         (img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`
       );
     }
+    // Fallback to a default product image if no images are available
     return [`${import.meta.env.VITE_API_URL}/uploads/default-product.png`];
   }, [product]);
 
@@ -28,18 +29,19 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
     <div className="md:w-1/2 p-6">
       {/* Main Image Display */}
       <div className="relative h-96 w-full mb-4 rounded-xl overflow-hidden">
-        {/* Using <picture> for Main Image */}
+        {/* Using <picture> for Main Image for potential WebP optimization and fallbacks */}
         <picture>
-          {/* WebP source (replace with actual different sizes if available) */}
-          <source
-            srcSet={`${productImages[selectedImage]}`} // Assumes your server generates .webp versions
+          {/* WebP source (if your server generates .webp versions, otherwise remove) */}
+          {/* <source
+            srcSet={`${productImages[selectedImage]}`}
             type="image/webp"
-          />
+          /> */}
           {/* Fallback source (original format) */}
           <img
             src={productImages[selectedImage]}
             alt={product.name}
-            className="w-full h-full object-cover transition-opacity duration-300"
+            // IMPORTANT FIX: Changed object-cover to object-contain for the main image
+            className="w-full h-full object-contain transition-opacity duration-300"
             loading="eager" // Main product image is LCP candidate, so eager load
             decoding="async" // Allow async decoding
             width={mainImageWidth}
@@ -51,7 +53,7 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
               }/uploads/default-product.png`;
               e.target.onerror = null; // Prevent infinite loop
               e.target.className =
-                "w-full h-full object-contain bg-gray-100 p-4"; // Adjust styling for default
+                "w-full h-full object-contain bg-gray-100 p-4"; // Ensure fallback also uses object-contain
             }}
           />
         </picture>
@@ -63,13 +65,11 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
           </div>
         )}
         {product.discountPrice &&
-          product.price < product.discountPrice && ( // Use discountPrice from backend
+          product.price > product.discountPrice && ( // Use discountPrice from backend
             <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-              {/* Calculate discount percentage dynamically if needed */}
+              {/* Calculate discount percentage dynamically */}
               {Math.round(
-                ((product.price - product.discountPrice) /
-                  product.discountPrice) *
-                  -100
+                ((product.price - product.discountPrice) / product.price) * 100
               )}
               % OFF
             </div>
@@ -91,7 +91,7 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
               <img
                 src={img}
                 alt={`${product.name} thumbnail ${index + 1}`}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain" // Already fixed this one, keeping as object-contain
                 loading="lazy" // Thumbnails can be lazy-loaded
                 decoding="async"
                 width={thumbnailWidth} // Add width for thumbnails
@@ -102,7 +102,7 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
                   }/uploads/default-product.png`;
                   e.target.onerror = null;
                   e.target.className =
-                    "w-full h-full object-contain bg-gray-100 p-2";
+                    "w-full h-full object-contain bg-gray-100 p-2"; // Apply object-contain for fallback too
                 }}
               />
             </button>
@@ -128,7 +128,7 @@ const ProductPrice = ({ product, quantity = 1 }) => {
             ${(finalPrice * safeQuantity).toFixed(2)}
           </p>
           <p className="text-xl text-gray-400 line-through">
-            ${(product.price * safeQuantity).toFixed(2)}{" "}
+            {(product.price * safeQuantity).toFixed(2)}{" "}
             {/* Original price comes from 'price' */}
           </p>
           <span className="ml-3 bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
@@ -186,15 +186,13 @@ const ProductCardPage = () => {
   const {
     addToCart,
     updateCartItemQuantity,
-    products: cartProducts,
-  } = useContext(AuthContext); // Renamed 'products' to 'cartProducts' to avoid confusion
+    products: cartProducts, // Renamed 'products' to 'cartProducts' to avoid confusion
+  } = useContext(AuthContext); 
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [wishlist, setWishlist] = useState("transparent");
 
   console.log("The found product is", foundProduct?.location.coordinates[0]);
   console.log("The found product is", foundProduct?.location.coordinates[1]);
-  // console.log(foundProduct.location.coordinate[0]);
-  // console.log(foundProduct.location.coordinate[1]);
 
   // Get the current quantity from cart if product exists in cart
   const getInitialQuantity = useCallback(() => {
@@ -207,8 +205,10 @@ const ProductCardPage = () => {
   const [quantity, setQuantity] = useState(getInitialQuantity());
 
   useEffect(() => {
+    // This effect ensures quantity updates if foundProduct changes or initial cartProducts load
     setQuantity(getInitialQuantity());
   }, [foundProduct, getInitialQuantity]);
+
 
   // --- Crucial Change: Fetch product details directly from the backend API ---
   useEffect(() => {
@@ -217,9 +217,9 @@ const ProductCardPage = () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/products/${productId}` // Corrected template literal
+          `${import.meta.env.VITE_API_URL}/api/products/${productId}`
         );
-        const fetchedProduct = response.data.data.product; // Assuming API structure { data: { product: ... } }
+        const fetchedProduct = response.data.data.product; 
         setFoundProduct(fetchedProduct);
         setSelectedImage(0); // Reset selected image when a new product is loaded
         setQuantity(getInitialQuantity()); // Set initial quantity based on cart for this specific product
@@ -309,17 +309,7 @@ const ProductCardPage = () => {
     }
 
     addToCart(foundProduct._id, qty);
-    toast.success(
-      `${qty} ${foundProduct.name}${qty > 1 ? "s" : ""} added to cart!`,
-      {
-        position: "top-center",
-        autoClose: 2000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      }
-    );
+
   }, [foundProduct, quantity, addToCart]);
 
   const handleBuyNow = useCallback(() => {
@@ -509,7 +499,7 @@ const ProductCardPage = () => {
                     <svg
                       key={star}
                       className={`w-5 h-5 ${
-                        star <= foundProduct.ratingsAverage // Use actual ratingsAverage
+                        star <= foundProduct.ratingsAverage
                           ? "text-yellow-400"
                           : "text-gray-300"
                       }`}
@@ -773,8 +763,6 @@ const ProductCardPage = () => {
           </div>
         )}
 
-        
-
         {/* Related Products */}
         {relatedProducts.length > 0 && (
           <div className="mt-12">
@@ -796,7 +784,8 @@ const ProductCardPage = () => {
                           product.images[0]
                         }`} /* Use product.images[0] */
                         alt={product.name}
-                        className="absolute h-full w-full object-cover hover:scale-105 transition-transform duration-300"
+                        // IMPORTANT: Changed object-cover to object-contain for related products
+                        className="absolute h-full w-full object-contain hover:scale-105 transition-transform duration-300"
                         loading="lazy"
                         decoding="async"
                         width="200" // Example width for related products

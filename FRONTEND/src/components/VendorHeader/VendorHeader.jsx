@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
-import logo from "../../assets/logo.svg";
+// Import useAuth from your Context file
+import { useAuth } from "../../Context/Context.jsx"; // Correct import
+import logo from "../../assets/logo.svg"
 
 // Unified Icons from lucide-react for consistency
 import {
@@ -27,12 +29,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-// Placeholder logo - replace with your actual logo
-const Logo = () => (
-  <div className="h-8 w-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
-    <span className="text-white font-bold text-sm">V</span>
-  </div>
-);
+
 
 // Enhanced fallback avatar with better styling
 const FallbackAvatar = ({ size = "md", className = "" }) => {
@@ -61,19 +58,11 @@ const VendorNavbar = () => {
   const profileRef = useRef(null);
   const notificationsRef = useRef(null);
 
-  // Robust localStorage parsing with try-catch
-  const user = useMemo(() => {
-    try {
-      const userData = localStorage.getItem("user");
-      return userData ? JSON.parse(userData) : null;
-    } catch (error) {
-      console.error("Failed to parse user data from localStorage:", error);
-      return null;
-    }
-  }, []);
+  // Use the useAuth hook to get the current user object and vendorSignOut function
+  const { user, vendorSignOut } = useAuth(); // Now user comes directly from context
 
   // Enhanced navigation links with more features
-  const orderCount = 5;
+  const orderCount = 5; // This should ideally come from a state or context related to vendor orders
 
   const navLinks = [
     {
@@ -96,7 +85,7 @@ const VendorNavbar = () => {
       description: "New orders",
     },
     {
-      to: "/vendor-sell",
+      to: "/vendor/sell",
       label: "Sell",
       icon: Store,
       description: "Add new products",
@@ -106,7 +95,15 @@ const VendorNavbar = () => {
       label: "Analytics",
       icon: BarChart3,
       description: "Sales insights",
+    
     },
+    // Adding messages route for vendor chat
+    {
+      to: "/vendor/messages",
+      label: "Messages",
+      icon: MessageSquare,
+      description: "Chat with customers",
+    }
   ];
 
   // Sample notifications
@@ -143,12 +140,10 @@ const VendorNavbar = () => {
 
   const unreadNotifications = notifications.filter((n) => n.unread).length;
 
-  // Handle sign out
+  // Handle sign out - now calls vendorSignOut from context
   const handleSignOut = () => {
-    localStorage.removeItem("vendorToken");
-    localStorage.removeItem("vendorInfo");
-    localStorage.removeItem("user");
-    navigate("/vendor/login");
+    vendorSignOut(); // Use the vendorSignOut function from AuthContext
+    // The context function handles localStorage clearing and navigation
   };
 
   // Close dropdowns when clicking outside
@@ -190,51 +185,48 @@ const VendorNavbar = () => {
     }`;
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-100  w-full z-50">
+    <nav className="bg-white shadow-sm border-b border-gray-100 w-full z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Left side: Logo and Desktop Navigation */}
           <div className="flex justify-between items-center h-16 ">
             <Link
-              to="vendor/dashboard"
+              to="/vendor/dashboard" // Adjusted to be explicit vendor dashboard
               className="flex items-center gap-2 text-2xl font-bold text-green-600 hover:text-green-700 transition-colors relative"
             >
-              <img src={logo} alt="Logo" className="h-12 w-auto" />
+              <img src={logo} alt="LocalCart Logo" className="h-12 w-auto" />
               <span className="text-xs font-medium text-gray-500 absolute top-2 right-12">
                 Vendor
               </span>
             </Link>
-            {/* </div> */}
+          </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden lg:ml-8 lg:flex lg:space-x-1 items-center">
-              {navLinks
-                .filter((link) => !link.mobileOnly)
-                .map((link) => (
-                  <NavLink
-                    key={link.to}
-                    to={link.to}
-                    className={getNavLinkClass}
-                  >
-                    <link.icon className="h-5 w-5 transition-transform group-hover:scale-110" />
-                    <span>{link.label}</span>
-                    {link.notificationCount > 0 && (
-                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 animate-pulse">
-                        {link.notificationCount}
-                      </span>
-                    )}
-                    {link.notificationCount > 0 && (
-                      <div className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full animate-ping"></div>
-                    )}
-                  </NavLink>
-                ))}
-            </div>
+          {/* Desktop Navigation */}
+          <div className="hidden lg:ml-8 lg:flex lg:space-x-1 items-center">
+            {navLinks
+              .filter((link) => !link.mobileOnly)
+              .map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  className={getNavLinkClass}
+                >
+                  <link.icon className="h-5 w-5 transition-transform group-hover:scale-110" />
+                  <span>{link.label}</span>
+                  {link.notificationCount > 0 && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 animate-pulse">
+                      {link.notificationCount}
+                    </span>
+                  )}
+                  {link.notificationCount > 0 && (
+                    <div className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full animate-ping"></div>
+                  )}
+                </NavLink>
+              ))}
           </div>
 
           {/* Right side: Actions and Profile */}
           <div className="flex items-center space-x-2">
-            {/* Theme Toggle */}
-
             {/* Notifications */}
             <div className="relative" ref={notificationsRef}>
               <button
@@ -310,10 +302,11 @@ const VendorNavbar = () => {
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center space-x-2 p-1 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200"
               >
-                {user?.avatarUrl ? (
+                {/* Display vendor avatar or fallback */}
+                {user?.photo ? ( // Assuming 'photo' field for avatar URL
                   <img
                     className="h-8 w-8 rounded-full border-2 border-green-200 object-cover"
-                    src={user.avatarUrl}
+                    src={user.photo}
                     alt="Profile"
                   />
                 ) : (
@@ -326,10 +319,10 @@ const VendorNavbar = () => {
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 z-50">
                   <div className="p-4 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      {user?.avatarUrl ? (
+                      {user?.photo ? (
                         <img
                           className="h-10 w-10 rounded-full border-2 border-green-200"
-                          src={user.avatarUrl}
+                          src={user.photo}
                           alt="Profile"
                         />
                       ) : (
@@ -337,7 +330,7 @@ const VendorNavbar = () => {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 text-sm truncate">
-                          {user?.name || "Guest User"}
+                          {user?.name || user?.storeName || "Vendor User"} {/* Prioritize name, then storeName */}
                         </p>
                         <p className="text-xs text-gray-500 truncate">
                           {user?.email || "no-email@example.com"}
@@ -365,7 +358,7 @@ const VendorNavbar = () => {
 
                   <div className="border-t border-gray-100 py-2">
                     <button
-                      onClick={handleSignOut}
+                      onClick={handleSignOut} // Calls the vendorSignOut from context
                       className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <Power className="h-4 w-4" />
@@ -416,7 +409,7 @@ const VendorNavbar = () => {
             <div className="flex items-center space-x-3">
               <div className="flex justify-between items-center h-10 ">
                 <Link
-                  to="vendor/dashboard"
+                  to="/vendor/dashboard" // Adjusted to be explicit vendor dashboard
                   className="flex items-center gap-2 text-2xl font-bold text-green-600 hover:text-green-700 transition-colors relative"
                 >
                   <img src={logo} alt="Logo" className="h-12 w-auto" />
@@ -471,10 +464,10 @@ const VendorNavbar = () => {
           {/* User Profile Section */}
           <div className="border-t border-gray-100 p-4 bg-gray-50">
             <div className="flex items-center space-x-3 mb-4">
-              {user?.avatarUrl ? (
+              {user?.photo ? (
                 <img
                   className="h-12 w-12 rounded-full border-2 border-green-200"
-                  src={user.avatarUrl}
+                  src={user.photo}
                   alt="Profile"
                 />
               ) : (
@@ -482,7 +475,7 @@ const VendorNavbar = () => {
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900">
-                  {user?.name || "Guest User"}
+                  {user?.name || user?.storeName || "Vendor User"}
                 </p>
                 <p className="text-sm text-gray-500 truncate">
                   {user?.email || "no-email@example.com"}

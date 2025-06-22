@@ -473,7 +473,8 @@ const PaymentPage = () => {
       if (!safeEmail) {
         throw new Error("Customer email is required but not provided");
       }
-
+     const paymentStatus =
+  paymentResult.method === 'cod' ? 'pending' : paymentResult.status;
       const orderPayload = {
         customerDetails: {
           email: orderData.customerDetails.email, // Ensure this matches your schema's field name (email)
@@ -493,7 +494,7 @@ const PaymentPage = () => {
         }),
         paymentDetails: {
           method: paymentResult.method,
-          status: paymentResult.status,
+          status: paymentStatus,
           amount: finalTotal,
           transactionId: paymentResult.transactionId,
         },

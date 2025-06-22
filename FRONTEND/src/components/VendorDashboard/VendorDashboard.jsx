@@ -319,7 +319,7 @@ const Dashboard = () => {
                   <div key={product.id} className="flex items-center">
                     <div className="w-10 h-10 rounded-md flex items-center justify-center mr-4 overflow-hidden">
                       <img
-                        className="w-full h-full object-cover" // Ensure image covers the area
+                        className="w-full  object-cover" // Ensure image covers the area
                         src={
                           product.images?.[0]
                             ? `${import.meta.env.VITE_API_URL}/uploads/${
@@ -330,7 +330,7 @@ const Dashboard = () => {
                         alt={product.name}
                         onError={(e) => {
                           console.log("Image failed to load:", e.target.src);
-                          e.target.src = `/default-product.png`; // Set a local fallback image
+                          e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; // Set a local fallback image
                         }}
                       />
                     </div>

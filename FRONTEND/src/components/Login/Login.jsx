@@ -1,20 +1,19 @@
-// In your Login.jsx file
-
-import { Link } from "react-router-dom";
-import { Lock, Mail, Eye, EyeOff, ShoppingBag } from "lucide-react";
-import { motion } from "framer-motion";
-import { useState, useContext } from "react";
+import React, { useState } from "react"; // Removed useContext as useAuth handles it
+import { Link, useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
-import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../../Context/Context";
+import { useAuth } from "../../Context/Context"; // Correct import for useAuth hook
+import "react-toastify/dist/ReactToastify.css";
+import { Lock, Mail, Eye, EyeOff, ShoppingBag } from "lucide-react"; // Using lucide-react for icons
+import { motion } from "framer-motion";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useContext(AuthContext);
+  // Use the custom useAuth hook for consistency across your app
+  const { login } = useAuth(); // Destructure 'login' from AuthContext via useAuth
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  // Change error state to hold a string, not an object
-  const [error, setError] = useState(""); 
+  const [error, setError] = useState(""); // Change error state to hold a string
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -35,38 +34,47 @@ export default function Login() {
     setError(""); // Clear previous errors on new submission
 
     try {
-      // Validate form inputs
+      // Client-side validation: Check if fields are filled
       if (!formData.email || !formData.password) {
-        throw new Error("Please fill in all fields");
+        toast.error("Please fill in all fields."); // Toast for client-side validation
+        setError("Please fill in all fields.");
+        setIsLoading(false); // Stop loading if validation fails
+        return; // Stop execution
       }
 
-      // Call login function from AuthContext
-      await login({
-        email: formData.email,
+      // Call login function from AuthContext and capture its return value
+      // The login function in AuthContext already handles its own API calls,
+      // localStorage updates, state updates, and toasts for API-related errors/success.
+      const loginResult = await login({
+        email: formData.email.trim().toLowerCase(), // Normalize email: trim and convert to lowercase
         password: formData.password,
       });
 
-      // Handle "remember me" functionality
-      if (formData.remember) {
-        localStorage.setItem("rememberMe", "true");
+      // Check the success property from the login result returned by AuthContext
+      if (loginResult.success) {
+        // Handle "remember me" functionality only on successful login
+        if (formData.remember) {
+          localStorage.setItem("rememberMe", "true");
+        } else {
+          localStorage.removeItem("rememberMe");
+        }
+
+        // AuthContext's login function already shows a success toast.
+        // Redirect on successful login
+        navigate("/");
       } else {
-        localStorage.removeItem("rememberMe");
+        // If login was not successful, AuthContext's login function already toasted the error.
+        // Set the local error state for display under the form (optional, but good for form feedback).
+        setError(loginResult.message || "Login failed. Please try again.");
       }
-
-      // Redirect on successful login
-      toast.success("Login successful!");
-      navigate("/");
-    } catch (error) {
-      console.error("Login error:", error);
-      
-      // FIX THIS LINE: Extract the message from the error object
-      const errorMessage = 
-        error.response?.data?.message || // For backend errors from Axios
-        error.message ||                 // For client-side errors (like "Please fill in all fields")
-        "Login failed. Please try again."; // Generic fallback
-
-      setError(errorMessage); // Set the string message to the state
-      toast.error(errorMessage); // Use the same message for the toast
+    } catch (err) {
+      // This catch block will primarily handle truly unexpected errors that
+      // the AuthContext's login function *doesn't* catch and return.
+      console.error("Login (Login.jsx) unexpected error:", err);
+      // Ensure a message is displayed even for unexpected errors
+      const errorMessage = err.message || "An unexpected error occurred during login.";
+      setError(errorMessage);
+      toast.error(errorMessage); // Show toast for truly unexpected errors if any
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +120,7 @@ export default function Login() {
               {/* Error display */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-600 text-sm">{error}</p> {/* This will now correctly display the string message */}
+                  <p className="text-red-600 text-sm">{error}</p>
                 </div>
               )}
               {/* Email field */}
@@ -269,6 +277,9 @@ export default function Login() {
           </div>
         </div>
       </motion.div>
+      {/* Ensure ToastContainer is rendered somewhere in your app, often in App.jsx.
+          Removed the commented out ToastContainer here to avoid rendering multiple if it's already in App.jsx. */}
+       <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
     </div>
   );
 }
