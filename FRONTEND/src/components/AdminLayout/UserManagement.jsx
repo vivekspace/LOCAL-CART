@@ -132,8 +132,8 @@ export default function UserManagement() {
         <div className="min-h-screen bg-gray-100 p-6">
             <h1 className="text-3xl font-bold text-gray-800 mb-6">User Management</h1>
 
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+                <div className="p-4 border-b border-gray-200 bg-gray-50 min-w-[900px]">
                     <div className="grid grid-cols-12 font-semibold text-gray-600">
                         <div className="col-span-3">User</div>
                         <div className="col-span-3">Email</div>
@@ -143,7 +143,7 @@ export default function UserManagement() {
                         <div className="col-span-2 pl-2">Status & Actions</div>
                     </div>
                 </div>
-                <div>
+                <div className="min-w-[900px]">
                     {users.length > 0 ? (
                         users.map(user => (
                             <UserRow key={user._id} user={user} onToggleBlock={handleToggleBlock} />
