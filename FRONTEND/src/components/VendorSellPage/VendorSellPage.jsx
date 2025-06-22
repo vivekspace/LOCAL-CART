@@ -124,7 +124,7 @@ const AddProduct = () => {
       images.forEach((image) => formDataToSend.append("productImages", image));
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/products`,
+        `${import.meta.env.VITE_API_URL}/api/products/vendor`,
         {
           method: "POST",
           headers: {
