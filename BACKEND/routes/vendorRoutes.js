@@ -14,8 +14,10 @@ const {
     loginVendor,
     addProduct,
     deleteProduct,
-    getVendorProducts
-} = require('../controllers/vendorController');
+    getVendorProducts,
+    getVendorProfile 
+} = require('../controllers/vendorController'); // Ensure getVendorProfile is exported here
+
 const { getVendorDashboard } = require('../controllers/dashboardController');
 const { protectVendor } = require('../middleware/vendorAuth');
 const orderController = require('../controllers/orderController');
@@ -23,6 +25,11 @@ const orderController = require('../controllers/orderController');
 // Vendor Auth Routes (These paths are correct relative to '/api/vendor' prefix)
 router.post('/register', registerVendor);
 router.post('/login', loginVendor);
+
+// --- ADD THIS NEW ROUTE ---
+// Vendor Profile Route (for the authenticated vendor to view their own profile)
+router.get('/profile', protectVendor, getVendorProfile); // <--- THIS IS THE MISSING ROUTE
+// --- END NEW ROUTE ---
 
 // Product Routes (These paths are correct relative to '/api/vendor' prefix)
 router.post('/products', protectVendor, addProduct);
@@ -64,6 +71,8 @@ router.get('/dashboard', protectVendor, getVendorDashboard);
 // Analytics Route (Correct path relative to '/api/vendor' prefix)
 router.get('/analytics', protectVendor, async (req, res) => {
     try {
+        // IMPORTANT: Ensure req.vendor is being correctly set by your protectVendor middleware
+        // It seems to be used here, so it should be fine.
         const vendorId = req.vendor._id;
 
         // Calculate total revenue for this vendor (completed orders only)
