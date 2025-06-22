@@ -122,7 +122,9 @@ const AdminPanel = () => {
           const data = res.data.data;
 
           setDashboardStats({
-            totalSales: `$${data.totalSales ? data.totalSales.toFixed(2) : "0.00"}`,
+            totalSales: `$${
+              data.totalSales ? data.totalSales.toFixed(2) : "0.00"
+            }`,
             orders: data.totalOrders?.toLocaleString() || "0",
             customers: data.totalCustomers?.toLocaleString() || "0",
             products: data.totalProducts?.toLocaleString() || "0",
@@ -183,9 +185,7 @@ const AdminPanel = () => {
           setOrderStatusChartData({ labels: [], datasets: [] });
           setRecentOrders([]);
           if (err.response && err.response.status === 401) {
-            console.log(
-              "Admin token invalid or expired. Please log in again."
-            );
+            console.log("Admin token invalid or expired. Please log in again.");
           }
         } finally {
           setLoading(false);
@@ -247,7 +247,10 @@ const AdminPanel = () => {
       setLoading(true);
       setError(null);
       try {
-        await axios.delete(`${API_BASE_URL}/api/products/${id}`, getAuthHeaders());
+        await axios.delete(
+          `${API_BASE_URL}/api/products/${id}`,
+          getAuthHeaders()
+        );
         setProducts(products.filter((product) => product._id !== id));
       } catch (err) {
         console.error("Error deleting product:", err);
@@ -362,17 +365,17 @@ const AdminPanel = () => {
     },
   };
 
-  if (loading && activeTab === "dashboard") {
+  
+if (loading) {
     return (
-      <div className="p-6 text-center text-lg text-gray-700">
-        Loading Dashboard Data...
-      </div>
-    );
-  }
-  if (loading) {
-    return (
-      <div className="p-6 text-center text-lg text-gray-700">
-        Loading Data...
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">Loading your analytics...</p>
+          <p className="text-sm text-gray-500">
+            LocalCart is crunching the numbers
+          </p>
+        </div>
       </div>
     );
   }
@@ -383,12 +386,7 @@ const AdminPanel = () => {
         <p>Error: {error}</p>
         <button
           onClick={() => {
-            // Optionally, clear the error and retry fetching data for the current tab
             setError(null);
-            // This would trigger a re-fetch if the activeTab is still the same
-            // For example, if activeTab is 'dashboard', setting it to 'dashboard' again
-            // won't trigger useEffect, so a manual re-fetch might be needed
-            // depending on the desired behavior. For simplicity, just clearing error.
           }}
           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
@@ -399,9 +397,9 @@ const AdminPanel = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 duration-300">
+    <div className="min-h-screen bg-gray-100 max-w-screen text-gray-900 duration-300">
       {/* Main content container with max-width and overflow-x-hidden */}
-      <div className="p-4 lg:p-6 mx-auto w-full max-w-full overflow-x-hidden duration-200">
+      <div className="p-2 lg:p-6 mx-auto w-full max-w-screen overflow-x-hidden duration-200">
         <div className="flex-1 flex flex-col">
           {/* Dashboard Content */}
           {activeTab === "dashboard" && (
@@ -448,9 +446,7 @@ const AdminPanel = () => {
                   >
                     <div className="flex justify-between">
                       <div>
-                        <p className="text-sm text-gray-500">
-                          {stat.title}
-                        </p>
+                        <p className="text-sm text-gray-500">{stat.title}</p>
                         <h3 className="text-xl sm:text-2xl font-bold mt-1 text-gray-900">
                           {stat.value}
                         </h3>
@@ -484,8 +480,13 @@ const AdminPanel = () => {
                     Sales Overview
                   </h3>
                   {salesOverviewData.labels.length > 0 ? (
-                    <div className="h-48 sm:h-64 relative"> {/* Added relative for potential absolute positioning of chart */}
-                        <Bar data={salesOverviewData} options={salesChartOptions} />
+                    <div className="h-48 sm:h-64 relative">
+                      {" "}
+                      {/* Added relative for potential absolute positioning of chart */}
+                      <Bar
+                        data={salesOverviewData}
+                        options={salesChartOptions}
+                      />
                     </div>
                   ) : (
                     <div className="h-48 sm:h-64 flex items-center justify-center text-gray-500">
