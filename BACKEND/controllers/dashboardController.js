@@ -4,6 +4,275 @@ const Product = require('../models/Product');
 const User = require('../models/User'); 
 const Vendor = require('../models/Vendor'); 
 const mongoose = require('mongoose');
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/appError');
+const multer = require('multer');
+const path = require('path');
+const sharp = require('sharp');
+
+// Helper function to filter allowed fields (Used by updateMe)
+const filterObj = (obj, ...allowedFields) => {
+    const newObj = {};
+    Object.keys(obj).forEach(el => {
+        if (allowedFields.includes(el)) newObj[el] = obj[el];
+    });
+    return newObj;
+};
+
+// --- MULTER CONFIGURATION FOR IMAGE UPLOADS ---
+const multerStorage = multer.memoryStorage();
+const multerFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith('image')) {
+        cb(null, true);
+    } else {
+        cb(new AppError('Not an image! Please upload only images.', 400), false);
+    }
+};
+const upload = multer({
+    storage: multerStorage,
+    fileFilter: multerFilter,
+    limits: { fileSize: 5 * 1024 * 1024 } // Limit file size to 5MB
+});
+
+exports.uploadUserPhoto = upload.single('photo');
+
+exports.resizeUserPhoto = catchAsync(async (req, res, next) => {
+    if (!req.file) return next();
+
+    req.file.filename = `user-${req.user.id}-${Date.now()}.jpeg`;
+
+    const outputPath = path.join(__dirname, '../uploads', req.file.filename);
+    console.log('Saving processed image to:', outputPath);
+
+    await sharp(req.file.buffer)
+        .resize(500, 500, {
+            fit: sharp.fit.cover,
+            withoutEnlargement: true
+        })
+        .toFormat('jpeg')
+        .jpeg({ quality: 90 })
+        .toFile(outputPath);
+
+    next();
+});
+
+// --- Controller Function for updating profile including photo ---
+exports.updateMe = catchAsync(async (req, res, next) => {
+    if (req.body.password || req.body.passwordConfirm) {
+        return next(
+            new AppError(
+                'This route is not for password updates. Please use /updateMyPassword.',
+                400
+            )
+        );
+    }
+
+    const filteredBody = filterObj(req.body, 'name', 'email', 'bio');
+
+    if (req.file && req.file.filename) {
+        filteredBody.photo = req.file.filename;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
+        new: true,
+        runValidators: true
+    }).select('-password');
+
+    if (!updatedUser) {
+        return next(new AppError('No user found with that ID', 404));
+    }
+
+    res.status(200).json({
+        status: 'success',
+        data: {
+            user: updatedUser
+        }
+    });
+});
+
+// 1. Get Me (Logged-in user's data) - Existing
+exports.getMe = (req, res, next) => {
+    req.params.id = req.user.id;
+    next();
+};
+
+// Generic get user by ID - Existing (This is the one from userController.js, keep it distinct from getUserByIdForAdmin)
+exports.getUser = catchAsync(async (req, res, next) => {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+        return next(new AppError('No user found with that ID', 404));
+    }
+
+    res.status(200).json({
+        status: 'success',
+        data: {
+            user
+        }
+    });
+});
+
+// >>> MODIFIED FUNCTIONS <<<
+
+// Function to fetch addresses for the logged-in user
+exports.getAddresses = catchAsync(async (req, res, next) => {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+        return next(new AppError('User not found', 404));
+    }
+    res.status(200).json({
+        status: 'success',
+        data: {
+            addresses: user.addresses || []
+        }
+    });
+});
+
+
+exports.addAddress = catchAsync(async (req, res, next) => {
+    const { name, street, apartment, city, state, zipCode , phone , isDefault} = req.body;
+
+    const newAddressData = {
+        name,
+        street,
+        apartment,
+        city,
+        state,
+        phone,
+        zipCode,
+        isDefault
+    };
+    console.log('newAddressData:', newAddressData);
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+        return next(new AppError('User not found', 404));
+    }
+
+    console.log('User addresses before push:', user.addresses);
+
+    user.addresses.push(newAddressData);
+    console.log('User addresses after push:', user.addresses);
+
+    await user.save();
+
+    res.status(201).json({
+        status: 'success',
+        message: 'Address added successfully',
+        data: {
+            address: user.addresses[user.addresses.length - 1]
+        }
+    });
+});
+
+// Function to update an existing address
+exports.updateAddress = catchAsync(async (req, res, next) => {
+    const { addressId } = req.params;
+    const { name, street, apartment, city, state, zipCode } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+        return next(new AppError('User not found', 404));
+    }
+
+    const address = user.addresses.id(addressId);
+    
+    if (!address) {
+        return next(new AppError('Address not found', 404));
+    }
+
+    address.set({
+        name: name || address.name,
+        street: street || address.street,
+        apartment: apartment || address.apartment,
+        city: city || address.city,
+        state: state || address.state,
+        zipCode: zipCode || address.zipCode
+    });
+
+    await user.save();
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Address updated successfully',
+        data: {
+            address: address
+        }
+    });
+});
+
+// Function to delete an address
+exports.deleteAddress = catchAsync(async (req, res, next) => {
+    const { addressId } = req.params;
+    console.log('deleteAddress: addressId from params:', addressId);
+
+    const user = await User.findById(req.user.id);
+    console.log('deleteAddress: user found:', user ? true : false);
+
+    if (!user) {
+        return next(new AppError('User not found', 404));
+    }
+
+    const initialAddressCount = user.addresses.length;
+
+    user.addresses.pull({ _id: addressId });
+
+    if (user.addresses.length === initialAddressCount) {
+        return next(new AppError('Address not found or already deleted', 404));
+    }
+    
+    await user.save();
+    console.log('deleteAddress: user saved after removal');
+
+    res.status(204).json({
+        status: 'success',
+        message: 'Address deleted successfully',
+        data: null
+    });
+});
+
+exports.setAsDefaultAddress = async (req, res, next) => {
+    try {
+        const { addressId } = req.params;
+        const userId = req.user.id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const addressToSetDefault = user.addresses.id(addressId);
+        if (!addressToSetDefault) {
+            return res.status(404).json({ message: 'Address not found' });
+        }
+
+        user.addresses.forEach(addr => {
+            if (addr._id.toString() !== addressId) {
+                addr.isDefault = false;
+            }
+        });
+
+        addressToSetDefault.isDefault = true;
+
+        await user.save();
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Default address set successfully',
+            data: {
+                address: addressToSetDefault
+            }
+        });
+
+    } catch (error) {
+        console.error("Error setting default address:", error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Failed to set default address',
+            error: error.message
+        });
+    }
+};
 
 // Existing Vendor Dashboard Controller
 exports.getVendorDashboard = async (req, res) => {
@@ -103,12 +372,12 @@ exports.getVendorDashboard = async (req, res) => {
         const recentOrders = await Order.find({ 'cartItems.seller': vendorId })
             .sort({ createdAt: -1 })
             .limit(5)
-            .populate('customerId', 'firstname lastname') // Ensure 'customerId' is the correct field in your Order model
+            .populate('customerId', 'firstname lastname')
             .select('orderId status totalAmount createdAt cartItems.name cartItems.price cartItems.quantity');
 
         const formattedRecentOrders = recentOrders.map(order => ({
             id: order.orderId || order._id,
-            customer: order.customerId ? `${order.customerId.firstname || ''} ${order.customerId.lastname || ''}`.trim() : 'Guest User', // Correctly access populated fields
+            customer: order.customerId ? `${order.customerId.firstname || ''} ${order.customerId.lastname || ''}`.trim() : 'Guest User',
             amount: order.totalAmount,
             status: order.status,
         }));
@@ -160,11 +429,10 @@ exports.getAdminDashboardStats = async (req, res) => {
         const totalVendors = await Vendor.countDocuments();
 
         // --- 2. Sales Overview Data (for the chart) ---
-        // Generate real sales data if possible, or dummy for testing
         const salesOverviewLabels = [];
         const salesOverviewDataValues = [];
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalize to start of day
+        today.setHours(0, 0, 0, 0);
 
         for (let i = 6; i >= 0; i--) { // Last 7 days, including today
             const d = new Date(today);
@@ -188,15 +456,15 @@ exports.getAdminDashboardStats = async (req, res) => {
         const recentOrders = await Order.find()
             .sort({ createdAt: -1 })
             .limit(5)
-            .populate('customerId', 'firstname lastname') // Ensure 'customerId' is the correct field in your Order model linking to User
-            .select('orderId status totalAmount createdAt'); // Select necessary fields for the table
+            .populate('customerId', 'firstname lastname')
+            .select('orderId status totalAmount createdAt');
 
         const formattedRecentOrders = recentOrders.map(order => ({
-            id: order.orderId || order._id, // Use orderId if present, else _id
+            id: order.orderId || order._id,
             customer: order.customerId ? `${order.customerId.firstname || ''} ${order.customerId.lastname || ''}`.trim() : 'Guest User',
             amount: order.totalAmount,
             status: order.status,
-            createdAt: order.createdAt // Or format as needed
+            createdAt: order.createdAt
         }));
 
 
@@ -213,13 +481,13 @@ exports.getAdminDashboardStats = async (req, res) => {
                 // Sales Overview Chart Data
                 salesOverview: {
                     labels: salesOverviewLabels,
-                    sales: salesOverviewDataValues, // Frontend expects 'sales' array
+                    sales: salesOverviewDataValues,
                 },
 
                 // Order Status Chart Data
                 orderStatus: {
                     labels: orderStatusLabels,
-                    counts: orderStatusValues, // Frontend expects 'counts' array
+                    counts: orderStatusValues,
                 },
 
                 // Recent Orders
@@ -241,21 +509,19 @@ exports.getAllUsersForAdmin = async (req, res) => {
         const usersWithStats = await User.aggregate([
             {
                 $lookup: {
-                    from: Order.collection.name, // The collection name for your Order model
-                    localField: '_id',          // Field from the User model
-                    foreignField: 'customerId', // Field from the Order model that links to User
-                    as: 'orders'                // Name of the array field to add to the User documents
+                    from: Order.collection.name,
+                    localField: '_id',
+                    foreignField: 'customerId',
+                    as: 'orders'
                 }
             },
             {
                 $addFields: {
-                    transactionsCount: { $size: '$orders' }, // Count the number of orders
-                    // You can calculate other stats here too if needed
+                    transactionsCount: { $size: '$orders' },
                 }
             },
             {
                 $project: {
-                    // Select the fields you want to send to the frontend
                     _id: 1,
                     name: 1,
                     email: 1,
@@ -263,10 +529,8 @@ exports.getAllUsersForAdmin = async (req, res) => {
                     photo: 1,
                     createdAt: 1,
                     updatedAt: 1,
-                    lastLoginAt: 1, // Include the new field
-                    transactionsCount: 1, // Include the calculated count
-                    // Do NOT include 'password'
-                    // addresses: 1, // Include if you want to send addresses
+                    lastLoginAt: 1,
+                    transactionsCount: 1,
                 }
             }
         ]);
@@ -274,7 +538,7 @@ exports.getAllUsersForAdmin = async (req, res) => {
         res.status(200).json({
             success: true,
             count: usersWithStats.length,
-            users: usersWithStats // Send the array of users with added stats
+            users: usersWithStats
         });
         console.log('getAllUsersForAdmin: Successfully sent users data. Users count:', usersWithStats.length);
 
@@ -292,11 +556,21 @@ exports.getAllUsersForAdmin = async (req, res) => {
 exports.getUserByIdForAdmin = async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(`getUserByIdForAdmin: Fetching user with ID: ${id}`);
+        console.log(`getUserByIdForAdmin: Attempting to fetch user with ID: ${id}`);
 
-        // You can use aggregation here too if you need transactionsCount for single user
+        // --- NEW: Validate ID format before using it in ObjectId constructor ---
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            console.error(`Invalid User ID format: ${id}`);
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid user ID format.'
+            });
+        }
+
+        const userObjectId = new mongoose.Types.ObjectId(id);
+
         const userWithStats = await User.aggregate([
-            { $match: { _id: new mongoose.Types.ObjectId(id) } }, // Match by ID
+            { $match: { _id: userObjectId } },
             {
                 $lookup: {
                     from: Order.collection.name,
@@ -316,28 +590,28 @@ exports.getUserByIdForAdmin = async (req, res) => {
                     name: 1,
                     email: 1,
                     role: 1,
-                    status: 1, // Crucial for UserDetailPage also!
+                    status: 1,
                     photo: 1,
                     createdAt: 1,
                     updatedAt: 1,
                     lastLoginAt: 1,
                     transactionsCount: 1,
-                    orders: 0, // Remove the intermediate array
-                    // Add any other fields you want to display on the detail page
-                    addresses: 1, // Example
-                    phone: 1 // Example
+                    // REMOVED: orders: 0, // This was the cause of the error!
+                    addresses: 1,
+                    phone: 1
                 }
             }
         ]);
 
         if (userWithStats.length === 0) {
+            console.warn(`User with ID ${id} not found.`);
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
         res.status(200).json({
             success: true,
             message: 'Successfully fetched user data.',
-            user: userWithStats[0], // Send the single user object
+            user: userWithStats[0],
         });
         console.log(`getUserByIdForAdmin: Successfully sent user data for ID: ${id}`);
 
@@ -345,7 +619,7 @@ exports.getUserByIdForAdmin = async (req, res) => {
         console.error('Error in getUserByIdForAdmin:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to retrieve user data.',
+            message: 'Failed to retrieve user data due to a server error.',
             error: error.message
         });
     }
@@ -353,10 +627,8 @@ exports.getUserByIdForAdmin = async (req, res) => {
 
 exports.getAllProductsForAdmin = async (req, res) => {
     try {
-        // Log to see if this function is even being hit by the request
         console.log("Attempting to fetch all products for admin...");
 
-        // Make sure your Product model is correctly imported and defined
         if (!Product) {
             console.error("ERROR: Product model is not defined!");
             return res.status(500).json({ success: false, message: 'Server configuration error: Product model missing.' });
@@ -364,7 +636,6 @@ exports.getAllProductsForAdmin = async (req, res) => {
 
         const products = await Product.find({}).select('-__v -description');
 
-        // Log the number of products found
         console.log(`Successfully fetched ${products.length} products.`);
 
         res.status(200).json({
@@ -373,16 +644,15 @@ exports.getAllProductsForAdmin = async (req, res) => {
             message: 'Products fetched successfully for admin.'
         });
     } catch (error) {
-        // This catch block will specifically log what's going wrong on the server
         console.error('SERVER ERROR in getAllProductsForAdmin:', error);
-        // Include error details in the response for debugging, but remove in production
         res.status(500).json({
             success: false,
             message: 'Failed to fetch products due to an internal server error.',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined // Only send detailed error in dev
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
+
 exports.getProductByIdForAdmin = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id);
@@ -399,8 +669,7 @@ exports.getProductByIdForAdmin = async (req, res) => {
 // Create a new product
 exports.createProduct = async (req, res) => {
     try {
-        // Implement logic to save product, handle image uploads etc.
-        const newProduct = await Product.create(req.body); // Simplified, assume req.body has all product fields
+        const newProduct = await Product.create(req.body);
         res.status(201).json({ success: true, message: 'Product created successfully.', product: newProduct });
     } catch (error) {
         console.error('Error in createProduct:', error);
