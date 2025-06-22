@@ -18,7 +18,6 @@ import ProductCardPage from "./components/ProductInfo/ProductInfo.jsx";
 import Cart from "./components/Cart/Cart.jsx";
 import Checkout from "./components/Checkout/Checkout.jsx";
 import PaymentPage from "./components/Payment/Payment.jsx";
-import VendorPage from "./components/VendorPage/VendorPage.jsx";
 import VendorDashboard from "./components/VendorDashboard/VendorDashboard.jsx";
 import UserDashboard from "./components/UserDashboard/UserDashboard.jsx";
 import Reward from "./components/Reward/Reward.jsx";
@@ -47,49 +46,81 @@ import EditProductPage from "./components/AdminLayout/EditProductPage.jsx";
 import ProductViewPage from "./components/AdminLayout/ProductViewPage.jsx";
 import AddProductPage from "./components/AdminLayout/AddProductPage.jsx";
 import AdminSettingsPage from "./components/AdminLayout/AdminSetting.jsx";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+// Create a wrapper component for Layout that includes AuthProvider
+const LayoutWithAuth = () => {
+  return (
+    <AuthProvider>
+      <Layout />
+      <ToastContainer
+        position="top-center"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+    </AuthProvider>
+  );
+};
 
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route path="/" element={<Layout />}>
-      <Route path="" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/landing" element={<Landing />} />
-      <Route path="/shopping" element={<Shopping />} />
-      <Route path="/account" element={<AccountSettings />} />
-      <Route path="/cart" element={<Cart />} />
-      <Route path="/checkout" element={<Checkout />} />
-      <Route path="/product-info/:productId" element={<ProductCardPage />} />
-      <Route path="/payment" element={<PaymentPage />} />
-      <Route path="/orders/:orderId" element={<OrderedItemsPage />} />
-      <Route path="/vendors" element={<VendorPage />} />
-      <Route path="/vendor/dashboard" element={<VendorDashboard />} />
-      <Route path="orders" element={<Orders />} />
-      <Route path="/user-dashboard" element={<UserDashboard />} />
-      <Route path="/vendor-sell" element={<VendorSellPage />} />
-      <Route path="/contact" element={<ContactUs />} />
-      <Route path="/rewards" element={<Reward />} />
-      <Route path="applications" element={<VendorApplication />} />
-      <Route path="users" element={<UserManagement />} />
-      <Route path="/vendor/register" element={<VendorRegister />} />
-      <Route path="vendor/login" element={<VendorLogin />} />
-      <Route path="/vendor/orders" element={<OrderPage />} />
-      <Route path="vendor/analytics" element={<VendorAnalytics />} />
-      <Route path="/profile" element={<UserProfile />} />
-      <Route path="vendor/products" element={<VendorProductsPage />} />
-      <Route path="/admin/login" element={<AdminLogin />} />
-      <Route path="/vendor/profile" element={<VendorProfile />} />
+    <Route
+      path="/"
+      element={<LayoutWithAuth />}
+      // errorElement={<NotFoundPage />} // Fallback error boundary
+    >
+      {/* Public Routes */}
+      <Route index element={<Home />} />
+      <Route path="login" element={<Login />} />
+      <Route path="register" element={<Register />} />
+      <Route path="landing" element={<Landing />} />
+      <Route path="shopping" element={<Shopping />} />
+      <Route path="product-info/:productId" element={<ProductCardPage />} />
+      <Route path="contact" element={<ContactUs />} />
+      
+      {/* User Routes */}
+      <Route path="account" element={<AccountSettings />} />
+      <Route path="cart" element={<Cart />} />
+      <Route path="checkout" element={<Checkout />} />
+      <Route path="payment" element={<PaymentPage />} />
       <Route path="order-confirmation" element={<OrderConfirmation />} />
-      <Route path="/admin-panel" element={<AdminPanel />} />
-      <Route path="/admin/applications" element={<VendorApplication />} />
-      <Route path="/admin/users" element={<UserManagement />} />
-      <Route path="/admin/users/:id" element={<UserDetailPage />} />
-      <Route path="/admin/vendors" element={<VendorsPage />} />
-      <Route path="/admin/products" element={<AdminProducts />} />
-      <Route path="/admin/products/new" element={<AddProductPage />} />
-      <Route path="/admin/products/edit/:id" element={<EditProductPage />} />
-      <Route path="/admin/products/view/:id" element={<ProductViewPage />} />
-      <Route path="/admin/settings" element={<AdminSettingsPage/>}/>
+      <Route path="user-dashboard" element={<UserDashboard />} />
+      <Route path="profile" element={<UserProfile />} />
+      <Route path="rewards" element={<Reward />} />
+      <Route path="orders" element={<Orders />} />
+      <Route path="orders/:orderId" element={<OrderedItemsPage />} />
+      
+      {/* Vendor Routes */}
+      <Route path="vendor/login" element={<VendorLogin />} />
+      <Route path="vendor/register" element={<VendorRegister />} />
+      <Route path="vendor/dashboard" element={<VendorDashboard />} />
+      <Route path="vendor/sell" element={<VendorSellPage />} />
+      <Route path="vendor/products" element={<VendorProductsPage />} />
+      <Route path="vendor/orders" element={<OrderPage />} />
+      <Route path="vendor/analytics" element={<VendorAnalytics />} />
+      <Route path="vendor/profile" element={<VendorProfile />} />
+      
+      {/* Admin Routes */}
+      <Route path="admin/login" element={<AdminLogin />} />
+      <Route path="admin-panel" element={<AdminPanel />} />
+      <Route path="admin/applications" element={<VendorApplication />} />
+      <Route path="admin/users" element={<UserManagement />} />
+      <Route path="admin/users/edit/:id" element={<UserDetailPage />} />
+      <Route path="admin/vendors" element={<VendorsPage />} />
+      <Route path="admin/products" element={<AdminProducts />} />
+      <Route path="admin/products/new" element={<AddProductPage />} />
+      <Route path="admin/products/edit/:id" element={<EditProductPage />} />
+      <Route path="admin/products/view/:id" element={<ProductViewPage />} />
+      <Route path="admin/settings" element={<AdminSettingsPage />} />
+      
+      {/* Fallback Route */}
       <Route path="*" element={<NotFoundPage />} />
     </Route>
   )
@@ -97,8 +128,6 @@ const router = createBrowserRouter(
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <RouterProvider router={router} />
   </StrictMode>
 );
