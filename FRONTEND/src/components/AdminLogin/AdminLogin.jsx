@@ -1,87 +1,61 @@
-// src/pages/AdminLogin.js
-import { useState, useContext } from "react";
+import React, { useState } from "react"; // Removed useContext as useAuth handles it
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
-import { AuthContext } from "../../Context/Context";
+import { useAuth } from "../../Context/Context"; // Correct import for useAuth hook
 import "react-toastify/dist/ReactToastify.css";
 import { LockClosedIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/solid'; // For show/hide password
-import { ShieldCheckIcon } from '@heroicons/react/24/outline'; // New icon for Admin branding
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/solid';
+import { ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { motion } from "framer-motion";
 
-import axios from "axios";
-import { motion } from "framer-motion"; // Add framer-motion for animations
+// Removed direct axios import as context will handle the API call
+// Removed API_BASE_URL constant as context will handle the API call
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(""); // Still useful for local form validation errors
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setAdmin } = useContext(AuthContext);
+
+  // Get the adminLogin function from the AuthContext
+  const { adminLogin } = useAuth(); // Use the hook to get the function
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!email || !password) {
-      setError("Please fill in all fields");
+      setError("Please fill in all fields.");
       return;
     }
 
     setLoading(true);
-    setError("");
+    setError(""); // Clear previous local errors
 
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/admin/login`,
-        {
-          email: email.trim().toLowerCase(),
-          password,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          withCredentials: true,
-          timeout: 10000,
-        }
-      );
-      setAdmin(response.data);
+      // Call the adminLogin function from the AuthContext
+      // This function already handles API call, localStorage, and state updates (setAdmin, setAdminToken)
+      const result = await adminLogin({ // Use adminLogin from context
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
-      if (
-        !response.data.success ||
-        !response.data.token ||
-        !response.data.user
-      ) {
-        throw new Error(response.data.message || "Authentication failed");
+      if (result.success) { // adminLogin in context now returns { success: true, admin: data.admin }
+        toast.success("Login successful");
+        navigate("/admin-panel", { replace: true });
+      } else {
+        // If the context's adminLogin somehow returns success: false, handle it
+        setError(result.message || "Admin login failed.");
+        toast.error(result.message || "Admin login failed.");
       }
-
-      // ✅ Store token and user info
-      localStorage.setItem("adminToken", response.data.token);
-      localStorage.setItem("adminInfo", JSON.stringify(response.data.user));
-      setAdmin(response.data.user);
-
-      toast.success("Login successful");
-
-      // ✅ Navigate to admin panel
-      navigate("/admin-panel", { replace: true });
     } catch (err) {
-      let errorMessage = "Login failed. Please try again. " + err.message;
-
-      if (err.response) {
-        errorMessage =
-          err.response.data.message ||
-          (err.response.status === 401
-            ? "Invalid credentials"
-            : `Server error: ${err.response.status}`);
-      } else if (err.request) {
-        errorMessage = "Network error. Please check your connection.";
-      } else if (err.code === "ECONNABORTED") {
-        errorMessage = "Request timeout. Please try again.";
-      }
-
-      setError(errorMessage);
-      toast.error(errorMessage);
-      localStorage.removeItem("adminToken");
+      // The toast.error is already handled by the adminLogin in AuthContext for API errors.
+      // This catch block is for unexpected errors, or if you want custom error display here.
+      // For general API errors, the context's toast is usually sufficient.
+      console.error("Admin Login component caught an error:", err);
+      // You can set a more generic error here if you wish, or just rely on the toast from context
+      setError("An unexpected error occurred during login.");
     } finally {
       setLoading(false);
     }
@@ -89,7 +63,7 @@ const AdminLogin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4">
-      {/* Decorative elements (adjust colors if desired for admin theme) */}
+      {/* Decorative elements */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
       <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
 
@@ -100,7 +74,7 @@ const AdminLogin = () => {
         className="w-full max-w-md"
       >
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Header section with gradient - Adapted from user login page image */}
+          {/* Header section with gradient */}
           <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 text-center">
             <motion.div
               animate={{
@@ -113,7 +87,6 @@ const AdminLogin = () => {
               }}
               className="inline-block mb-4"
             >
-              {/* Using a different icon for admin */}
               <ShieldCheckIcon className="w-12 h-12 text-white" strokeWidth={1.5} />
             </motion.div>
             <h2 className="text-2xl font-bold text-white">
@@ -147,7 +120,7 @@ const AdminLogin = () => {
                     type="email"
                     id="email"
                     className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-gray-50 transition"
-                    placeholder="admin@localcart.com" // Admin-specific placeholder
+                    placeholder="admin@localcart.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -175,7 +148,7 @@ const AdminLogin = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength="6" // Minimum length for security
+                    minLength="6"
                   />
                   {/* Toggle password visibility button */}
                   <button
@@ -192,7 +165,7 @@ const AdminLogin = () => {
                 </div>
               </div>
 
-              {/* Remember me & Forgot password - kept structure, removed Forgot Password link */}
+              {/* Remember me */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                   <input
@@ -200,7 +173,6 @@ const AdminLogin = () => {
                     name="remember-me"
                     type="checkbox"
                     className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                    // You might want to manage this state if "remember me" is desired for admin
                   />
                   <label
                     htmlFor="remember-me"
@@ -209,15 +181,6 @@ const AdminLogin = () => {
                     Remember me
                   </label>
                 </div>
-                {/* Removed Forgot Password link for admin login as typically not exposed publicly */}
-                {/* <div className="text-sm">
-                  <a
-                    href="/admin/forgot-password" // If you *must* have one, make it specific to admin
-                    className="font-medium text-green-600 hover:text-green-500"
-                  >
-                    Forgot password?
-                  </a>
-                </div> */}
               </div>
 
               {/* Submit button */}
@@ -254,17 +217,17 @@ const AdminLogin = () => {
                       Signing in...
                     </>
                   ) : (
-                    "Login to Admin Panel" // Updated button text
+                    "Login to Admin Panel"
                   )}
                 </button>
               </div>
             </form>
 
-            {/* "Don't have an account?" section removed, replaced with "Need help?" */}
+            {/* "Need help?" section */}
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div> {/* Lighter border */}
+                  <div className="w-full border-t border-gray-200"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-white text-gray-500">Need help?</span>
