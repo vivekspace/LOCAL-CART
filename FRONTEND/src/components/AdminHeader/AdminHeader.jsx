@@ -6,7 +6,7 @@ import {
   Settings,
   Menu,
   X,
-  MapPin,
+  // MapPin, // MapPin is commented out, so it can be removed from imports if not used elsewhere in the component
 } from "lucide-react";
 import { useState, useContext, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
@@ -140,7 +140,7 @@ const AdminTopbar = () => {
           </button>
 
           {/* Admin profile */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative z-50" ref={dropdownRef}> {/* This z-50 is fine */}
             <div
               className="flex items-center space-x-2 sm:space-x-3 cursor-pointer group bg-white/80 hover:bg-emerald-50 rounded-2xl p-1 sm:p-2 transition-all duration-200 shadow-sm hover:shadow-md"
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
@@ -150,7 +150,7 @@ const AdminTopbar = () => {
                   admin,
                   "w-8 h-8 sm:w-10 sm:h-10",
                   "text-md sm:text-lg"
-                )}{" "}
+                )}
                 {/* Call renderAvatar here */}
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
               </div>
@@ -194,20 +194,18 @@ const AdminTopbar = () => {
                 {/* Profile header */}
                 <div className="flex items-center space-x-3 px-4 py-4 border-b border-emerald-100">
                   <div className="relative">
-                    {renderAvatar(admin, "w-12 h-12", "text-lg")}{" "}
-                    {/* Call renderAvatar here with larger size */}
+                    {renderAvatar(admin, "w-12 h-12", "text-lg")}
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">
-                      {admin?.name || "Admin"} {/* Fallback for name */}
+                      {admin?.name || "Admin"}
                     </p>
                     <p className="text-xs text-emerald-600 font-medium capitalize">
-                      {admin?.role || "Role"} {/* Fallback for role */}
+                      {admin?.role || "Role"}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Last login: Today, 9:30 AM{" "}
-                      {/* This is dummy data, consider making it dynamic */}
+                      Last login: Today, 9:30 AM
                     </p>
                   </div>
                 </div>
@@ -269,11 +267,9 @@ const AdminTopbar = () => {
           </div>
         </div>
       </header>
-
-      {/* Clickaway overlay for profile dropdown */}
       {showProfileDropdown && (
         <div
-          className="fixed inset-0 z-40 bg-black/5 backdrop-blur-sm"
+          className="fixed inset-0 z-30 bg-black/5 backdrop-blur-sm" // Changed z-index from z-40 to z-30
           onClick={() => setShowProfileDropdown(false)}
         />
       )}
