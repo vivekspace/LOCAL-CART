@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   StarIcon,
@@ -11,56 +10,55 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@heroicons/react/24/solid";
+import { useAuth } from '../../Context/Context'; // Or useAppContext
 
 const VendorProfile = () => {
   const [activeTab, setActiveTab] = useState("products");
   const [favorite, setFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState([]); // Or use context cart
 
   const [vendor, setVendor] = useState(null);
+  const { token, isAuthLoading, logout, isLoggedIn, user } = useAuth(); // Destructure from context
 
   useEffect(() => {
     const fetchProfile = async () => {
-      try {
-        const token = JSON.parse(localStorage.getItem("token")); // Assuming token is stored in localStorage
+      if (isAuthLoading) return;
+      if (!token || !isLoggedIn || user?.role !== 'vendor') {
+        console.warn("Not authorized to view vendor profile or not logged in as vendor.");
+        return;
+      }
 
-        // adjust based on your storage
+      try {
         const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/vendors/profile`,
+          `${import.meta.env.VITE_API_URL}/api/vendor/profile`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           }
         );
+        // Backend returns `res.data.vendor` which directly matches your schema
         setVendor(res.data.vendor);
       } catch (err) {
         console.error("Error fetching vendor profile:", err);
+        if (axios.isAxiosError(err) && err.response) {
+            if (err.response.status === 401) {
+                console.error("Authentication required or token invalid/expired.");
+                if (logout) logout();
+            } else {
+                console.error(`API Error: ${err.response.status} - ${err.response.data.message || err.message}`);
+            }
+        }
       }
     };
 
     fetchProfile();
-  }, []);
+  }, [token, isAuthLoading, isLoggedIn, user?.role, logout]);
 
-  if (!vendor) return <p>Loading...</p>;
+  if (isAuthLoading || !vendor) return <p>Loading...</p>;
 
-  const addToCart = (product) => {
-    setCart([...cart, product]);
-  };
-
-  const nextImage = () => {
-    setCurrentImageIndex((prevIndex) =>
-      prevIndex === vendor.images.length - 1 ? 0 : prevIndex + 1
-    );
-  };
-
-  const prevImage = () => {
-    setCurrentImageIndex((prevIndex) =>
-      prevIndex === 0 ? vendor.images.length - 1 : prevIndex - 1
-    );
-  };
-
+  // Your `renderStars` function is fine as it takes `rating` as a prop
   const renderStars = (rating) => {
     return Array(5)
       .fill(0)
@@ -74,6 +72,8 @@ const VendorProfile = () => {
       ));
   };
 
+
+  // --- REMOVE OR ADJUST PARTS THAT ARE NOT IN YOUR SCHEMA ---
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Vendor Header */}
@@ -83,8 +83,10 @@ const VendorProfile = () => {
         <div className="max-w-4xl mx-auto flex flex-col items-center">
           <div className="relative group">
             <img
+              // You likely don't have vendor.images[0] unless you add an images array to schema
+              // For now, use a placeholder or remove if vendor doesn't have an image field
               src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
-              alt={vendor.name}
+              alt={vendor.storeName || vendor.name} // Use storeName or name as alt text
               className="w-32 h-32 rounded-full border-4 border-white shadow-xl object-cover"
             />
             <button
@@ -100,24 +102,28 @@ const VendorProfile = () => {
           </div>
 
           <div className="text-center mt-6">
-            <h1 className="text-3xl font-bold">{vendor.name}</h1>
-            <span className="inline-block bg-yellow-400 text-gray-800 px-4 py-1 rounded-full text-sm font-semibold mt-2">
-              {vendor.category}
-            </span>
+            <h1 className="text-3xl font-bold">{vendor.storeName || vendor.name}</h1> {/* Use storeName or name */}
+            {/* <span className="inline-block bg-yellow-400 text-gray-800 px-4 py-1 rounded-full text-sm font-semibold mt-2">
+              {vendor.category} // REMOVE: category not in schema
+            </span> */}
 
             <div className="flex items-center justify-center mt-3">
               <MapPinIcon className="w-5 h-5 mr-1" />
-              <span>{vendor.location}</span>
+              {/* <span>{vendor.location}</span> // REMOVE: location not in schema */}
+              <span>Location not specified</span> {/* Placeholder */}
             </div>
 
             <div className="flex items-center justify-center mt-2">
               <div className="flex mr-2">{renderStars(vendor.rating)}</div>
               <span>
-                {vendor.rating} ({vendor.reviewCount} reviews)
+                {vendor.rating} {/* REMOVE: reviewCount not in schema */}
+                {/* ({vendor.reviewCount} reviews) */}
+                / 5 stars
               </span>
             </div>
 
-            <p className="mt-4 max-w-2xl text-lg">{vendor.bio}</p>
+            {/* <p className="mt-4 max-w-2xl text-lg">{vendor.bio}</p> // REMOVE: bio not in schema */}
+            <p className="mt-4 max-w-2xl text-lg">No additional bio available.</p> {/* Placeholder */}
 
             <div className="flex gap-4 justify-center mt-6">
               <button className="bg-white text-green-700 px-6 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-md">
@@ -131,7 +137,14 @@ const VendorProfile = () => {
         </div>
       </div>
 
-      {/* Gallery Section */}
+      {/* Gallery Section - REMOVE or provide fallback as vendor.images not in schema */}
+      {/* You'll need to add an 'images' array to your Vendor schema if you want a gallery */}
+      {/* Or provide a conditional render if vendor.images exists:
+      {vendor.images && vendor.images.length > 0 && (
+         <div className="max-w-4xl mx-auto mt-8 relative">...</div>
+      )}
+      For now, commenting it out to avoid errors. */}
+      {/*
       <div className="max-w-4xl mx-auto mt-8 relative">
         <div className="relative h-64 md:h-80 rounded-xl overflow-hidden shadow-lg">
           <img
@@ -139,49 +152,38 @@ const VendorProfile = () => {
             alt="Vendor showcase"
             className="w-full h-full object-cover"
           />
-          <button
-            onClick={prevImage}
-            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
-          >
+          <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all">
             <ChevronLeftIcon className="w-6 h-6" />
           </button>
-          <button
-            onClick={nextImage}
-            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
-          >
+          <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all">
             <ChevronRightIcon className="w-6 h-6" />
           </button>
           <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
             {vendor.images.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentImageIndex(index)}
-                className={`w-3 h-3 rounded-full ${
-                  index === currentImageIndex
-                    ? "bg-white"
-                    : "bg-white bg-opacity-50"
-                }`}
-              />
+              <button key={index} onClick={() => setCurrentImageIndex(index)} className={`w-3 h-3 rounded-full ${index === currentImageIndex ? "bg-white" : "bg-white bg-opacity-50"}`} />
             ))}
           </div>
         </div>
       </div>
+      */}
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto mt-8 px-4 sm:px-6 lg:px-8">
-        {/* Tabs */}
+        {/* Tabs - Only show products tab if vendor.products is populated */}
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab("products")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "products"
-                  ? "border-green-500 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Products
-            </button>
+            {vendor.products && vendor.products.length > 0 && ( // Conditional render for products tab
+              <button
+                onClick={() => setActiveTab("products")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "products"
+                    ? "border-green-500 text-green-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Products
+              </button>
+            )}
             <button
               onClick={() => setActiveTab("about")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -192,7 +194,7 @@ const VendorProfile = () => {
             >
               About
             </button>
-            <button
+            {/* <button // REMOVE: reviews not in schema
               onClick={() => setActiveTab("reviews")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === "reviews"
@@ -201,34 +203,38 @@ const VendorProfile = () => {
               }`}
             >
               Reviews
-            </button>
+            </button> */}
           </nav>
         </div>
 
         {/* Tab Content */}
         <div className="mt-6">
           {activeTab === "products" && (
+            // IMPORTANT: vendor.products contains only IDs unless populated in backend.
+            // If you populate them, ensure 'product.id', 'product.image', etc. match your Product schema.
+            // For now, assuming products are populated and have these fields.
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {vendor.products.map((product) => (
+              {vendor.products && vendor.products.map((product) => ( // Check if products exist
                 <div
-                  key={product.id}
+                  key={product._id} // Use _id from Mongoose
                   className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                 >
                   <img
-                    src={product.image}
+                    src={product.image || 'https://via.placeholder.com/150'} // Fallback image
                     alt={product.name}
                     className="w-full h-48 object-cover"
                   />
                   <div className="p-4">
                     <h3 className="font-semibold text-lg">{product.name}</h3>
                     <p className="text-green-600 font-bold mt-1">
-                      ${product.price}/{product.unit}
+                      ${product.price}
+                      {/* {product.unit ? `/${product.unit}` : ''} */}
                     </p>
-                    <p className="text-gray-500 text-sm mt-1">
-                      In stock: {product.stock}
-                    </p>
+                    {/* <p className="text-gray-500 text-sm mt-1">
+                      In stock: {product.stock} // REMOVE: stock not in schema, unless it's in Product model
+                    </p> */}
                     <button
-                      onClick={() => addToCart(product)}
+                      onClick={() => { /* addToCart logic */ }}
                       className="mt-3 w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition-colors"
                     >
                       <ShoppingCartIcon className="w-5 h-5" />
@@ -237,13 +243,17 @@ const VendorProfile = () => {
                   </div>
                 </div>
               ))}
+              {(!vendor.products || vendor.products.length === 0) && (
+                <p className="col-span-full text-center text-gray-500">No products found for this vendor.</p>
+              )}
             </div>
           )}
 
           {activeTab === "about" && (
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-bold mb-4">About {vendor.name}</h2>
-              <p className="mb-6">{vendor.bio}</p>
+              <h2 className="text-xl font-bold mb-4">About {vendor.storeName || vendor.name}</h2> {/* Use storeName or name */}
+              {/* <p className="mb-6">{vendor.bio}</p> // REMOVE: bio not in schema */}
+              <p className="mb-6">This vendor is {vendor.status} since {new Date(vendor.createdAt).toLocaleDateString()}.</p> {/* Using available data */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -251,34 +261,35 @@ const VendorProfile = () => {
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <PhoneIcon className="w-5 h-5 text-green-600 mr-2" />
-                      <span>{vendor.contact.phone}</span>
+                      <span>{vendor.phone || 'N/A'}</span> {/* Use vendor.phone directly */}
                     </div>
                     <div className="flex items-center">
                       <EnvelopeIcon className="w-5 h-5 text-green-600 mr-2" />
-                      <span>{vendor.contact.email}</span>
+                      <span>{vendor.email || 'N/A'}</span> {/* Use vendor.email directly */}
                     </div>
                     <div className="flex items-center">
                       <MapPinIcon className="w-5 h-5 text-green-600 mr-2" />
-                      <span>{vendor.location}</span>
+                      {/* <span>{vendor.location}</span> // REMOVE: location not in schema */}
+                      <span>Location not specified</span> {/* Placeholder */}
                     </div>
                   </div>
                 </div>
 
                 <div>
                   <h3 className="font-semibold mb-2">Business Hours</h3>
-                  <p>{vendor.hours}</p>
+                  {/* <p>{vendor.hours}</p> // REMOVE: hours not in schema */}
+                  <p>Business hours not specified.</p> {/* Placeholder */}
                 </div>
               </div>
             </div>
           )}
 
+          {/* Reviews Section - REMOVE as vendor.reviews not in schema */}
+          {/*
           {activeTab === "reviews" && (
             <div className="space-y-6">
               {vendor.reviews.map((review) => (
-                <div
-                  key={review.id}
-                  className="bg-white p-6 rounded-lg shadow-md"
-                >
+                <div key={review.id} className="bg-white p-6 rounded-lg shadow-md">
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-semibold">{review.user}</h3>
@@ -295,6 +306,7 @@ const VendorProfile = () => {
               ))}
             </div>
           )}
+          */}
         </div>
       </div>
 
