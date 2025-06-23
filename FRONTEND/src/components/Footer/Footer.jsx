@@ -1,5 +1,6 @@
 import { FaFacebook, FaTwitter, FaInstagram, FaEnvelope, FaPhoneAlt, FaMapMarkerAlt } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -41,36 +42,36 @@ const Footer = () => {
             <h3 className="text-xl font-semibold mb-6 text-white border-b-2 border-green-400 pb-2 inline-block">Explore</h3>
             <ul className="space-y-4">
               <li>
-                <a href="/" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
+                <Link to="/" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-green-300 group-hover:text-white transition-colors">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
                   <span className="group-hover:underline">Home</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/products" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
+                <Link to="/shopping" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-green-300 group-hover:text-white transition-colors">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
                   <span className="group-hover:underline">Products</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/vendors" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
+                <Link to="/vendors" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-green-300 group-hover:text-white transition-colors">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
                   <span className="group-hover:underline">Vendors</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/about" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
+                <Link to="/about-us" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-green-300 group-hover:text-white transition-colors">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
                   <span className="group-hover:underline">About Us</span>
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -80,36 +81,36 @@ const Footer = () => {
             <h3 className="text-xl font-semibold mb-6 text-white border-b-2 border-green-400 pb-2 inline-block">Account</h3>
             <ul className="space-y-4">
               <li>
-                <a href="/login" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
+                <Link to="/login" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-green-300 group-hover:text-white transition-colors">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
                   <span className="group-hover:underline">Login</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/register" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
+                <Link to="/register" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-green-300 group-hover:text-white transition-colors">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
                   <span className="group-hover:underline">Register</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/account" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
+                <Link to="/profile" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-green-300 group-hover:text-white transition-colors">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
                   <span className="group-hover:underline">Dashboard</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/wishlist" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
+                <Link to="/wishlist" className="text-green-100 hover:text-white transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-green-300 group-hover:text-white transition-colors">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
                   <span className="group-hover:underline">Wishlist</span>
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
