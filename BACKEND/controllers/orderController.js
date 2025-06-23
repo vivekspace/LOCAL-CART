@@ -661,6 +661,84 @@ exports.updateOrderStatus = async (req, res) => {
     }
 };
 
+
+exports.getAllOrders = async (req, res) => {
+    try {
+        // IMPORTANT: In a real application, this endpoint should be protected by
+        // an admin-specific authentication/authorization middleware.
+        // For example: `router.get('/', protect, authorize('admin'), orderController.getAllOrders);`
+        // I'm assuming such a middleware would be applied to the route where this is used.
+        console.log('Fetching all orders for admin view...');
+
+        const orders = await Order.find({})
+            .populate({
+                path: 'cartItems.productId', // Path to the product ID within each cart item
+                model: 'Product',           // The model to use for population
+                select: 'images name'       // Select images and name for display
+            })
+            .sort({ createdAt: -1 }) // Sort by latest orders first
+            .lean(); // Use .lean() for faster query results if you don't need Mongoose document methods
+
+
+        const transformedOrders = orders.map(order => {
+            const customerFullName = `${order.customerDetails?.firstname || ''} ${order.customerDetails?.lastname || ''}`.trim();
+            const orderTotal = order.totalAmount ||
+                order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            return {
+                _id: order._id,
+                orderNumber: order._id.toString().slice(-8).toUpperCase(), // Short unique ID
+                customerName: customerFullName || 'N/A',
+                customerEmail: order.customerDetails?.email || 'N/A',
+                customerPhone: order.customerDetails?.phone || 'N/A',
+                status: order.status,
+                createdAt: order.createdAt,
+                totalAmount: orderTotal,
+                paymentMethod: order.paymentDetails?.method || 'N/A',
+                paymentStatus: order.paymentDetails?.status || 'N/A',
+                shippingAddress: order.shippingAddress,
+                items: order.cartItems.map(item => {
+                    let imageUrl = '/placeholder-product.png'; // Default fallback image path
+                    let productName = item.name;
+
+                    // Check if productId was successfully populated and has images/name
+                    if (item.productId) {
+                        if (item.productId.images && item.productId.images.length > 0) {
+                            imageUrl = item.productId.images[0]; // Take the first image
+                        }
+                        if (item.productId.name) {
+                            productName = item.productId.name; // Use populated product name
+                        }
+                    }
+
+                    return {
+                        productId: item.productId ? item.productId._id : null,
+                        name: productName, // Use the populated product name or original item name
+                        quantity: item.quantity,
+                        price: item.price,
+                        imageUrl: imageUrl, // Add the image URL here
+                        seller: item.seller // Include seller ID for potential future use (e.g., filtering by vendor)
+                    };
+                })
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            count: transformedOrders.length,
+            orders: transformedOrders
+        });
+
+    } catch (error) {
+        console.error('Error fetching all orders for admin:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch all orders for admin',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
 async function sendStatusUpdateEmail(order) {
     const mailOptions = {
         from: `"LocalCart" <${process.env.EMAIL_FROM}>`,
