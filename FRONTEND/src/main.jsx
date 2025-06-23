@@ -48,6 +48,8 @@ import AddProductPage from "./components/AdminLayout/AddProductPage.jsx";
 import AdminSettingsPage from "./components/AdminLayout/AdminSetting.jsx";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import AboutUsPage from "./components/AboutUs/AboutUs.jsx";
+import { Contact } from "lucide-react";
 
 // Create a wrapper component for Layout that includes AuthProvider
 const LayoutWithAuth = () => {
@@ -96,7 +98,9 @@ const router = createBrowserRouter(
       <Route path="rewards" element={<Reward />} />
       <Route path="orders" element={<Orders />} />
       <Route path="orders/:orderId" element={<OrderedItemsPage />} />
-      
+      <Route path="about-us" element={<AboutUsPage />} />
+      <Route path="contact-us" element={<ContactUs />} />
+
       {/* Vendor Routes */}
       <Route path="vendor/login" element={<VendorLogin />} />
       <Route path="vendor/register" element={<VendorRegister />} />
