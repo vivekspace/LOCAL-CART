@@ -14,19 +14,22 @@ import {
   Shield,
   Activity,
   Box,
+  Menu, // Added for mobile menu
 } from "lucide-react";
 
 const SettingsPage = () => {
-  const { currentAdmin, updateAdmin } = useContext(AuthContext);
+  const { user:currentAdmin , updateAdmin } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // New state for mobile sidebar
+  
 
   // Form state with all fields from your model
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    password: "",
+    password: "", // Not used directly in form display, but kept for clarity
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
@@ -37,24 +40,30 @@ const SettingsPage = () => {
     isSuperAdmin: false,
   });
 
-  // Initialize form data when currentAdmin changes
+  // Log currentAdmin to see its value
   useEffect(() => {
+    console.log("SettingsPage mounted or currentAdmin changed.");
+    console.log("Current Admin in SettingsPage:", currentAdmin);
+
     if (currentAdmin) {
       setFormData({
         name: currentAdmin.name || "",
         email: currentAdmin.email || "",
-        password: "",
+        password: "", // Don't pre-fill passwords for security
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
-        notifications: true,
-        language: "en",
-        timezone: "UTC",
+        notifications: currentAdmin.notifications ?? true, // Use nullish coalescing
+        language: currentAdmin.language || "en",
+        timezone: currentAdmin.timezone || "UTC",
         permissions: currentAdmin.permissions || [],
         isSuperAdmin: currentAdmin.isSuperAdmin || false,
       });
+      console.log("FormData updated from currentAdmin:", currentAdmin);
+    } else {
+      console.log("currentAdmin is null or undefined. Showing loading message.");
     }
-  }, [currentAdmin]);
+  }, [currentAdmin]); // Dependency array ensures this runs when currentAdmin changes
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -65,9 +74,9 @@ const SettingsPage = () => {
   };
 
   const handlePermissionChange = (permission) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const newPermissions = prev.permissions.includes(permission)
-        ? prev.permissions.filter(p => p !== permission)
+        ? prev.permissions.filter((p) => p !== permission)
         : [...prev.permissions, permission];
       return { ...prev, permissions: newPermissions };
     });
@@ -76,7 +85,7 @@ const SettingsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       // Prepare update data based on active tab
       let updateData = {};
@@ -84,21 +93,35 @@ const SettingsPage = () => {
         updateData = { name: formData.name, email: formData.email };
       } else if (activeTab === "security") {
         if (formData.newPassword !== formData.confirmPassword) {
-          throw new Error("Passwords don't match");
+          throw new Error("New passwords do not match.");
         }
-        updateData = { 
-          password: formData.newPassword,
-          currentPassword: formData.currentPassword 
+        if (!formData.currentPassword) {
+            throw new Error("Current password is required.");
+        }
+        if (!formData.newPassword || formData.newPassword.length < 8) {
+            throw new Error("New password must be at least 8 characters.");
+        }
+
+        updateData = {
+          password: formData.newPassword, // Sending newPassword as 'password' to the backend
+          currentPassword: formData.currentPassword,
         };
-      } else if (activeTab === "permissions" && currentAdmin.isSuperAdmin) {
+      } else if (activeTab === "permissions" && currentAdmin?.isSuperAdmin) { // Use optional chaining
         updateData = { permissions: formData.permissions };
       }
 
       await updateAdmin(updateData);
-      toast.success("Settings updated successfully");
-      setIsEditing(false);
+      toast.success("Settings updated successfully!");
+      setIsEditing(false); // Exit editing mode after successful save
+      // Reset password fields after successful update
+      setFormData(prev => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }));
     } catch (error) {
-      toast.error(error.message || "Failed to update settings");
+      toast.error(error.message || "Failed to update settings. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -111,9 +134,7 @@ const SettingsPage = () => {
 
   // Add permissions tab only for super admins
   if (currentAdmin?.isSuperAdmin) {
-    tabs.push(
-      { id: "permissions", icon: <Shield size={18} />, label: "Permissions" }
-    );
+    tabs.push({ id: "permissions", icon: <Shield size={18} />, label: "Permissions" });
   }
 
   // Available permissions (from your model)
@@ -123,12 +144,26 @@ const SettingsPage = () => {
     "products",
     "orders",
     "vendors",
-    "settings"
+    "settings",
   ];
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      <div className="p-6">
+      {/* Header for mobile view with hamburger menu */}
+      <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
+        <h1 className="text-xl font-bold flex items-center text-gray-800">
+          <Settings className="mr-2 text-green-500" size={20} />
+          Admin Settings
+        </h1>
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-2 rounded-md text-gray-700 hover:bg-gray-100"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      <div className="p-6 hidden md:block"> {/* Hide on mobile, show on md+ */}
         <h1 className="text-2xl font-bold flex items-center text-gray-800">
           <Settings className="mr-3 text-green-500" size={24} />
           Admin Settings
@@ -139,15 +174,19 @@ const SettingsPage = () => {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Navigation */}
-        <div className="w-64 bg-white border-r border-gray-200 p-4">
+        {/* Sidebar Navigation - Responsive */}
+        <div
+          className={`fixed inset-y-0 left-0 bg-white border-r border-gray-200 p-4 z-30 transform w-64 ${isSidebarOpen ? "pt-25" : "pt-4"}  ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } md:relative md:translate-x-0 md:w-64 transition-transform duration-300 ease-in-out`}
+        >
           <nav className="space-y-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id);
-                  setIsEditing(false);
+                  setIsEditing(false); // Reset editing mode when changing tabs
+                  setIsSidebarOpen(false); // Close sidebar on tab click for mobile
                 }}
                 className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${
                   activeTab === tab.id
@@ -162,26 +201,52 @@ const SettingsPage = () => {
           </nav>
         </div>
 
+        {/* Overlay for mobile sidebar */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 backdrop-blur bg-opacity-50 z-20 md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
+
         {/* Main Content */}
-        <div className="flex-1 p-6 overflow-auto">
+        <div className="flex-1 p-4 md:p-6 overflow-y-auto"> {/* Adjusted padding for mobile */}
           {activeTab === "profile" && (
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-800 mb-4 md:mb-0">
                   Profile Information
                 </h2>
                 {!isEditing ? (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                    className="w-full md:w-auto px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
                   >
                     Edit Profile
                   </button>
                 ) : (
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 w-full md:w-auto">
                     <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+                      onClick={() => {
+                        setIsEditing(false);
+                        // Re-initialize formData to original currentAdmin values on cancel
+                        if (currentAdmin) {
+                          setFormData({
+                            name: currentAdmin.name || "",
+                            email: currentAdmin.email || "",
+                            password: "",
+                            currentPassword: "",
+                            newPassword: "",
+                            confirmPassword: "",
+                            notifications: currentAdmin.notifications ?? true,
+                            language: currentAdmin.language || "en",
+                            timezone: currentAdmin.timezone || "UTC",
+                            permissions: currentAdmin.permissions || [],
+                            isSuperAdmin: currentAdmin.isSuperAdmin || false,
+                          });
+                        }
+                      }}
+                      className="w-full md:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
                     >
                       <X size={16} className="mr-2" />
                       Cancel
@@ -189,7 +254,7 @@ const SettingsPage = () => {
                     <button
                       onClick={handleSubmit}
                       disabled={isLoading}
-                      className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center disabled:opacity-70"
+                      className="w-full md:w-auto px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center disabled:opacity-70"
                     >
                       {isLoading ? (
                         "Saving..."
@@ -204,44 +269,49 @@ const SettingsPage = () => {
                 )}
               </div>
 
-              <form className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role
-                  </label>
-                  <div className="px-4 py-3 bg-gray-100 rounded-lg">
-                    {currentAdmin?.isSuperAdmin ? "Super Admin" : "Admin"}
+              {/* Added a null check for currentAdmin before rendering inputs */}
+              {currentAdmin ? (
+                <form className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                    />
                   </div>
-                </div>
-              </form>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Role
+                    </label>
+                    <div className="px-4 py-3 bg-gray-100 rounded-lg">
+                      {currentAdmin?.isSuperAdmin ? "Super Admin" : "Admin"}
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-gray-500 text-center py-8">Loading profile data...</p>
+              )}
             </div>
           )}
 
@@ -339,19 +409,28 @@ const SettingsPage = () => {
                 <p className="text-gray-600 mb-4">
                   Manage access permissions for this admin account
                 </p>
-                
+
                 {!isEditing ? (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors w-full md:w-auto"
                   >
                     Edit Permissions
                   </button>
                 ) : (
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 w-full md:w-auto">
                     <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+                      onClick={() => {
+                        setIsEditing(false);
+                        // Re-initialize permissions on cancel
+                        if (currentAdmin) {
+                          setFormData(prev => ({
+                            ...prev,
+                            permissions: currentAdmin.permissions || [],
+                          }));
+                        }
+                      }}
+                      className="w-full md:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
                     >
                       <X size={16} className="mr-2" />
                       Cancel
@@ -359,7 +438,7 @@ const SettingsPage = () => {
                     <button
                       onClick={handleSubmit}
                       disabled={isLoading}
-                      className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center disabled:opacity-70"
+                      className="w-full md:w-auto px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center disabled:opacity-70"
                     >
                       {isLoading ? (
                         "Saving..."
@@ -374,7 +453,7 @@ const SettingsPage = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Adjusted for smaller screens */}
                 {availablePermissions.map((permission) => (
                   <div
                     key={permission}
