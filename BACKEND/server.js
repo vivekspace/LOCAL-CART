@@ -17,6 +17,8 @@
     const chatbotRoutes = require('./routes/chatbotRoutes');
     const dashboardRoutes = require('./routes/dashboardRoutes');
     const adminProductRoutes = require('./routes/adminProductRoutes')
+    const contactRoutes = require('./routes/contactRoutes'); 
+
 
 
 
@@ -71,8 +73,7 @@
     app.use('/api/chatbot', chatbotRoutes); // <--- NEW: Mount chatbot specific routes here
     app.use('/api/admin/dashboard', dashboardRoutes);
     app.use('/api/admin/products', adminProductRoutes);
-    // Removed the conflicting app.get('/api/products') route as it's now handled by productRoutes.
-
+    app.use('/api/contact', contactRoutes);
     // A basic root route for API status check
     app.get('/api', (req, res) => {
         res.json({ message: 'LocalCart API is running!' });
