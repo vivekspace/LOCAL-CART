@@ -739,6 +739,80 @@ exports.getAllOrders = async (req, res) => {
     }
 };
 
+exports.sendOrderMessageToCustomer = async (req, res) => {
+    // This route should be protected by protectVendor middleware
+    if (!req.vendor) {
+        return res.status(401).json({
+            success: false,
+            message: "Not authorized - please login as a vendor"
+        });
+    }
+
+    const { orderId, messageContent } = req.body;
+    const vendorId = req.vendor._id; // Get vendor ID from authenticated request
+
+    if (!orderId || !messageContent) {
+        return res.status(400).json({ success: false, message: 'Order ID and message content are required.' });
+    }
+
+    try {
+        // Find the order to get customer details and ensure the vendor is associated with it
+        const order = await Order.findOne({
+            _id: orderId,
+            'cartItems.seller': vendorId // Ensure the vendor owns items in this order
+        }).lean(); // Use lean for faster query
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found or not associated with this vendor.' });
+        }
+
+        const customerEmail = order.customerDetails?.email;
+        const customerName = `${order.customerDetails?.firstname || ''} ${order.customerDetails?.lastname || ''}`.trim() || 'Valued Customer';
+
+        if (!customerEmail) {
+            return res.status(404).json({ success: false, message: 'Customer email not found for this order.' });
+        }
+
+        // Get vendor details (e.g., shop name) for the email
+        const vendor = await Vendor.findById(vendorId);
+        const vendorShopName = vendor?.shopName || 'Your LocalCart Vendor';
+
+        const mailOptions = {
+            from: `"LocalCart - ${vendorShopName}" <${process.env.EMAIL_FROM}>`,
+            to: customerEmail,
+            subject: `Message from ${vendorShopName} regarding your Order #${order._id.toString().slice(-8).toUpperCase()}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <h2 style="color: #0056b3;">Hello ${customerName},</h2>
+                    <p>You have received a message from <strong>${vendorShopName}</strong> regarding your recent order on LocalCart.</p>
+                    <p><strong>Order ID:</strong> <span style="font-weight: bold; color: #d9534f;">#${order._id.toString().slice(-8).toUpperCase()}</span></p>
+
+                    <h3 style="color: #0056b3;">Message:</h3>
+                    <div style="background-color: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                        <p>${messageContent.replace(/\n/g, '<br>')}</p>
+                    </div>
+
+                    <p>Please log in to LocalCart or reply to this email if you need further assistance.</p>
+                    <p>Thank you for shopping with LocalCart!</p>
+                    <p>Best regards,<br>The LocalCart Team</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`Vendor message sent for order ${orderId} to ${customerEmail}`);
+        res.status(200).json({ success: true, message: 'Message sent to customer successfully!' });
+
+    } catch (error) {
+        console.error('Error sending vendor message to customer:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to send message to customer.',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
 async function sendStatusUpdateEmail(order) {
     const mailOptions = {
         from: `"LocalCart" <${process.env.EMAIL_FROM}>`,
