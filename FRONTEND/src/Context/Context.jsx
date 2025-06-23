@@ -83,7 +83,8 @@ const AuthProvider = ({ children }) => {
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   const LOCATION_TYPE_CURRENT = "current_location";
   const LOCATION_TYPE_PRODUCT_BASED = "product_location";
-  const CART_STORAGE_KEY = "user_cart_items"; // New key for cart persistence
+  const CART_STORAGE_KEY = "user_cart_items";
+  const LOCATION_FETCH_TIMEOUT = 10000; // 10 seconds timeout for location operations
 
   const DEFAULT_FALLBACK_LOCATION = {
     name: "Mumbai, Maharashtra",
@@ -97,8 +98,9 @@ const AuthProvider = ({ children }) => {
   const [availableLocations, setAvailableLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
   const initialLocationSetupRef = useRef(false);
+  const locationFetchTimeoutRef = useRef(null);
 
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate();
 
   // --- Product States and Functions ---
   const [products, setProducts] = useState([]);
@@ -107,7 +109,6 @@ const AuthProvider = ({ children }) => {
 
   // --- Cart Management States and Functions ---
   const [cartItems, setCartItems] = useState(() => {
-    // Initialize cart items from localStorage on first render
     try {
       const storedCart = localStorage.getItem(CART_STORAGE_KEY);
       return storedCart ? JSON.parse(storedCart) : [];
@@ -116,49 +117,36 @@ const AuthProvider = ({ children }) => {
         "AuthContext: Error parsing cart items from localStorage on init:",
         e
       );
-      localStorage.removeItem(CART_STORAGE_KEY); // Clear corrupted data
+      localStorage.removeItem(CART_STORAGE_KEY);
       return [];
     }
   });
 
-  // Effect to save cart items to localStorage whenever cartItems state changes
+  // Effect to save cart items to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
-      console.log("AuthContext: Cart items saved to localStorage.", cartItems);
     } catch (e) {
       console.error(
         "AuthContext: Failed to save cart items to localStorage:",
         e
       );
     }
-  }, [cartItems, CART_STORAGE_KEY]);
+  }, [cartItems]);
 
+  // Cart operations
   const addToCart = useCallback(
     (productId, quantity = 1) => {
-      console.group("AuthContext: addToCart Process");
-      console.log(
-        `AuthContext: addToCart called for productId: ${productId}, quantity: ${quantity}`
-      );
-
       const product = products.find((p) => p._id === productId);
-  
-
       if (!product) {
-        console.warn(
-          `AuthContext: Product with ID ${productId} not found in current 'products' state for addToCart. Cannot add to cart.`
-        );
         toast.error("Product is currently unavailable or not found.");
-        console.groupEnd();
         return;
       }
 
       setCartItems((prevItems) => {
-      
         const existingItemIndex = prevItems.findIndex(
           (item) => item._id === productId
         );
-      
 
         if (existingItemIndex !== -1) {
           const updatedItems = [...prevItems];
@@ -168,70 +156,47 @@ const AuthProvider = ({ children }) => {
             quantity: currentQuantity + quantity,
           };
           toast.success(`${product.name} quantity updated in cart!`);
-       
-          console.groupEnd(); // End console group here for updated item
           return updatedItems;
         } else {
           const newItem = { ...product, quantity };
           toast.success(`${product.name} added to cart!`);
-          console.log(
-            `AuthContext: Added new product ${product.name} to cart.`,
-            newItem
-          );
-          console.groupEnd(); // End console group here for new item
           return [...prevItems, newItem];
         }
       });
     },
-    [products] // Dependency on products array is correct
+    [products]
   );
 
   const updateCartItemQuantity = useCallback((productId, newQuantity) => {
-    setCartItems((prevItems) => {
-      const updatedItems = prevItems.map((item) =>
+    setCartItems((prevItems) =>
+      prevItems.map((item) =>
         item._id === productId ? { ...item, quantity: newQuantity } : item
-      );
-      console.log(
-        `AuthContext: Updated cart item quantity for ${productId} to ${newQuantity}.`,
-        updatedItems
-      );
-      return updatedItems;
-    });
+      )
+    );
     toast.info("Cart item quantity updated.");
   }, []);
 
   const removeFromCart = useCallback((productId) => {
-    setCartItems((prevItems) => {
-      const filteredItems = prevItems.filter((item) => item._id !== productId);
-      console.log(
-        `AuthContext: Removed item ${productId} from cart.`,
-        filteredItems
-      );
-      return filteredItems;
-    });
+    setCartItems((prevItems) => prevItems.filter((item) => item._id !== productId));
     toast.info("Item removed from cart.");
   }, []);
 
   const clearCart = useCallback(() => {
     setCartItems([]);
     toast.info("Cart cleared.");
-    console.log("AuthContext: Cart cleared.");
   }, []);
 
   const getCartTotal = useCallback(() => {
-    const total = cartItems.reduce((total, item) => {
+    return cartItems.reduce((total, item) => {
       const quantity = item.quantity || 1;
       return total + item.price * quantity;
     }, 0);
-    console.log("AuthContext: Cart total calculated:", total);
-    return total;
   }, [cartItems]);
 
   // --- Logout Function and Ref for Interceptor ---
   const logoutRef = useRef(null);
 
   const logout = useCallback(() => {
-    console.log("AuthContext: Initiating logout process...");
     try {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -240,7 +205,7 @@ const AuthProvider = ({ children }) => {
       localStorage.removeItem("vendorToken");
       localStorage.removeItem("vendorInfo");
       localStorage.removeItem(USER_LOCATION_KEY);
-      localStorage.removeItem(CART_STORAGE_KEY); // Clear cart on logout
+      localStorage.removeItem(CART_STORAGE_KEY);
 
       setAuth({
         user: null,
@@ -250,23 +215,14 @@ const AuthProvider = ({ children }) => {
       });
       setSelectedLocation(null);
       setProducts([]);
-      setCartItems([]); // Now this works!
+      setCartItems([]);
       toast.info("Logged out successfully!");
       navigate("/");
-      console.log("AuthContext: Logout successful, navigating to /.");
     } catch (e) {
       console.error("AuthContext: Error during logout process:", e);
       toast.error("An error occurred during logout.");
     }
-  }, [
-    navigate,
-    USER_LOCATION_KEY,
-    CART_STORAGE_KEY,
-    setProducts,
-    setSelectedLocation,
-    setAuth,
-    setCartItems,
-  ]);
+  }, [navigate]);
 
   useEffect(() => {
     logoutRef.current = logout;
@@ -301,28 +257,15 @@ const AuthProvider = ({ children }) => {
     instance.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response && error.response.status === 401) {
-          console.error(
-            "AuthContext: Interceptor caught 401:",
-            error.response.data.message
-          );
+        if (error.response?.status === 401) {
           if (
-            error.response.data.message.includes("token") ||
-            error.response.data.message.includes("logged in")
+            !window.location.pathname.includes("/login") &&
+            !window.location.pathname.includes("/register") &&
+            !window.location.pathname.includes("/admin/login") &&
+            !window.location.pathname.includes("/vendor/login")
           ) {
-            if (
-              !window.location.pathname.includes("/login") &&
-              !window.location.pathname.includes("/register") &&
-              !window.location.pathname.includes("/admin/login") &&
-              !window.location.pathname.includes("/vendor/login")
-            ) {
-              logoutRef.current();
-              toast.error("Your session has expired. Please log in again.");
-            } else {
-              console.log(
-                "AuthContext: Interceptor skipping logout, already on login/register page."
-              );
-            }
+            logoutRef.current();
+            toast.error("Your session has expired. Please log in again.");
           }
         }
         return Promise.reject(error);
@@ -332,92 +275,70 @@ const AuthProvider = ({ children }) => {
     return instance;
   }, []);
 
-  // --- Utility Functions (Geolocation) ---
+  // --- Location Utility Functions ---
   const reverseGeocode = useCallback(async (lat, lng) => {
-    console.log(
-      `AuthContext: Attempting reverse geocode for lat: ${lat}, lng: ${lng}`
-    );
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`
       );
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
       const data = await response.json();
-      const detectedCity =
+      return (
         data.address?.city ||
         data.address?.town ||
         data.address?.village ||
         data.address?.county ||
         data.display_name ||
-        "Unknown Location";
-      console.log(
-        "AuthContext: Reverse geocoding successful, city:",
-        detectedCity
+        "Unknown Location"
       );
-      return detectedCity;
     } catch (error) {
-      console.error(
-        "AuthContext: Error in fetching location via reverse geocoding:",
-        error
-      );
-      return "Current Location"; // Fallback text
+      console.error("AuthContext: Error in reverse geocoding:", error);
+      return "Current Location";
     }
   }, []);
 
   const getCurrentGeolocation = useCallback(() => {
-    console.log("AuthContext: Attempting to get current geolocation...");
     return new Promise((resolve, reject) => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log(
-              "AuthContext: Geolocation successful:",
-              position.coords
-            );
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              type: LOCATION_TYPE_CURRENT,
-            });
-          },
-          (error) => {
-            console.error(
-              "AuthContext: Geolocation error caught:",
-              error.code,
-              error.message
-            );
-            let errorMessage = "Failed to get current location.";
-
-            if (error.code === error.PERMISSION_DENIED) {
-              errorMessage =
-                "Location access denied. Please enable it in your browser settings.";
-            } else if (error.code === error.POSITION_UNAVAILABLE) {
-              errorMessage =
-                "Location information is unavailable. Try again or check device settings.";
-            } else if (error.code === error.TIMEOUT) {
-              errorMessage =
-                "Timed out trying to get your location. Please check your signal or try again.";
-            }
-            toast.error(errorMessage);
-            reject(error); // Reject the promise with the error
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 10000, // 10 seconds timeout
-            maximumAge: 60000, // Use cached position if less than 60 seconds old
-          }
-        );
-      } else {
-        console.warn(
-          "AuthContext: Geolocation is not supported by this browser."
-        );
-        toast.error("Your browser does not support Geolocation.");
+      if (!navigator.geolocation) {
         reject(new Error("Geolocation is not supported by this browser."));
+        return;
       }
+
+      // Set timeout for geolocation
+      const timeoutId = setTimeout(() => {
+        reject(new Error("Geolocation request timed out."));
+      }, LOCATION_FETCH_TIMEOUT);
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          clearTimeout(timeoutId);
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            type: LOCATION_TYPE_CURRENT,
+          });
+        },
+        (error) => {
+          clearTimeout(timeoutId);
+          let errorMessage = "Failed to get current location.";
+          if (error.code === error.PERMISSION_DENIED) {
+            errorMessage = "Location access denied. Please enable it in your browser settings.";
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            errorMessage = "Location information is unavailable. Try again or check device settings.";
+          } else if (error.code === error.TIMEOUT) {
+            errorMessage = "Timed out trying to get your location. Please check your signal or try again.";
+          }
+          reject(new Error(errorMessage));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: LOCATION_FETCH_TIMEOUT,
+          maximumAge: 60000,
+        }
+      );
     });
-  }, [LOCATION_TYPE_CURRENT]);
+  }, [LOCATION_FETCH_TIMEOUT, LOCATION_TYPE_CURRENT]);
 
   // --- Cache Utilities ---
   const getCachedLocations = useCallback(() => {
@@ -426,45 +347,36 @@ const AuthProvider = ({ children }) => {
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < CACHE_DURATION) {
-          console.log("AuthContext: Using cached available locations.");
           return data;
-        } else {
-          console.log("AuthContext: Cached available locations expired.");
-          localStorage.removeItem(LOCATIONS_CACHE_KEY);
         }
+        localStorage.removeItem(LOCATIONS_CACHE_KEY);
       }
     } catch (e) {
-      console.error("AuthContext: Failed to get cached locations:", e);
       localStorage.removeItem(LOCATIONS_CACHE_KEY);
     }
     return null;
   }, [CACHE_DURATION, LOCATIONS_CACHE_KEY]);
 
-  const setCachedLocations = useCallback(
-    (locations) => {
-      try {
-        localStorage.setItem(
-          LOCATIONS_CACHE_KEY,
-          JSON.stringify({
-            data: locations,
-            timestamp: Date.now(),
-          })
-        );
-        console.log("AuthContext: Available locations cached successfully.");
-      } catch (e) {
-        console.error("AuthContext: Failed to cache locations:", e);
-      }
-    },
-    [LOCATIONS_CACHE_KEY]
-  );
+  const setCachedLocations = useCallback((locations) => {
+    try {
+      localStorage.setItem(
+        LOCATIONS_CACHE_KEY,
+        JSON.stringify({
+          data: locations,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (e) {
+      console.error("AuthContext: Failed to cache locations:", e);
+    }
+  }, [LOCATIONS_CACHE_KEY]);
 
   const fetchAvailableLocations = useCallback(async () => {
     setLocationsLoading(true);
-    console.log("AuthContext: Attempting to fetch available locations...");
-
+    
     const cachedLocations = getCachedLocations();
     if (cachedLocations) {
-      const initialOptions = [
+      setAvailableLocations([
         {
           name: "Current Location",
           city: "current location",
@@ -473,17 +385,13 @@ const AuthProvider = ({ children }) => {
           type: LOCATION_TYPE_CURRENT,
         },
         ...cachedLocations,
-      ];
-      setAvailableLocations(initialOptions);
+      ]);
       setLocationsLoading(false);
       return;
     }
 
     try {
-      const response = await authAxios.get(
-        `${import.meta.env.VITE_API_URL}/api/locations`
-      );
-
+      const response = await authAxios.get(`${import.meta.env.VITE_API_URL}/api/locations`);
       const apiLocations = response.data?.data?.locations;
 
       if (response.data?.status === "success" && Array.isArray(apiLocations)) {
@@ -496,7 +404,6 @@ const AuthProvider = ({ children }) => {
         }));
 
         setCachedLocations(formattedLocations);
-
         setAvailableLocations([
           {
             name: "Current Location",
@@ -507,43 +414,18 @@ const AuthProvider = ({ children }) => {
           },
           ...formattedLocations,
         ]);
-        console.log(
-          "AuthContext: Available locations fetched from API and set. Count:",
-          formattedLocations.length
-        );
-      } else {
-        console.warn(
-          "AuthContext: Unexpected locations data format from API or no locations.",
-          response.data
-        );
       }
     } catch (error) {
-      console.error(
-        "AuthContext: Failed to load available locations from API:",
-        error
-      );
+      console.error("AuthContext: Failed to load available locations:", error);
       toast.error("Failed to load available cities.");
     } finally {
       setLocationsLoading(false);
     }
-  }, [
-    getCachedLocations,
-    setCachedLocations,
-    LOCATION_TYPE_CURRENT,
-    LOCATION_TYPE_PRODUCT_BASED,
-    authAxios,
-  ]);
+  }, [authAxios, getCachedLocations, setCachedLocations, LOCATION_TYPE_CURRENT, LOCATION_TYPE_PRODUCT_BASED]);
 
   const fetchAllProducts = useCallback(
     async (location) => {
-      console.log(
-        "AuthContext: fetchAllProducts called with location:",
-        location
-      );
       if (!location) {
-        console.warn(
-          "AuthContext: fetchAllProducts: No valid location object provided."
-        );
         setProducts([]);
         setProductsLoading(false);
         return;
@@ -551,10 +433,11 @@ const AuthProvider = ({ children }) => {
 
       setProductsLoading(true);
       setProductsError(null);
-      let apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
-      const params = {};
 
       try {
+        let apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
+        const params = {};
+
         const hasValidCoordinates =
           typeof location.lat === "number" &&
           typeof location.lng === "number" &&
@@ -566,43 +449,15 @@ const AuthProvider = ({ children }) => {
           params.lat = location.lat;
           params.lng = location.lng;
           params.distance = 10;
-          console.log(
-            `AuthContext: Fetching nearby products for Current Location (Lat: ${location.lat}, Lng: ${location.lng})`
-          );
-        } else if (
-          location.city &&
-          location.city.toLowerCase() !== "current location"
-        ) {
-          apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
+        } else if (location.city && location.city.toLowerCase() !== "current location") {
           params.city = location.city;
-          console.log(
-            `AuthContext: Fetching products for city: ${location.city}`
-          );
-        } else {
-          console.warn(
-            "AuthContext: No specific location (coordinates or city) to filter by. Fetching all products as a fallback."
-          );
-          apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
         }
 
         const response = await authAxios.get(apiUrl, { params });
 
-        if (
-          response.data?.status === "success" &&
-          Array.isArray(response.data?.data?.products)
-        ) {
+        if (response.data?.status === "success" && Array.isArray(response.data?.data?.products)) {
           setProducts(response.data.data.products);
-          console.log(
-            `AuthContext: Products fetched successfully for ${
-              location.name || location.city
-            }. Count: ${response.data.data.products.length}. Products data:`,
-            response.data.data.products
-          );
         } else {
-          console.warn(
-            "AuthContext: Unexpected product data format or no products found for this location.",
-            response.data
-          );
           setProducts([]);
         }
       } catch (error) {
@@ -642,7 +497,6 @@ const AuthProvider = ({ children }) => {
           authError: null,
         });
         toast.success("Registration successful!");
-        console.log("AuthContext: User registered and logged in.");
         return {
           success: true,
           message: "Registration successful!",
@@ -650,20 +504,15 @@ const AuthProvider = ({ children }) => {
           token: token,
         };
       } else {
-        const errorMessage =
-          message ||
-          "Registration failed: Missing token or user data in response.";
+        const errorMessage = message || "Registration failed: Missing token or user data in response.";
         setAuth((prev) => ({ ...prev, authError: errorMessage }));
         toast.error(errorMessage);
-        console.error("AuthContext: Registration failed:", errorMessage);
         return { success: false, message: errorMessage };
       }
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Registration failed.";
+      const errorMessage = error.response?.data?.message || "Registration failed.";
       setAuth((prev) => ({ ...prev, authError: errorMessage }));
       toast.error(errorMessage);
-      console.error("AuthContext: Registration API error:", error);
       return { success: false, message: errorMessage };
     } finally {
       setAuth((prev) => ({ ...prev, isAuthLoading: false }));
@@ -699,26 +548,22 @@ const AuthProvider = ({ children }) => {
           authError: null,
         });
         toast.success("Login successful!");
-        console.log("AuthContext: User logged in.");
         return { success: true, user };
       } else {
         const errorMessage = message || "Login failed.";
         setAuth((prev) => ({ ...prev, authError: errorMessage }));
         toast.error(errorMessage);
-        console.error("AuthContext: Login failed:", errorMessage);
         return { success: false, message: errorMessage };
       }
     } catch (err) {
       let errorMessage = "Login failed. Please try again.";
       if (err.response) {
-        errorMessage =
-          err.response.data.message || `Server error: ${err.response.status}`;
+        errorMessage = err.response.data.message || `Server error: ${err.response.status}`;
       } else if (err.request) {
         errorMessage = "Network error. Please check your connection.";
       }
       setAuth((prev) => ({ ...prev, authError: errorMessage }));
       toast.error(errorMessage);
-      console.error("AuthContext: Login API error:", err);
       return { success: false, message: errorMessage };
     } finally {
       setAuth((prev) => ({ ...prev, isAuthLoading: false }));
@@ -754,26 +599,22 @@ const AuthProvider = ({ children }) => {
           authError: null,
         });
         toast.success("Admin Login successful!");
-        console.log("AuthContext: Admin logged in.");
         return { success: true, admin: user };
       } else {
         const errorMessage = message || "Admin login failed.";
         setAuth((prev) => ({ ...prev, authError: errorMessage }));
         toast.error(errorMessage);
-        console.error("AuthContext: Admin login failed:", errorMessage);
         return { success: false, message: errorMessage };
       }
     } catch (err) {
       let errorMessage = "Admin login failed. Please try again.";
       if (err.response) {
-        errorMessage =
-          err.response.data.message || `Server error: ${err.response.status}`;
+        errorMessage = err.response.data.message || `Server error: ${err.response.status}`;
       } else if (err.request) {
         errorMessage = "Network error. Please check your connection.";
       }
       setAuth((prev) => ({ ...prev, authError: errorMessage }));
       toast.error(errorMessage);
-      console.error("AuthContext: Admin login API error:", err);
       return { success: false, message: errorMessage };
     } finally {
       setAuth((prev) => ({ ...prev, isAuthLoading: false }));
@@ -809,32 +650,26 @@ const AuthProvider = ({ children }) => {
           authError: null,
         });
         toast.success("Vendor Login successful!");
-        console.log("AuthContext: Vendor logged in.");
         return {
           success: true,
           vendor: user,
           message: message || "Vendor Login successful!",
         };
       } else {
-        const errorMessage =
-          message ||
-          "Vendor login failed: Missing token or user data in response.";
+        const errorMessage = message || "Vendor login failed: Missing token or user data in response.";
         setAuth((prev) => ({ ...prev, authError: errorMessage }));
         toast.error(errorMessage);
-        console.error("AuthContext: Vendor login failed:", errorMessage);
         return { success: false, message: errorMessage };
       }
     } catch (err) {
       let errorMessage = "Vendor login failed. Please try again.";
       if (err.response) {
-        errorMessage =
-          err.response.data.message || `Server error: ${err.response.status}`;
+        errorMessage = err.response.data.message || `Server error: ${err.response.status}`;
       } else if (err.request) {
         errorMessage = "Network error. Please check your connection.";
       }
       setAuth((prev) => ({ ...prev, authError: errorMessage }));
       toast.error(errorMessage);
-      console.error("AuthContext: Vendor login API error:", err);
       return { success: false, message: errorMessage };
     } finally {
       setAuth((prev) => ({ ...prev, isAuthLoading: false }));
@@ -865,7 +700,6 @@ const AuthProvider = ({ children }) => {
           isAuthLoading: false,
           authError: null,
         });
-        console.log("AuthContext: Vendor registered and logged in.");
         return {
           success: true,
           message: message || "Vendor account created successfully!",
@@ -873,20 +707,14 @@ const AuthProvider = ({ children }) => {
           token: token,
         };
       } else {
-        const errorMessage =
-          message ||
-          "Vendor registration failed: Missing token or user data in response.";
+        const errorMessage = message || "Vendor registration failed: Missing token or user data in response.";
         setAuth((prev) => ({ ...prev, authError: errorMessage }));
         toast.error(errorMessage);
-        console.error("AuthContext: Vendor registration failed:", errorMessage);
         return { success: false, message: errorMessage };
       }
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message ||
-        "Vendor registration failed. Please try again.";
+      const errorMessage = error.response?.data?.message || "Vendor registration failed. Please try again.";
       setAuth((prev) => ({ ...prev, authError: errorMessage }));
-      console.error("AuthContext: Vendor registration API error:", error);
       return { success: false, message: errorMessage };
     } finally {
       setAuth((prev) => ({ ...prev, isAuthLoading: false }));
@@ -903,109 +731,98 @@ const AuthProvider = ({ children }) => {
     navigate("/vendor/login");
   }, [logout, navigate]);
 
+  // --- Location Management Functions ---
   const updateUserLocation = useCallback(
     async (locationData) => {
+      // Clear any pending location timeout
+      if (locationFetchTimeoutRef.current) {
+        clearTimeout(locationFetchTimeoutRef.current);
+      }
+
       setLocationsLoading(true);
       let newSelectedLoc = null;
 
-      console.log("AuthContext: updateUserLocation called with:", locationData);
-
+      // Set loading state immediately
       setSelectedLocation((prev) => ({
         ...prev,
-        name:
-          locationData.type === LOCATION_TYPE_CURRENT
-            ? "Fetching current location..."
-            : locationData.name,
+        name: locationData.type === LOCATION_TYPE_CURRENT 
+          ? "Fetching current location..." 
+          : locationData.name,
         lat: locationData.lat,
         lng: locationData.lng,
         type: locationData.type,
         city: locationData.city || "",
       }));
 
-      if (locationData.type === LOCATION_TYPE_CURRENT) {
-        console.log(
-          "AuthContext: User selected 'Current Location', attempting to re-acquire geolocation..."
-        );
-        try {
+      try {
+        // Set timeout for location operation
+        locationFetchTimeoutRef.current = setTimeout(() => {
+          toast.warn("Location detection is taking longer than expected. Please wait...");
+        }, 3000);
+
+        if (locationData.type === LOCATION_TYPE_CURRENT) {
           const coords = await getCurrentGeolocation();
           const cityName = await reverseGeocode(coords.lat, coords.lng);
+          
           newSelectedLoc = {
             ...coords,
             name: `Current Location (${cityName})`,
             city: cityName.toLowerCase(),
             type: LOCATION_TYPE_CURRENT,
           };
-          localStorage.setItem(
-            USER_LOCATION_KEY,
-            JSON.stringify(newSelectedLoc)
-          );
-          toast.success(
-            `Location updated to your current position in ${cityName}!`
-          );
-          console.log(
-            "AuthContext: Current location successfully resolved and set:",
-            newSelectedLoc
-          );
-        } catch (error) {
-          console.error(
-            "AuthContext: Geolocation acquisition error during updateUserLocation:",
-            error
-          );
+          
+          toast.success(`Location updated to your current position in ${cityName}!`);
+        } else {
           newSelectedLoc = {
-            ...DEFAULT_FALLBACK_LOCATION,
-            name: `Current Location (Unavailable - ${DEFAULT_FALLBACK_LOCATION.name})`,
-            city: DEFAULT_FALLBACK_LOCATION.city,
-            type: LOCATION_TYPE_CURRENT,
+            ...locationData,
+            city: locationData.city 
+              ? locationData.city.toLowerCase() 
+              : locationData.name 
+                ? locationData.name.toLowerCase() 
+                : "",
+            type: LOCATION_TYPE_PRODUCT_BASED,
           };
-          localStorage.setItem(
-            USER_LOCATION_KEY,
-            JSON.stringify(newSelectedLoc)
-          );
-          toast.warn(
-            "Could not pinpoint your current location. Using a default location."
-          );
-          console.log(
-            "AuthContext: Falling back to default location for Current Location option:",
-            newSelectedLoc
-          );
+          toast.success(`Location updated to ${locationData.name || locationData.city}!`);
         }
-      } else {
-        newSelectedLoc = {
-          ...locationData,
-          city: locationData.city
-            ? locationData.city.toLowerCase()
-            : locationData.name
-            ? locationData.name.toLowerCase()
-            : "",
-          type: LOCATION_TYPE_PRODUCT_BASED,
-        };
-        localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(newSelectedLoc));
-        toast.success(
-          `Location updated to ${locationData.name || locationData.city}!`
-        );
-        console.log(
-          "AuthContext: Location updated to product-based city:",
-          newSelectedLoc
-        );
-      }
 
-      setSelectedLocation(newSelectedLoc);
-      setLocationsLoading(false);
+        // Save to localStorage and state
+        localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(newSelectedLoc));
+        setSelectedLocation(newSelectedLoc);
+      } catch (error) {
+        console.error("AuthContext: Error updating location:", error);
+        
+        newSelectedLoc = {
+          ...DEFAULT_FALLBACK_LOCATION,
+          name: `Current Location (Unavailable - ${DEFAULT_FALLBACK_LOCATION.name})`,
+          type: locationData.type === LOCATION_TYPE_CURRENT 
+            ? LOCATION_TYPE_CURRENT 
+            : LOCATION_TYPE_PRODUCT_BASED,
+        };
+        
+        localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(newSelectedLoc));
+        toast.warn("Could not pinpoint your location. Using a default location.");
+        setSelectedLocation(newSelectedLoc);
+      } finally {
+        if (locationFetchTimeoutRef.current) {
+          clearTimeout(locationFetchTimeoutRef.current);
+        }
+        setLocationsLoading(false);
+      }
     },
     [
-      DEFAULT_FALLBACK_LOCATION,
       getCurrentGeolocation,
       reverseGeocode,
+      DEFAULT_FALLBACK_LOCATION,
+      USER_LOCATION_KEY,
       LOCATION_TYPE_CURRENT,
       LOCATION_TYPE_PRODUCT_BASED,
-      USER_LOCATION_KEY,
     ]
   );
 
   // --- Effects ---
 
+  // Effect 1: Initialize auth state
   useEffect(() => {
-    console.log("AuthContext: Running initial auth check effect...");
     const initializeAuth = () => {
       let storedUser = null;
       let storedToken = null;
@@ -1021,33 +838,20 @@ const AuthProvider = ({ children }) => {
         if (adminInfoJson && adminTokenVal) {
           storedUser = JSON.parse(adminInfoJson);
           storedToken = adminTokenVal;
-          console.log("AuthContext: Admin info loaded from localStorage.");
         } else if (vendorInfoJson && vendorTokenVal) {
           storedUser = JSON.parse(vendorInfoJson);
           storedToken = vendorTokenVal;
-          console.log("AuthContext: Vendor info loaded from localStorage.");
         } else if (userJson && tokenVal) {
           storedUser = JSON.parse(userJson);
           storedToken = tokenVal;
-          console.log("AuthContext: User info loaded from localStorage.");
-        } else {
-          console.log(
-            "AuthContext: No specific user/admin/vendor info in localStorage."
-          );
         }
       } catch (e) {
-        console.error(
-          "AuthContext: Error parsing auth data from localStorage in initializeAuth:",
-          e
-        );
         localStorage.removeItem("user");
         localStorage.removeItem("token");
         localStorage.removeItem("adminInfo");
         localStorage.removeItem("adminToken");
         localStorage.removeItem("vendorInfo");
         localStorage.removeItem("vendorToken");
-        storedUser = null;
-        storedToken = null;
       }
 
       setAuth((prev) => ({
@@ -1056,9 +860,6 @@ const AuthProvider = ({ children }) => {
         token: storedToken,
         isAuthLoading: false,
       }));
-      console.log(
-        "AuthContext: Initial auth check complete via initializeAuth. isAuthLoading set to false."
-      );
     };
 
     initializeAuth();
@@ -1074,9 +875,6 @@ const AuthProvider = ({ children }) => {
           "vendorToken",
         ].includes(e.key)
       ) {
-        console.log(
-          "AuthContext: localStorage change detected, re-initializing auth state."
-        );
         initializeAuth();
       }
     };
@@ -1087,184 +885,104 @@ const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Effect 2: Setup initial user location (runs after auth is loaded)
+  // Effect 2: Setup initial location (runs once after auth is loaded)
   useEffect(() => {
+    if (initialLocationSetupRef.current || auth.isAuthLoading) return;
+
     const setupInitialLocation = async () => {
-      if (initialLocationSetupRef.current) {
-        console.log(
-          "AuthContext: Initial location setup already completed. Skipping."
-        );
-        return;
-      }
-      if (auth.isAuthLoading) {
-        console.log(
-          "AuthContext: Auth still loading, deferring initial location setup."
-        );
-        return;
-      }
-
-      setLocationsLoading(true);
-      let userLoc = null;
-      console.log("AuthContext: Attempting initial location setup...");
-
-      const savedLoc = localStorage.getItem(USER_LOCATION_KEY);
-      if (savedLoc) {
-        try {
-          userLoc = JSON.parse(savedLoc);
-          console.log(
-            "AuthContext: Found saved location in localStorage:",
-            userLoc
-          );
-          if (userLoc.type === LOCATION_TYPE_CURRENT) {
-            console.log(
-              "AuthContext: Saved location is 'Current Location', attempting to re-acquire exact coords."
-            );
-            try {
-              const coords = await getCurrentGeolocation();
-              const cityName = await reverseGeocode(coords.lat, coords.lng);
-              userLoc = {
-                ...coords,
-                name: `Current Location (${cityName})`,
-                city: cityName.toLowerCase(),
-                type: LOCATION_TYPE_CURRENT,
-              };
-              localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc));
-              toast.success(
-                `Location updated to your current position in ${cityName}!`
-              );
-              console.log(
-                "AuthContext: Re-acquired current location successfully:",
-                userLoc
-              );
-            } catch (geoError) {
-              console.warn(
-                "AuthContext: Could not re-acquire current location during initial setup (geolocation failed).",
-                geoError.message
-              );
-              userLoc = {
-                ...DEFAULT_FALLBACK_LOCATION,
-                name: `Current Location (Unavailable - ${DEFAULT_FALLBACK_LOCATION.name})`,
-                type: LOCATION_TYPE_CURRENT,
-              };
-              localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc));
-              toast.warn(
-                "Could not pinpoint your current location. Using a default location."
-              );
-              console.log(
-                "AuthContext: Falling back to default location during re-acquire:",
-                userLoc
-              );
-            }
-          }
-        } catch (e) {
-          console.error(
-            "AuthContext: Failed to parse saved location from localStorage in setupInitialLocation, clearing:",
-            e
-          );
-          localStorage.removeItem(USER_LOCATION_KEY);
-          userLoc = null;
-        }
-      }
-
-      if (!userLoc) {
-        console.log(
-          "AuthContext: No valid saved location found or parse failed. Attempting initial geolocation..."
-        );
-        try {
-          const coords = await getCurrentGeolocation();
-          const cityName = await reverseGeocode(coords.lat, coords.lng);
-          userLoc = {
-            ...coords,
-            name: `Current Location (${cityName})`,
-            city: cityName.toLowerCase(),
-            type: LOCATION_TYPE_CURRENT,
-          };
-          localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc));
-          console.log(
-            "AuthContext: Initial current location acquired successfully:",
-            userLoc
-          );
-        } catch (error) {
-          console.warn(
-            "AuthContext: Geolocation denied or failed during initial setup. Falling back to default location.",
-            error.message
-          );
-          userLoc = {
-            ...DEFAULT_FALLBACK_LOCATION,
-            name: `Current Location (Unavailable - ${DEFAULT_FALLBACK_LOCATION.name})`,
-            type: LOCATION_TYPE_CURRENT,
-          };
-          localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc));
-          toast.warn(
-            "Could not pinpoint your current location. Using a default location."
-          );
-          console.log(
-            "AuthContext: Initial setup falling back to default location:",
-            userLoc
-          );
-        }
-      }
-
-      setSelectedLocation(userLoc);
-      setLocationsLoading(false);
       initialLocationSetupRef.current = true;
-      console.log(
-        "AuthContext: Initial location setup complete. Final selectedLocation:",
-        userLoc
-      );
+      setLocationsLoading(true);
+
+      try {
+        let userLoc = null;
+        const savedLoc = localStorage.getItem(USER_LOCATION_KEY);
+
+        // Try to use saved location if available
+        if (savedLoc) {
+          try {
+            userLoc = JSON.parse(savedLoc);
+            
+            // If saved location is "current", try to refresh it
+            if (userLoc.type === LOCATION_TYPE_CURRENT) {
+              try {
+                const coords = await getCurrentGeolocation();
+                const cityName = await reverseGeocode(coords.lat, coords.lng);
+                userLoc = {
+                  ...coords,
+                  name: `Current Location (${cityName})`,
+                  city: cityName.toLowerCase(),
+                  type: LOCATION_TYPE_CURRENT,
+                };
+              } catch (geoError) {
+                console.warn("Could not refresh current location:", geoError);
+                // Keep the saved location but mark it as potentially stale
+                userLoc.name = `Current Location (Last known: ${userLoc.city || userLoc.name})`;
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse saved location:", e);
+            localStorage.removeItem(USER_LOCATION_KEY);
+          }
+        }
+
+        // If no valid saved location, try to get current location
+        if (!userLoc) {
+          try {
+            const coords = await getCurrentGeolocation();
+            const cityName = await reverseGeocode(coords.lat, coords.lng);
+            userLoc = {
+              ...coords,
+              name: `Current Location (${cityName})`,
+              city: cityName.toLowerCase(),
+              type: LOCATION_TYPE_CURRENT,
+            };
+          } catch (error) {
+            console.warn("Geolocation failed, using default:", error);
+            userLoc = {
+              ...DEFAULT_FALLBACK_LOCATION,
+              name: `Current Location (Unavailable - ${DEFAULT_FALLBACK_LOCATION.name})`,
+              type: LOCATION_TYPE_CURRENT,
+            };
+          }
+        }
+
+        // Save the determined location
+        localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(userLoc));
+        setSelectedLocation(userLoc);
+      } catch (error) {
+        console.error("Error during initial location setup:", error);
+      } finally {
+        setLocationsLoading(false);
+      }
     };
 
     setupInitialLocation();
-  }, [
-    auth.isAuthLoading,
-    getCurrentGeolocation,
-    reverseGeocode,
-    DEFAULT_FALLBACK_LOCATION,
-    USER_LOCATION_KEY,
-    LOCATION_TYPE_CURRENT,
-  ]);
+  }, [auth.isAuthLoading, getCurrentGeolocation, reverseGeocode, DEFAULT_FALLBACK_LOCATION, USER_LOCATION_KEY, LOCATION_TYPE_CURRENT]);
 
+  // Effect 3: Fetch available locations when needed
   useEffect(() => {
-    if (!locationsLoading && selectedLocation) {
-      console.log(
-        "AuthContext: Effect: selectedLocation is set or locationsLoading changed. Fetching available locations."
-      );
-      fetchAvailableLocations();
-    } else if (
-      !locationsLoading &&
-      !selectedLocation &&
-      !initialLocationSetupRef.current
-    ) {
-      console.log(
-        "AuthContext: Effect: locationsLoading false but selectedLocation null. Initializing available locations anyway."
-      );
+    if (!locationsLoading && (selectedLocation || !initialLocationSetupRef.current)) {
       fetchAvailableLocations();
     }
   }, [selectedLocation, locationsLoading, fetchAvailableLocations]);
 
+  // Effect 4: Fetch products when location changes
   useEffect(() => {
     if (selectedLocation) {
-      console.log(
-        "AuthContext: Effect: selectedLocation updated, triggering product fetch via fetchAllProducts...",
-        selectedLocation
-      );
       fetchAllProducts(selectedLocation);
     } else {
-      console.log(
-        "AuthContext: Effect: selectedLocation is null, clearing products."
-      );
       setProducts([]);
     }
   }, [selectedLocation, fetchAllProducts]);
 
-  console.log(
-    "AuthContext: Current products state (after effects/renders):",
-    products
-  );
-  console.log(
-    "AuthContext: Current cartItems state (after effects/renders):",
-    cartItems
-  );
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (locationFetchTimeoutRef.current) {
+        clearTimeout(locationFetchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <AuthContext.Provider
