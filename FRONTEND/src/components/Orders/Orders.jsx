@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -10,14 +11,13 @@ import {
   TruckIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
-  EllipsisVerticalIcon, // For the action/settings icon
-  ChevronLeftIcon, // For pagination
-  ChevronRightIcon, // For pagination
+  ArrowRightIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ArrowPathIcon
 } from "@heroicons/react/24/outline";
 
-const PLACEHOLDER_IMAGE = `${
-  import.meta.env.VITE_API_URL
-}/uploads/default-product.png`;
+const PLACEHOLDER_IMAGE = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -26,159 +26,92 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
-  // State for pagination (basic setup)
   const [currentPage, setCurrentPage] = useState(1);
-  const [ordersPerPage] = useState(5); // You can adjust this
+  const [ordersPerPage] = useState(8);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setRefreshing(true);
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Session expired. Please login again.");
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const processedOrders = data.orders.map(order => ({
+        ...order,
+        itemCount: order.items?.length || 0,
+        firstProductName: order.cartItems?.[0]?.name || "N/A",
+        firstProductImage: order.cartItems?.[0]?.imageUrl || PLACEHOLDER_IMAGE,
+        customerFullName: order.shippingAddress?.name || "N/A",
+      }));
+
+      setOrders(processedOrders);
+    } catch (error) {
+      console.error("Fetch error:", error);
+      setError(error.message || "Failed to fetch orders");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const userData = localStorage.getItem("user");
-        if (!userData) {
-          throw new Error("Authentication required. Please login.");
-        }
-
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          throw new Error("Session expired. Please login again.");
-        }
-
-        const apiUrl = (
-          import.meta.env.VITE_API_URL || "http://localhost:3000"
-        ).replace(/\/$/, "");
-        const endpoint = `${apiUrl}/api/orders`;
-
-        const apiResponse = await fetch(endpoint, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!apiResponse.ok) {
-          const errorData = await apiResponse.json();
-          throw new Error(
-            errorData.message || `HTTP error! status: ${apiResponse.status}`
-          );
-        }
-
-        const responseData = await apiResponse.json();
-        console.log("order is", responseData); // Keep this for debugging
-
-        if (!responseData || !Array.isArray(responseData.orders)) {
-          throw new Error("Invalid response format from server");
-        }
-
-        const processedOrders = responseData.orders.map((order) => ({
-          ...order,
-          itemCount: order.cartItems ? order.cartItems.length : 0,
-          paymentDetails: order.paymentDetails || {},
-          // Extract first product name and image for display, if available
-          firstProductName: order.cartItems?.[0]?.name || null,
-          firstProductImage:
-            order.cartItems?.[0]?.images?.[0]?.url || PLACEHOLDER_IMAGE, // Assuming images array
-          // Extract customer name for the table UI
-          customerFullName: order.customerDetails
-            ? `${order.customerDetails.firstname || ""} ${
-                order.customerDetails.lastname || ""
-              }`.trim()
-            : "N/A",
-        }));
-
-        setOrders(processedOrders);
-      } catch (error) {
-        console.error("Fetch error details:", error);
-
-        let errorMessage = "Failed to fetch orders";
-
-        if (error.message.includes("HTTP error! status:")) {
-          const statusMatch = error.message.match(/status: (\d+)/);
-          const status = statusMatch ? parseInt(statusMatch[1]) : 0;
-
-          switch (status) {
-            case 401:
-              errorMessage = "Session expired. Please login again.";
-              break;
-            case 404:
-              errorMessage = "No orders found for this account";
-              break;
-            case 500:
-              errorMessage = "Server error. Please try again later.";
-              break;
-            default:
-              errorMessage =
-                error.message.replace(/HTTP error! status: \d+/, "").trim() ||
-                errorMessage;
-          }
-        } else if (
-          error.message.includes("Network error") ||
-          (error.name === "TypeError" && !error.message.includes("HTTP error!"))
-        ) {
-          errorMessage = "Network error. Please check your connection.";
-        } else {
-          errorMessage = error.message || errorMessage;
-        }
-
-        setError(errorMessage);
-
-        if (errorMessage.includes("Session expired.")) {
-          setTimeout(() => window.location.reload(), 2000);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
   }, []);
 
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
       case "processing":
-        return <ClockIcon className="w-4 h-4 text-amber-500 mr-1" />;
+        return <ClockIcon className="w-4 h-4 mr-1.5" />;
       case "shipped":
-        return <TruckIcon className="w-4 h-4 text-blue-500 mr-1" />;
+        return <TruckIcon className="w-4 h-4 mr-1.5" />;
       case "delivered":
-        return <CheckCircleIcon className="w-4 h-4 text-green-600 mr-1" />;
+        return <CheckCircleIcon className="w-4 h-4 mr-1.5" />;
       case "cancelled":
-        return <ExclamationCircleIcon className="w-4 h-4 text-red-500 mr-1" />;
+        return <ExclamationCircleIcon className="w-4 h-4 mr-1.5" />;
       default:
-        return <ShoppingBagIcon className="w-4 h-4 text-gray-500 mr-1" />;
+        return <ShoppingBagIcon className="w-4 h-4 mr-1.5" />;
     }
   };
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case "processing":
-        return "text-amber-800 bg-amber-100 border-amber-200";
+        return "bg-blue-50 text-blue-700";
       case "shipped":
-        return "text-blue-800 bg-blue-100 border-blue-200";
+        return "bg-purple-50 text-purple-700";
       case "delivered":
-        return "text-green-800 bg-green-100 border-green-200";
+        return "bg-green-50 text-green-700";
       case "cancelled":
-        return "text-red-800 bg-red-100 border-red-200";
+        return "bg-red-50 text-red-700";
       default:
-        return "text-gray-800 bg-gray-100 border-gray-200";
+        return "bg-gray-50 text-gray-700";
     }
   };
 
-  // Filter and sort orders
   const filteredOrders = orders
-    .filter((order) => {
-      const matchesSearch =
+    .filter(order => {
+      const matchesSearch = 
         order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.firstProductName
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        order.customerFullName.toLowerCase().includes(searchTerm.toLowerCase()); // Search by customer name, no longer by address
-      const matchesFilter =
-        filterStatus === "all" || order.status?.toLowerCase() === filterStatus;
+        order.firstProductName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customerFullName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesFilter = filterStatus === "all" || order.status?.toLowerCase() === filterStatus;
       return matchesSearch && matchesFilter;
     })
     .sort((a, b) => {
@@ -196,47 +129,21 @@ const Orders = () => {
       }
     });
 
-  // Pagination Logic
+  // Pagination
   const indexOfLastOrder = currentPage * ordersPerPage;
   const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
-  const currentOrders = filteredOrders.slice(
-    indexOfFirstOrder,
-    indexOfLastOrder
-  );
+  const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
   const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Helper for generating page numbers
-  const renderPageNumbers = () => {
-    const pageNumbers = [];
-    for (let i = 1; i <= totalPages; i++) {
-      pageNumbers.push(
-        <button
-          key={i}
-          onClick={() => paginate(i)}
-          className={`px-3 py-1 mx-1 rounded-md text-sm font-medium ${
-            currentPage === i
-              ? "bg-green-600 text-white"
-              : "bg-green-200 text-green-700 hover:bg-green-300"
-          }`}
-        >
-          {i}
-        </button>
-      );
-    }
-    return pageNumbers;
-  };
-
-  if (loading) {
+  if (loading && !refreshing) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>{" "}
-          <p className="text-lg text-black">Loading your orders...</p>
-          <p className="text-sm text-black">
-            LocalCart is fetching your personalized experience
-          </p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-medium text-gray-800">Loading your orders</h2>
+          <p className="text-gray-500 mt-1">Please wait while we fetch your order history</p>
         </div>
       </div>
     );
@@ -244,365 +151,290 @@ const Orders = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-green-50 p-4">
-        <div className="text-center bg-white rounded-lg shadow-md p-8">
-          <ExclamationCircleIcon className="mx-auto h-16 w-16 text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 transition duration-300"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!Array.isArray(orders)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center  p-4">
-        <div className="text-center bg-white rounded-lg shadow-md p-8">
-          <ExclamationCircleIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            Invalid Data Format
-          </h3>
-          <p className="text-gray-600">
-            The server returned an unexpected response format.
-          </p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md bg-white p-8 rounded-xl shadow-sm text-center">
+          <ExclamationCircleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex justify-center space-x-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <Link
+              to="/"
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Go Home
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen  py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="bg-gradient-to-r from-green-500 to-green-600 text-white py-6 shadow-md rounded-tl-2xl rounded-tr-2xl">
-        <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold">My Orders</h1>
-          <p className="text-green-100 mt-1 font-semibold">
-            Track and manage all your orders with localcart
-          </p>
+    <div className="min-h-screen bg-gray-50 pb-12">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold">My Orders</h1>
+              <p className="text-green-100 mt-2">View and manage all your orders in one place</p>
+            </div>
+            <button
+              onClick={fetchOrders}
+              disabled={refreshing}
+              className="flex items-center text-green-50 bg-green-800 bg-opacity-30 px-4 py-2 rounded-lg hover:bg-opacity-40 transition-all"
+            >
+              <ArrowPathIcon className={`w-5 h-5 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
-      {orders.length === 0 && !loading && !error ? (
-        <div className="text-center py-20 bg-white rounded-lg shadow-md border border-green-100 max-w-2xl mx-auto">
-          <ShoppingBagIcon className="h-16 w-16 text-green-600 mx-auto mb-8" />
-          <h3 className="text-2xl font-bold text-green-600 mb-4">
-            No Orders Yet
-          </h3>
-          <p className="text-green-600 mb-8 max-w-sm mx-auto">
-            You haven't placed any orders yet. Start exploring our products and
-            make your first purchase!
-          </p>
-          <Link
-            to="/shopping" 
-            className="inline-flex items-center px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-all duration-200 shadow-md transform hover:scale-105"
-          >
-            <ShoppingBagIcon className="w-5 h-5 mr-2" />
-            Start Shopping
-          </Link>
-        </div>
-      ) : (
-        <>
-          {/* Filters and Search Section */}
-          <div className="bg-white rounded-lg shadow-md border border-green-100 p-6 mb-8">
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-              {/* Search Input */}
-              <div className="relative flex-1 max-w-md w-full">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
-                <input
-                  type="text"
-                  placeholder="Search orders by ID, status, customer, or product..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border-2 border-green-500 rounded-md focus:ring-green-500 focus:border-green-500 transition-colors placeholder-gray-400 font-semibold text-black text-sm"
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                {/* Status Filter Dropdown */}
-                <div className="relative w-full sm:w-auto">
-                  <FunnelIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500 pointer-events-none" />
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => {
-                      setFilterStatus(e.target.value);
-                      setCurrentPage(1);
-                    }} // Reset page on filter change
-                    className="pl-10 pr-8 py-2.5  border-2 border-green-500 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-gray-400 font-semibold w-full"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                  {/* Custom arrow for select */}
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-green-700">
-                    <svg
-                      className="fill-current h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Sort By Dropdown */}
-                <div className="relative w-full sm:w-auto">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="px-4 py-2.5 border-2 border-green-500 rounded-md focus:ring-green-500 focus:border-green-500 bg-white appearance-none cursor-pointer text-sm text-gray-400 font-semibold w-full"
-                  >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="amount-high">Highest Amount</option>
-                    <option value="amount-low">Lowest Amount</option>
-                  </select>
-                  {/* Custom arrow for select */}
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-green-700">
-                    <svg
-                      className="fill-current h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
+        {/* Filters Card */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="bg-white rounded-xl shadow-md p-6 mb-8"
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search orders..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+              />
             </div>
 
-            {/* Results count */}
-            <div className="mt-4 pt-4 border-t border-green-100 flex justify-between items-center text-sm text-green-600">
-              <p>
-                <span className="font-semibold">{filteredOrders.length}</span>{" "}
-                orders found
-              </p>
-              {/* Date range filter mock */}
-              <div className="flex items-center space-x-2">
-                <CalendarIcon className="w-5 h-5 text-green-400" />
-                <span className="text-green-700">31 Jul 2020</span>
-                <span className="text-green-500">To</span>
-                <CalendarIcon className="w-5 h-5 text-green-400" />
-                <span className="text-green-700">03 Aug 2020</span>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative">
+                <FunnelIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="pl-10 pr-8 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 appearance-none"
+                >
+                  <option value="all">All Status</option>
+                  <option value="processing">Processing</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
               </div>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="pl-4 pr-8 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 appearance-none"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="amount-high">Highest Amount</option>
+                <option value="amount-low">Lowest Amount</option>
+              </select>
             </div>
           </div>
 
-          {currentOrders.length === 0 &&
-          (searchTerm || filterStatus !== "all") ? (
-            <div className="text-center py-16 bg-white rounded-lg shadow-md border border-green-100 max-w-2xl mx-auto">
-              <MagnifyingGlassIcon className="h-16 w-16 text-green-400 mx-auto mb-8" />
-              <h3 className="text-2xl font-bold text-green-900 mb-4">
-                No Matching Orders Found
-              </h3>
-              <p className="text-green-600 mb-8 max-w-sm mx-auto">
-                Try adjusting your search term or filters.
-              </p>
-              <button
-                onClick={() => {
-                  setSearchTerm("");
-                  setFilterStatus("all");
-                }}
-                className="inline-flex items-center px-6 py-3 border border-green-300 text-green-700 font-semibold rounded-lg hover:bg-green-50 transition-all duration-200 shadow-sm"
+          <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-sm">
+            <p className="text-gray-600">
+              Showing <span className="font-medium">{filteredOrders.length}</span> orders
+            </p>
+            <div className="flex items-center space-x-2 text-gray-500">
+              <CalendarIcon className="w-4 h-4" />
+              <span>All time</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Empty State */}
+        {orders.length === 0 && !loading && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white rounded-xl shadow-sm p-12 text-center"
+          >
+            <ShoppingBagIcon className="h-16 w-16 text-gray-300 mx-auto mb-6" />
+            <h3 className="text-xl font-medium text-gray-700 mb-2">No orders yet</h3>
+            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+              You haven't placed any orders yet. Start shopping to see your orders here.
+            </p>
+            <Link
+              to="/products"
+              className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+            >
+              <ShoppingBagIcon className="w-5 h-5 mr-2" />
+              Browse Products
+            </Link>
+          </motion.div>
+        )}
+
+        {/* No Results State */}
+        {orders.length > 0 && currentOrders.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white rounded-xl shadow-sm p-12 text-center"
+          >
+            <MagnifyingGlassIcon className="h-16 w-16 text-gray-300 mx-auto mb-6" />
+            <h3 className="text-xl font-medium text-gray-700 mb-2">No matching orders</h3>
+            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+              Try adjusting your search or filter criteria
+            </p>
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setFilterStatus("all");
+                setCurrentPage(1);
+              }}
+              className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Clear Filters
+            </button>
+          </motion.div>
+        )}
+
+        {/* Orders Grid */}
+        {currentOrders.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            {currentOrders.map((order) => (
+              <motion.div
+                key={order._id}
+                whileHover={{ y: -5 }}
+                className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-all"
               >
-                Clear Filters
-              </button>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-md border border-green-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-green-200">
-                  <thead className="bg-green-500">
-                    <tr>
-                      {/* New Image Header */}
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                      >
-                        Image
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                      >
-                        Id
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                      >
-                        Name
-                      </th>
-
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                      >
-                        Date
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                      >
-                        Price
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                      >
-                        Status
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                      >
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-green-200">
-                    {currentOrders.map((order) => (
-                      <tr
-                        key={order._id}
-                        className="hover:bg-green-50 cursor-pointer"
-                      >
-                        {/* New Image Data Cell */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <img
-                              className="h-10 w-10 rounded-md object-cover border border-green-200"
-                              src={order.firstProductImage}
-                              alt={order.firstProductName || "Product image"}
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = PLACEHOLDER_IMAGE;
-                              }}
-                            />
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-900">
-                          <Link
-                            to={`/orders/${order._id}`}
-                            className="text-green-600 hover:text-green-800"
-                          >
-                            #{order._id.slice(-8).toUpperCase()}
-                          </Link>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {/* Avatar/Initial Placeholder */}
-                            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-200 flex items-center justify-center text-xs font-semibold text-green-600 uppercase">
-                              {order.firstProductName
-                                ? order.firstProductName[0]
-                                : "U"}
-                            </div>
-                            <div className="ml-4 text-sm font-medium text-green-900">
-                              {order.firstProductName || "N/A"}{" "}
-                              {/* Prioritize customer name */}
-                            </div>
-                          </div>
-                        </td>
-                        {/* Removed Address Data Cell */}
-                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
-                            {order.customerAddress}
-                          </td> */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-500">
-                          {new Date(order.createdAt).toLocaleDateString(
-                            "en-US",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            }
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-900 font-semibold">
-                          ₹{(order.totalAmount || 0).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-500">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(
-                              order.status
-                            )}`}
-                          >
-                            {getStatusIcon(order.status)}
-                            {order.status
-                              ? order.status.charAt(0).toUpperCase() +
-                                order.status.slice(1)
-                              : "Unknown"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <Link
-                            to={`/orders/${order._id}`}
-                            className="text-green-500 hover:text-green-900 inline-flex items-center"
-                          >
-                            <EllipsisVerticalIcon className="h-5 w-5" />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination Controls */}
-              {filteredOrders.length > 0 && (
-                <nav
-                  className="bg-white px-4 py-3 flex items-center justify-between border-t border-green-200 sm:px-6"
-                  aria-label="Pagination"
-                >
-                  <div className="hidden sm:block">
-                    <p className="text-sm text-green-700">
-                      Showing{" "}
-                      <span className="font-medium">
-                        {indexOfFirstOrder + 1}
-                      </span>{" "}
-                      to{" "}
-                      <span className="font-medium">
-                        {Math.min(indexOfLastOrder, filteredOrders.length)}
-                      </span>{" "}
-                      of{" "}
-                      <span className="font-medium">
-                        {filteredOrders.length}
-                      </span>{" "}
-                      results
-                    </p>
-                  </div>
-                  <div className="flex-1 flex justify-between sm:justify-end">
-                    <button
-                      onClick={() => paginate(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ChevronLeftIcon className="h-5 w-5 mr-2" /> Previous
-                    </button>
-                    <div className="hidden sm:flex ml-2">
-                      {renderPageNumbers()}
+                <Link to={`/orders/${order._id}`} className="block">
+                  <div className="p-5 border-b border-gray-100">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900">
+                          Order #{order._id.slice(-8).toUpperCase()}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {new Date(order.createdAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                        {getStatusIcon(order.status)}
+                        {order.status?.charAt(0).toUpperCase() + order.status?.slice(1)}
+                      </span>
                     </div>
-                    <button
-                      onClick={() => paginate(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="ml-2 relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next <ChevronRightIcon className="h-5 w-5 ml-2" />
-                    </button>
                   </div>
-                </nav>
-              )}
+
+                  <div className="p-5">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="flex-shrink-0">
+                        <img
+                          className="h-auto w-12 rounded-md object-cover border border-gray-200"
+                          src={`${import.meta.env.VITE_API_URL}/uploads/${order.images?.[0]?.url || order.firstProductImage}`}
+                          alt={order.firstProductName}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = PLACEHOLDER_IMAGE;
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                          {order.firstProductName}
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          {order.itemCount} {order.itemCount === 1 ? 'item' : 'items'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                      <div>
+                        <p className="text-sm text-gray-500">Total</p>
+                        <p className="text-lg font-semibold text-gray-900">
+                          ₹{order.totalAmount?.toFixed(2) || '0.00'}
+                        </p>
+                      </div>
+                      <div className="text-green-600 hover:text-green-800 transition-colors">
+                        <ArrowRightIcon className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Pagination */}
+        {filteredOrders.length > ordersPerPage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="mt-8 flex items-center justify-between"
+          >
+            <button
+              onClick={() => paginate(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeftIcon className="h-5 w-5 mr-2" />
+              Previous
+            </button>
+            
+            <div className="hidden sm:flex space-x-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
+                <button
+                  key={number}
+                  onClick={() => paginate(number)}
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg ${currentPage === number ? 'bg-green-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                >
+                  {number}
+                </button>
+              ))}
             </div>
-          )}
-        </>
-      )}
+
+            <div className="sm:hidden text-sm text-gray-700">
+              Page {currentPage} of {totalPages}
+            </div>
+
+            <button
+              onClick={() => paginate(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRightIcon className="h-5 w-5 ml-2" />
+            </button>
+          </motion.div>
+        )}
+      </div>
     </div>
-    // </div>
   );
 };
 

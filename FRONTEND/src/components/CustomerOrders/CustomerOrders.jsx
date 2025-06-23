@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
   CheckCircleIcon,
   TruckIcon,
   ShoppingBagIcon,
   ClockIcon,
   ExclamationCircleIcon,
+  ArrowLeftIcon,
+  ReceiptRefundIcon,
+  QuestionMarkCircleIcon
 } from "@heroicons/react/24/outline";
+import { motion } from "framer-motion";
 
 const OrderedItemsPage = () => {
   const { orderId } = useParams();
@@ -17,9 +21,8 @@ const OrderedItemsPage = () => {
 
   useEffect(() => {
     const fetchOrder = async () => {
-      // Set loading to true immediately when fetching starts
       setLoading(true);
-      setError(null); // Clear previous errors
+      setError(null);
 
       if (!orderId) {
         setError("Order ID is required");
@@ -27,13 +30,8 @@ const OrderedItemsPage = () => {
         return;
       }
 
-      console.log("Fetching order:", orderId);
-
       try {
-        // Retrieve the authentication token from localStorage
         const token = localStorage.getItem("token");
-
-        // Validate the token (client-side check)
         if (!token) {
           throw new Error("Authentication token not found. Please login.");
         }
@@ -43,17 +41,13 @@ const OrderedItemsPage = () => {
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`, // <<< CRITICAL FIX: Add Authorization header
+              Authorization: `Bearer ${token}`,
             },
           }
         );
 
-        console.log("Order response:", response.data);
-
-        // Transform data if needed to match your frontend structure
         const orderData = {
           ...response.data,
-          // Ensure all items have images
           items: response.data.items.map((item) => ({
             ...item,
             image: item.image || "/placeholder-product.jpg",
@@ -62,17 +56,11 @@ const OrderedItemsPage = () => {
 
         setOrder(orderData);
       } catch (err) {
-        console.error("Error fetching order:", err);
-
-        // Improved error message extraction, similar to your other useEffect
         let errorMessage = "Failed to fetch order";
-
         if (err.response) {
-          // Server responded with an error status (e.g., 401, 404, 500)
           switch (err.response.status) {
             case 401:
-              errorMessage =
-                "Session expired or not authorized. Please login again.";
+              errorMessage = "Session expired or not authorized. Please login again.";
               break;
             case 404:
               errorMessage = "Order not found or you don't have access to it.";
@@ -81,34 +69,26 @@ const OrderedItemsPage = () => {
               errorMessage = "Server error. Please try again later.";
               break;
             default:
-              errorMessage =
-                err.response.data?.message ||
-                err.response.data?.error ||
-                errorMessage;
+              errorMessage = err.response.data?.message || err.response.data?.error || errorMessage;
           }
         } else if (err.request) {
-          // The request was made but no response was received (e.g., network issue)
           errorMessage = "Network error. Please check your connection.";
         } else {
-          // Something else happened in setting up the request that triggered an Error
           errorMessage = err.message || errorMessage;
         }
 
         setError(errorMessage);
 
-        // Optional: Auto-refresh on 401
         if (err.response?.status === 401) {
           setTimeout(() => window.location.reload(), 2000);
         }
       } finally {
-        setLoading(false); // Ensure loading is false after fetch completes (success or failure)
+        setLoading(false);
       }
     };
 
     fetchOrder();
-  }, [orderId]); // Dependency array: Re-run if orderId changes
-
-
+  }, [orderId]);
 
   const getStatusProgress = (status) => {
     switch (status) {
@@ -125,14 +105,29 @@ const OrderedItemsPage = () => {
     }
   };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "processing":
+        return "bg-blue-100 text-blue-800";
+      case "shipped":
+        return "bg-purple-100 text-purple-800";
+      case "delivered":
+        return "bg-green-100 text-green-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-700">Loading your orders details...</p>
-          <p className="text-sm text-gray-500">
-            LocalCart is crunching the orders details
+          <p className="text-lg text-gray-700 font-medium">Loading your order details...</p>
+          <p className="text-sm text-gray-500 mt-1">
+            We're preparing your order information
           </p>
         </div>
       </div>
@@ -141,17 +136,25 @@ const OrderedItemsPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-sm">
           <ExclamationCircleIcon className="mx-auto h-16 w-16 text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
-          >
-            Try Again
-          </button>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Oops! Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <Link
+              to="/orders"
+              className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              My Orders
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -159,198 +162,280 @@ const OrderedItemsPage = () => {
 
   if (!order) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-sm">
           <ShoppingBagIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Order Not Found
           </h2>
-          <p className="text-gray-600">
-            The order you're looking for doesn't exist.
+          <p className="text-gray-600 mb-6">
+            We couldn't find the order you're looking for.
           </p>
+          <Link
+            to="/orders"
+            className="inline-flex items-center text-green-600 hover:text-green-700 font-medium"
+          >
+            <ArrowLeftIcon className="w-5 h-5 mr-1" />
+            Back to My Orders
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Order Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Order Confirmation
-          </h1>
-          <p className="text-lg text-gray-600">Thank you for your purchase!</p>
-          <p className="text-sm text-gray-500 mt-2">
-            Order #<span className="font-medium">{order.orderNumber}</span> •
-            Placed on {new Date(order.createdAt).toLocaleDateString()}
-          </p>
-        </div>
-
-        {/* Order Status Tracker */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8 ">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Order Status:{" "}
-            <span className="capitalize font-bold text-green-600">
-              {order.status}
-            </span>
-          </h2>
-
-          {order.status !== "cancelled" ? (
-            <div className="flex justify-between items-center relative">
-              <div
-                className={`flex flex-col items-center ${
-                  ["processing", "shipped", "delivered"].includes(order.status)
-                    ? "text-green-600"
-                    : "text-gray-400"
-                }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${
-                    ["processing", "shipped", "delivered"].includes(
-                      order.status
-                    )
-                      ? "bg-green-100"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <ShoppingBagIcon className="w-5 h-5 " />
-                </div>
-                <span className="text-xs mt-2">Processing</span>
-              </div>
-
-              <div
-                className={`flex flex-col items-center ${
-                  ["shipped", "delivered"].includes(order.status)
-                    ? "text-green-600"
-                    : "text-gray-400"
-                }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${
-                    ["shipped", "delivered"].includes(order.status)
-                      ? "bg-green-100"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <TruckIcon className="w-5 h-5" />
-                </div>
-                <span className="text-xs mt-2">Shipped</span>
-              </div>
-
-              <div
-                className={`flex flex-col items-center ${
-                  order.status === "delivered"
-                    ? "text-green-600"
-                    : "text-gray-400"
-                }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${
-                    order.status === "delivered"
-                      ? "bg-green-100"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <CheckCircleIcon className="w-5 h-5" />
-                </div>
-                <span className="text-xs mt-2">Delivered</span>
-              </div>
-
-              <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 z-0">
-                <div
-                  className={`h-1 bg-green-600 transition-all duration-300 ease-in-out`}
-                  style={{
-                    width: `${getStatusProgress(order.status)}%`,
-                  }}
-                ></div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-red-100 flex items-center justify-center mb-4">
-                <ExclamationCircleIcon className="w-8 h-8 text-red-600" />
-              </div>
-              <p className="text-red-600 font-medium">
-                This order has been cancelled
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Back button and header */}
+        <div className="mb-8">
+          <Link
+            to="/orders"
+            className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeftIcon className="w-5 h-5 mr-1" />
+            Back to My Orders
+          </Link>
+          
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Order Details
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Order #{order.orderNumber} • Placed on {new Date(order.createdAt).toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
               </p>
             </div>
-          )}
-        </div>
-
-        {/* Order Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Order Items */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">
-                Order Items ({order.items.length})
-              </h2>
-              <div className="divide-y divide-gray-200">
-                {order.items.map((item) => (
-                  <div key={item.id} className="py-4 flex">
-                    <div className="flex-shrink-0 w-20 h-20 bg-gray-200 rounded-md overflow-hidden">
-                      <img
-                        src={
-                          item.images && item.images.length > 0
-                            ? `${import.meta.env.VITE_API_URL}/uploads/${
-                                item.images[0]
-                              }`
-                            : `${
-                                import.meta.env.VITE_API_URL
-                              }/uploads/default-product.png`
-                        }
-                        alt={item.name}
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          e.target.src = `${
-                            import.meta.env.VITE_API_URL
-                          }/uploads/default-product.png`; // Full URL from backend
-                        }}
-                      />
-                    </div>
-                    <div className="ml-4 flex-grow">
-                      <h3 className="text-sm font-medium text-gray-900">
-                        {item.name}
-                      </h3>
-                      {item.variant && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {item.variant}
-                        </p>
-                      )}
-                      <p className="text-sm text-gray-500 mt-1">
-                        Qty: {item.quantity}
-                      </p>
-                    </div>
-                    <div className="ml-4 text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        ₹{item.price.toFixed(2)}
-                      </p>
-                      {item.originalPrice &&
-                        item.originalPrice > item.price && (
-                          <p className="text-xs text-gray-500 line-through">
-                            ₹{item.originalPrice.toFixed(2)}
-                          </p>
-                        )}
-                      <p className="text-xs text-gray-600 mt-1">
-                        Total: ₹{(item.price * item.quantity).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            
+            <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+              {order.status === 'processing' && <ClockIcon className="w-4 h-4 mr-2" />}
+              {order.status === 'shipped' && <TruckIcon className="w-4 h-4 mr-2" />}
+              {order.status === 'delivered' && <CheckCircleIcon className="w-4 h-4 mr-2" />}
+              {order.status === 'cancelled' && <ExclamationCircleIcon className="w-4 h-4 mr-2" />}
+              <span className="capitalize">{order.status}</span>
             </div>
           </div>
+        </div>
 
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">
+        {/* Main content grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left column - Order items */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Order status tracker */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="bg-white rounded-xl shadow-sm p-6"
+            >
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Order Progress
+              </h2>
+              
+              {order.status !== "cancelled" ? (
+                <div className="space-y-8">
+                  <div className="flex justify-between items-center relative">
+                    {/* Progress bar background */}
+                    <div className="absolute top-5 left-0 right-0 h-2 bg-gray-200 rounded-full z-0">
+                      <div
+                        className={`h-2 bg-green-500 rounded-full transition-all duration-500 ease-out`}
+                        style={{
+                          width: `${getStatusProgress(order.status)}%`,
+                        }}
+                      ></div>
+                    </div>
+                    
+                    {/* Processing step */}
+                    <div className="flex flex-col items-center z-10">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                        ["processing", "shipped", "delivered"].includes(order.status)
+                          ? "bg-green-500 text-white"
+                          : "bg-gray-200 text-gray-500"
+                      }`}>
+                        <ShoppingBagIcon className="w-5 h-5" />
+                      </div>
+                      <span className={`text-xs font-medium ${
+                        ["processing", "shipped", "delivered"].includes(order.status)
+                          ? "text-gray-900"
+                          : "text-gray-500"
+                      }`}>Processing</span>
+                    </div>
+                    
+                    {/* Shipped step */}
+                    <div className="flex flex-col items-center z-10">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                        ["shipped", "delivered"].includes(order.status)
+                          ? "bg-green-500 text-white"
+                          : ["processing"].includes(order.status)
+                            ? "bg-gray-200 text-gray-500"
+                            : "bg-gray-200 text-gray-500"
+                      }`}>
+                        <TruckIcon className="w-5 h-5" />
+                      </div>
+                      <span className={`text-xs font-medium ${
+                        ["shipped", "delivered"].includes(order.status)
+                          ? "text-gray-900"
+                          : "text-gray-500"
+                      }`}>Shipped</span>
+                    </div>
+                    
+                    {/* Delivered step */}
+                    <div className="flex flex-col items-center z-10">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                        order.status === "delivered"
+                          ? "bg-green-500 text-white"
+                          : ["processing", "shipped"].includes(order.status)
+                            ? "bg-gray-200 text-gray-500"
+                            : "bg-gray-200 text-gray-500"
+                      }`}>
+                        <CheckCircleIcon className="w-5 h-5" />
+                      </div>
+                      <span className={`text-xs font-medium ${
+                        order.status === "delivered"
+                          ? "text-gray-900"
+                          : "text-gray-500"
+                      }`}>Delivered</span>
+                    </div>
+                  </div>
+                  
+                  {order.status === "processing" && (
+                    <p className="text-sm text-gray-600">
+                      Your order is being prepared. We'll notify you when it ships.
+                    </p>
+                  )}
+                  {order.status === "shipped" && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                      <p className="text-sm text-blue-800 font-medium">
+                        Your order is on the way!
+                      </p>
+                      {order.trackingNumber && (
+                        <p className="text-sm text-blue-700 mt-1">
+                          Tracking number: <span className="font-medium">{order.trackingNumber}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-red-100 flex items-center justify-center mb-4">
+                    <ExclamationCircleIcon className="w-8 h-8 text-red-600" />
+                  </div>
+                  <p className="text-red-600 font-medium">
+                    This order has been cancelled
+                  </p>
+                  {order.cancellationReason && (
+                    <p className="text-gray-600 mt-2 text-sm">
+                      Reason: {order.cancellationReason}
+                    </p>
+                  )}
+                </div>
+              )}
+            </motion.div>
+
+            {/* Order items */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="bg-white rounded-xl shadow-sm overflow-hidden"
+            >
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Order Items ({order.items.length})
+                </h2>
+              </div>
+              
+              <div className="divide-y divide-gray-200">
+                {order.items.map((item, index) => (
+                  <motion.div 
+                    key={item.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    className="p-6 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex">
+                      <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-white">
+                        <img
+                          src={
+                            item.images && item.images.length > 0
+                              ? `${import.meta.env.VITE_API_URL}/uploads/${item.images[0]}`
+                              : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
+                          }
+                          alt={item.name}
+                          className="w-full h-full object-contain p-2"
+                          onError={(e) => {
+                            e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                          }}
+                        />
+                      </div>
+                      
+                      <div className="ml-4 flex-grow">
+                        <div className="flex justify-between">
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-900">
+                              {item.name}
+                            </h3>
+                            {item.variant && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {item.variant}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900">
+                              ₹{item.price.toFixed(2)}
+                            </p>
+                            {item.originalPrice && item.originalPrice > item.price && (
+                              <p className="text-xs text-gray-500 line-through">
+                                ₹{item.originalPrice.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4 flex justify-between items-end">
+                          <p className="text-sm text-gray-500">
+                            Qty: {item.quantity}
+                          </p>
+                          <p className="text-sm font-medium text-gray-900">
+                            ₹{(item.price * item.quantity).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {order.status === "delivered" && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <button className="text-sm font-medium text-green-600 hover:text-green-700 flex items-center">
+                          <ReceiptRefundIcon className="w-4 h-4 mr-2" />
+                          Request return
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Right column - Order summary */}
+          <div className="lg:col-span-1 space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="bg-white rounded-xl shadow-sm p-6 sticky top-8"
+            >
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Order Summary
               </h2>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Subtotal</span>
                   <span className="text-sm font-medium">
@@ -370,9 +455,11 @@ const OrderedItemsPage = () => {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Shipping</span>
                   <span className="text-sm font-medium">
-                    {order.shippingCost === 0
-                      ? "Free"
-                      : `₹${order.shippingCost.toFixed(2)}`}
+                    {order.shippingCost === 0 ? (
+                      <span className="text-green-600">Free</span>
+                    ) : (
+                      `₹${order.shippingCost.toFixed(2)}`
+                    )}
                   </span>
                 </div>
 
@@ -383,9 +470,9 @@ const OrderedItemsPage = () => {
                   </span>
                 </div>
 
-                <div className="border-t border-gray-200 pt-3 mt-3">
+                <div className="border-t border-gray-200 pt-4 mt-4">
                   <div className="flex justify-between">
-                    <span className="text-base font-medium text-gray-900">
+                    <span className="text-base font-semibold text-gray-900">
                       Total
                     </span>
                     <span className="text-base font-bold text-gray-900">
@@ -395,11 +482,11 @@ const OrderedItemsPage = () => {
                 </div>
               </div>
 
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-2">
+              <div className="mt-8">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
                   Shipping Address
                 </h3>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
                   <p className="font-medium">{order.shippingAddress.name}</p>
                   <p>{order.shippingAddress.street}</p>
                   <p>
@@ -407,35 +494,39 @@ const OrderedItemsPage = () => {
                     {order.shippingAddress.zip}
                   </p>
                   <p>{order.shippingAddress.country}</p>
+                  <p className="mt-2 font-medium">Phone: {order.shippingAddress.phone}</p>
                 </div>
               </div>
 
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-2">
+              <div className="mt-8">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
                   Payment Method
                 </h3>
-                <div className="text-sm text-gray-600">
-                  <p className="capitalize">
-                    {order.paymentMethod.type} ending in{" "}
-                    {order.paymentMethod.last4}
+                <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
+                  <p className="capitalize font-medium">
+                    {order.paymentMethod.type} ending in {order.paymentMethod.last4}
                   </p>
                   {order.paymentMethod.status === "paid" ? (
-                    <p className="inline-flex items-center text-green-600 mt-1">
-                      <CheckCircleIcon className="w-4 h-4 mr-1" />
-                      Paid on{" "}
-                      {new Date(
-                        order.paymentMethod.paidAt
-                      ).toLocaleDateString()}
+                    <p className="inline-flex items-center text-green-600 mt-2">
+                      <CheckCircleIcon className="w-4 h-4 mr-2" />
+                      Paid on {new Date(order.paymentMethod.paidAt).toLocaleDateString()}
                     </p>
                   ) : (
-                    <p className="inline-flex items-center text-yellow-600 mt-1">
-                      <ClockIcon className="w-4 h-4 mr-1" />
+                    <p className="inline-flex items-center text-yellow-600 mt-2">
+                      <ClockIcon className="w-4 h-4 mr-2" />
                       Pending
                     </p>
                   )}
                 </div>
               </div>
-            </div>
+
+              <div className="mt-8">
+                <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center">
+                  <QuestionMarkCircleIcon className="w-4 h-4 mr-2" />
+                  Need Help?
+                </button>
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
