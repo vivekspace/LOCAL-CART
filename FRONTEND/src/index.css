@@ -54,8 +54,47 @@
     }
 }
 
-/* In your main CSS file (e.g., src/index.css or src/App.css) */
 body, html {
     overflow-x: hidden; /* Prevent horizontal scrolling */
     width: 100%; /* Ensure they take up exactly 100% of the viewport width */
 }
+
+@layer components {
+  .btn-default-primary {
+    @apply px-6 py-3 rounded-full text-white bg-green-500 font-semibold hover:bg-green-700 transition-colors duration-300 shadow-md;
+  }
+  .btn-default-secondary {
+    @apply px-6 py-3 rounded-full text-white bg-orange-500 font-semibold hover:bg-orange-600 transition-colors duration-300 shadow-md;
+  }
+  .btn-default-outline-white {
+    @apply px-6 py-3 rounded-full text-white border-2 border-white font-semibold hover:bg-white hover:text-green-500 transition-colors duration-300 shadow-md;
+  }
+  .mission-card-default {
+    @apply bg-white p-8 rounded-lg shadow-lg text-center transform hover:scale-102 transition-transform duration-300 flex flex-col items-center;
+  }
+  .testimonial-card-default {
+    @apply bg-white p-8 rounded-lg shadow-lg max-w-sm flex-shrink-0 text-center;
+  }
+}
+
+/* Basic Animations (if you want subtle entry effects) */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
