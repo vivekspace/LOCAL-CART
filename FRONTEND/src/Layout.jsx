@@ -15,26 +15,32 @@ const Layout = () => {
 
   const isAdminRoute = location.pathname.startsWith("/admin");
 
-  // Show loader while auth state is initializing
   if (loading) {
     return <Loader />;
   }
 
   // Admin layout
-  if (isAdminRoute && currentRole === "admin") {
-    return (
-      <div className="flex h-screen overflow-hidden bg-gray-50">
+if (isAdminRoute && currentRole === "admin") {
+  return (
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      
+      <div className="fixed z-50 h-full">
         <AdminSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <AdminTopbar />
-          <main className="flex-1 overflow-auto p-1 md:p-2 lg:p-2 bg-gray-50">
-            <Outlet />
-          </main>
-        </div>
       </div>
-    );
-  }
 
+      <div className="flex-1 flex flex-col min-w-0 ml-0 md:ml-20 lg:ml-15 transition-all duration-300">
+        
+        <div className=" top-0 right-0 left-0">
+          <AdminTopbar />
+        </div>
+
+        <main className="flex-1 overflow-auto pt-16 p-1 md:p-2 lg:p-2 bg-gray-50">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
   // Vendor layout
   if (currentRole === "vendor") {
     return (
