@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext } from "react";
 import { AuthContext } from "../../Context/Context";
 import {
   ShoppingBag,
@@ -9,40 +9,31 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
+import { Helmet } from "react-helmet-async";
 
 const CartPage = () => {
-  // Destructure all relevant cart functions and state from AuthContext
-  const {
-    cartItems,
-    setCartItems, // We still need this if quantity updates are initiated from CartPage
-    updateCartItemQuantity, // Correct function to update quantity
-    removeFromCart, // Correct function to remove item
-  } = useContext(AuthContext);
+  const { cartItems, setCartItems, updateCartItemQuantity, removeFromCart } =
+    useContext(AuthContext);
 
-  // Added console.log for debugging what CartPage sees
   console.log("CartPage: Rendering with cartItems:", cartItems);
 
   const handleIncrease = (itemId) => {
-    // Use the updateCartItemQuantity from AuthContext
-    const itemToUpdate = cartItems.find(item => item._id === itemId);
+    const itemToUpdate = cartItems.find((item) => item._id === itemId);
     if (itemToUpdate) {
       updateCartItemQuantity(itemId, (itemToUpdate.quantity || 1) + 1);
     }
   };
 
   const handleDecrease = (itemId) => {
-    // Use the updateCartItemQuantity from AuthContext
-    const itemToUpdate = cartItems.find(item => item._id === itemId);
+    const itemToUpdate = cartItems.find((item) => item._id === itemId);
     if (itemToUpdate && (itemToUpdate.quantity || 1) > 1) {
       updateCartItemQuantity(itemId, (itemToUpdate.quantity || 1) - 1);
     } else if (itemToUpdate && (itemToUpdate.quantity || 1) <= 1) {
-      // If quantity is 1 or less, remove the item
       removeFromCart(itemId);
     }
   };
 
   const handleRemove = (itemId) => {
-    // Use the removeFromCart from AuthContext
     removeFromCart(itemId);
   };
 
@@ -59,7 +50,40 @@ const CartPage = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen py-8">
-      <ToastContainer/>
+      <Helmet>
+        <title>{`Your Cart (${totalItems} ${totalItems === 1 ? "item" : "items"}) | LocalCart`}</title>
+        <meta
+          name="description"
+          content="Review your shopping cart on LocalCart. Proceed to checkout to finalize your order of fresh, local products."
+        />
+        <link rel="canonical" href={typeof window !== "undefined" ? window.location.href : ""} />
+
+        <meta
+          property="og:title"
+          content={`Your Cart (${totalItems} ${
+            totalItems === 1 ? "item" : "items"
+          }) | LocalCart`}
+        />
+        <meta
+          property="og:description"
+          content="Review your shopping cart on LocalCart. Proceed to checkout to finalize your order of fresh, local products."
+        />
+        <meta property="og:url" content={typeof window !== "undefined" ? window.location.href : ""} />
+        <meta property="og:type" content="website" />
+
+        <meta name="twitter:card" content="summary" />
+        <meta
+          name="twitter:title"
+          content={`Your Cart (${totalItems} ${
+            totalItems === 1 ? "item" : "items"
+          }) | LocalCart`}
+        />
+        <meta
+          name="twitter:description"
+          content="Review your shopping cart on LocalCart. Proceed to checkout to finalize your order of fresh, local products."
+        />
+      </Helmet>
+      <ToastContainer />
       <div className="container mx-auto px-4 max-w-6xl">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 flex items-center">
@@ -104,19 +128,23 @@ const CartPage = () => {
                       key={item._id}
                       className="p-3 lg:md:p-6 flex items-center hover:bg-gray-50 transition"
                     >
-                      {/* CORRECTED LINE 122 HERE: rounded-lg instead of rounded-1g and flex-shrink-0 fixed */}
                       <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 h-20 w-20 flex-shrink-0">
                         <img
                           src={
                             item.images && item.images.length > 0
-                              ? `${import.meta.env.VITE_API_URL}/uploads/${item.images[0]}`
-                              : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
+                              ? `${import.meta.env.VITE_API_URL}/uploads/${
+                                  item.images[0]
+                                }`
+                              : `${
+                                  import.meta.env.VITE_API_URL
+                                }/uploads/default-product.png`
                           }
                           alt={item.name}
                           className="w-full h-full object-contain"
                           onError={(e) => {
-                            e.target.src =
-                              `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                            e.target.src = `${
+                              import.meta.env.VITE_API_URL
+                            }/uploads/default-product.png`;
                             e.target.onerror = null;
                           }}
                         />
