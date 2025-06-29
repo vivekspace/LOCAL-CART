@@ -13,18 +13,19 @@ import {
   FaFacebookF,
   FaTwitter,
 } from "react-icons/fa";
+import { Helmet } from "react-helmet-async";
 
 const ContactUs = () => {
   const form = useRef();
-  const [isSending, setIsSending] = useState(false); // State for loading
-  const [message, setMessage] = useState(''); // State for success/error message
-  const [isSuccess, setIsSuccess] = useState(null); // State to track if message was success or error
+  const [isSending, setIsSending] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(null);
 
   const sendEmail = async (e) => {
     e.preventDefault();
-    setIsSending(true); // Start loading
-    setMessage(''); // Clear previous messages
-    setIsSuccess(null); // Reset success state
+    setIsSending(true);
+    setMessage('');
+    setIsSuccess(null); 
 
     const formData = new FormData(form.current);
     const payload = {};
@@ -33,9 +34,8 @@ const ContactUs = () => {
     }
 
     try {
-      // Replace with your actual backend URL where the contact route is exposed
-      // e.g., 'http://localhost:5000/api/contact' or 'https://your-api-domain.com/api/contact'
-      const response = await fetch('http://localhost:5000/api/contact', {
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/contact`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -48,7 +48,7 @@ const ContactUs = () => {
       if (response.ok) {
         setMessage(data.message);
         setIsSuccess(true);
-        form.current.reset(); // Clear the form
+        form.current.reset(); 
       } else {
         setMessage(data.message || 'An unexpected error occurred.');
         setIsSuccess(false);
@@ -58,17 +58,40 @@ const ContactUs = () => {
       setMessage('Network error. Please check your internet connection and try again.');
       setIsSuccess(false);
     } finally {
-      setIsSending(false); // End loading
+      setIsSending(false); 
       setTimeout(() => {
         setMessage('');
         setIsSuccess(null);
-      }, 5000); // Clear message after 5 seconds
+      }, 5000); 
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      {/* Vibrant Header */}
+      <Helmet>
+        <title>Contact Us - LocalCart Support & Sales</title>
+        <meta
+          name="description"
+          content="Get in touch with LocalCart for customer support, seller inquiries, and general questions. Find our contact details, email, phone number, and social media links."
+        />
+        <link rel="canonical" href={window.location.href} />
+
+        <meta property="og:title" content="Contact Us - LocalCart Support & Sales" />
+        <meta
+          property="og:description"
+          content="Get in touch with LocalCart for customer support, seller inquiries, and general questions. Find our contact details, email, phone number, and social media links."
+        />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:type" content="website" />
+        
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Contact Us - LocalCart Support & Sales" />
+        <meta
+          name="twitter:description"
+          content="Get in touch with LocalCart for customer support, seller inquiries, and general questions. Find our contact details, email, phone number, and social media links."
+        />
+        
+      </Helmet>
       <div className="text-center mb-12 animate-fade-in">
         <div className="inline-flex items-center justify-center mb-4 bg-green-100 rounded-full p-3">
           <FiShoppingBag className="h-8 w-8 text-green-600" />
@@ -83,7 +106,6 @@ const ContactUs = () => {
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Contact Form - Marketplace Style */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-green-200 hover:shadow-xl transition-all duration-300">
           <div className="p-6 sm:p-8 bg-gradient-to-r from-green-500 to-green-500">
             <h2 className="text-2xl font-bold text-white">Send us a message</h2>
@@ -97,7 +119,7 @@ const ContactUs = () => {
                   </div>
                   <input
                     type="text"
-                    name="name" // Changed from user_name to name to match backend payload
+                    name="name" 
                     className="pl-10 w-full px-4 py-3 rounded-lg border border-green-200 focus:ring-2 focus:ring-green-300 focus:border-transparent transition-all placeholder-gray-400"
                     placeholder="Your name"
                     required
@@ -110,7 +132,7 @@ const ContactUs = () => {
                   </div>
                   <input
                     type="email"
-                    name="email" // Changed from user_email to email to match backend payload
+                    name="email" 
                     className="pl-10 w-full px-4 py-3 rounded-lg border border-green-200 focus:ring-2 focus:ring-green-300 focus:border-transparent transition-all placeholder-gray-400"
                     placeholder="your.email@example.com"
                     required
@@ -140,7 +162,7 @@ const ContactUs = () => {
                 ></textarea>
               </div>
 
-              {message && ( // Display message
+              {message && ( 
                 <p className={`text-center font-medium ${isSuccess ? 'text-green-600' : 'text-red-600'}`}>
                   {message}
                 </p>
@@ -149,7 +171,7 @@ const ContactUs = () => {
               <div>
                 <button
                   type="submit"
-                  disabled={isSending} // Disable button when sending
+                  disabled={isSending} 
                   className="w-full px-6 py-3.5 bg-gradient-to-r from-green-500 to-green-500 hover:from-green-600 hover:to-green-600 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSending ? 'Sending...' : 'Send Message'}
@@ -159,9 +181,7 @@ const ContactUs = () => {
           </div>
         </div>
 
-        {/* Contact Info - LocalCart Style (rest of your existing code) */}
         <div className="space-y-6">
-          {/* Seller Support Card */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-green-200 p-6 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center mb-4">
               <div className="bg-green-100 p-2 rounded-lg mr-4">
@@ -181,7 +201,6 @@ const ContactUs = () => {
             </a>
           </div>
 
-          {/* Contact Card */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-green-200 p-6 hover:shadow-xl transition-all duration-300">
             <h3 className="text-xl font-bold text-gray-900 mb-4">
               Get in Touch
@@ -250,17 +269,17 @@ const ContactUs = () => {
                 {
                   icon: <FaInstagram className="h-5 w-5" />,
                   color: "bg-pink-100 text-pink-600",
-                  href: "https://instagram.com/yourlocalcart", // Add actual links
+                  href: "https://instagram.com/yourlocalcart", 
                 },
                 {
                   icon: <FaFacebookF className="h-5 w-5" />,
                   color: "bg-blue-100 text-blue-600",
-                  href: "https://facebook.com/yourlocalcart", // Add actual links
+                  href: "https://facebook.com/yourlocalcart", 
                 },
                 {
                   icon: <FaTwitter className="h-5 w-5" />,
                   color: "bg-sky-100 text-sky-600",
-                  href: "https://twitter.com/yourlocalcart", // Add actual links
+                  href: "https://twitter.com/yourlocalcart",
                 },
               ].map((social, index) => (
                 <a

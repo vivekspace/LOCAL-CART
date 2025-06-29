@@ -1,8 +1,8 @@
-// src/pages/AboutUsPage.jsx
 import React from 'react';
 import { useAuth } from '../../Context/Context';
 import { motion } from 'framer-motion';
 import { FaLeaf, FaCogs, FaGlobeAmericas, FaHandshake, FaQuoteLeft } from 'react-icons/fa';
+import { Helmet } from 'react-helmet-async';
 
 const AboutUsPage = () => {
   const { selectedLocation } = useAuth();
@@ -23,7 +23,30 @@ const AboutUsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans leading-relaxed">
-      {/* Hero Section */}
+      <Helmet>
+        <title>About LocalCart - Your Farm-Fresh Delivery Partner</title>
+        <meta
+          name="description"
+          content="Learn about LocalCart's mission to connect local farmers with urban homes, providing fresh, sustainable, and convenient grocery shopping in India."
+        />
+        <link rel="canonical" href={window.location.href} />
+
+        <meta property="og:title" content="About LocalCart - Your Farm-Fresh Delivery Partner" />
+        <meta
+          property="og:description"
+          content="Learn about LocalCart's mission to connect local farmers with urban homes, providing fresh, sustainable, and convenient grocery shopping in India."
+        />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://images.unsplash.com/photo-1606787366850-de6330128bfc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2940&q=80" /> 
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="About LocalCart - Your Farm-Fresh Delivery Partner" />
+        <meta
+          name="twitter:description"
+          content="Learn about LocalCart's mission to connect local farmers with urban homes, providing fresh, sustainable, and convenient grocery shopping in India."
+        />
+        <meta name="twitter:image" content="https://images.unsplash.com/photo-1606787366850-de6330128bfc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2940&q=80" />
+      </Helmet>
       <section className="relative bg-gradient-to-br from-green-500 to-green-700 py-28 md:py-36 overflow-hidden text-center">
         <div className="absolute inset-0 bg-black/30 z-0"></div>
         <div className="container mx-auto px-4 relative z-10">
@@ -54,7 +77,6 @@ const AboutUsPage = () => {
             </motion.div>
           </motion.div>
         </div>
-        {/* Background Image Overlay */}
         <div className="absolute inset-0 z-0">
           <img
             src="https://images.unsplash.com/photo-1606787366850-de6330128bfc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2940&q=80"
@@ -65,7 +87,6 @@ const AboutUsPage = () => {
         </div>
       </section>
 
-      {/* Our Story Section */}
       <section className="py-20 md:py-28 bg-white">
         <div className="container mx-auto px-4">
           <motion.div 
