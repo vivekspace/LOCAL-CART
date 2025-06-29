@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect, useCallback } from "react";
 import { AuthContext } from "../../Context/Context";
-import { toast, ToastContainer } from "react-toastify"; // Keep ToastContainer if you render it here
+import { toast, ToastContainer } from "react-toastify"; 
 import {
   CreditCard,
   ShieldCheck,
@@ -13,43 +13,41 @@ import {
   Trash2,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async"; 
 
 const Checkout = () => {
   const {
     cartItems: cart,
     user,
-    token, // Token is now correctly received from AuthContext after fix
+    token,
     selectedLocation,
   } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // --- Address States ---
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [isFetchingAddresses, setIsFetchingAddresses] = useState(true);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const [editingAddressId, setEditingAddressId] = useState(null); // Stores ID of address being edited
+  const [editingAddressId, setEditingAddressId] = useState(null); 
 
   // --- Form Data State ---
   const [formData, setFormData] = useState({
     firstname: "",
     lastname: "",
     phone: "",
-    street: "", // Consistent with backend property
-    apartment: "", // Consistent with backend property
+    street: "", 
+    apartment: "",
     city: "",
-    zipCode: "", // Consistent with backend property
-    email: user?.email || "", // Pre-fill if user exists
-    state: "Maharashtra", // Default state
+    zipCode: "", 
+    email: user?.email || "", 
+    state: "Maharashtra", 
   });
 
-  // --- UI / Loading States ---
   const [shippingMethod, setShippingMethod] = useState("standard");
-  const [isSubmitting, setIsSubmitting] = useState(false); // For "Continue to Payment"
-  const [isSavingAddress, setIsSavingAddress] = useState(false); // For Add/Edit Address Form submission
-  const [isDeletingAddress, setIsDeletingAddress] = useState(false); // For Delete Address action
+  const [isSubmitting, setIsSubmitting] = useState(false); 
+  const [isSavingAddress, setIsSavingAddress] = useState(false); 
+  const [isDeletingAddress, setIsDeletingAddress] = useState(false); 
 
-  // --- Derived Values ---
   const subtotal = cart.reduce(
     (sum, item) => sum + item.price * (item.quantity || 1),
     0
@@ -57,8 +55,7 @@ const Checkout = () => {
   const shippingCost = shippingMethod === "express" ? 100 : 50;
   const totalPrice = subtotal + shippingCost;
 
-  // --- Helper to prefill form fields from an address object (Memoized) ---
-  // Using useCallback because it's a dependency of useEffect for fetching addresses
+ 
   const prefillFormWithAddress = useCallback(
     (address) => {
       if (!address) return;
@@ -71,40 +68,36 @@ const Checkout = () => {
         firstname: firstName,
         lastname: lastName,
         phone: address.phone || "",
-        street: address.street || "", // Maps to address.street
-        apartment: address.apartment || "", // Maps to address.apartment
+        street: address.street || "", 
+        apartment: address.apartment || "", 
         city: address.city || "",
-        zipCode: address.zipCode || "", // Maps to address.zipCode
+        zipCode: address.zipCode || "", 
         email: user?.email || "",
         state: address.state || "Maharashtra",
       });
     },
     [user?.email]
-  ); // Dependency on user.email for email pre-fill
-
-  // --- Effects ---
-
-  // Effect to populate form from selectedLocation (geolocation) for NEW addresses
+  ); 
+  
   useEffect(() => {
     if (
-      showAddressForm && // The address form is visible
-      !editingAddressId && // Not currently editing an existing address
-      selectedLocation && // Geolocation data is available
-      selectedLocation.type === "current_location" && // It's specifically a current location
-      selectedLocation.city && // And it has a city
-      selectedLocation.city.toLowerCase() !== "current location" // Avoid placeholder city names
+      showAddressForm && 
+      !editingAddressId && 
+      selectedLocation && 
+      selectedLocation.type === "current_location" && 
+      selectedLocation.city && 
+      selectedLocation.city.toLowerCase() !== "current location"
     ) {
       setFormData((prev) => ({
         ...prev,
         city:
           selectedLocation.city.charAt(0).toUpperCase() +
           selectedLocation.city.slice(1),
-        state: "Maharashtra", // Assuming this is always true for your current location. Adjust if needed.
+        state: "Maharashtra", 
       }));
     }
-  }, [selectedLocation, showAddressForm, editingAddressId]); // Dependencies
+  }, [selectedLocation, showAddressForm, editingAddressId]); 
 
-  // Effect to fetch saved addresses on component mount or when user/token changes
   useEffect(() => {
     console.log("Starting address fetch...");
     const fetchAddresses = async () => {
@@ -118,8 +111,7 @@ const Checkout = () => {
         if (!user || !token) {
           console.log("No user or token, showing guest form");
           setIsFetchingAddresses(false);
-          setShowAddressForm(true); // Always show form for guest users
-          // For guests, attempt to pre-fill from geolocation if available
+          setShowAddressForm(true); 
           if (
             selectedLocation &&
             selectedLocation.type === "current_location" &&
@@ -133,7 +125,6 @@ const Checkout = () => {
               state: "Maharashtra",
             }));
           } else {
-            // Ensure email is set even for guests if user object is available (e.g., from a partial guest session)
             setFormData((prev) => ({
               ...prev,
               email: user?.email || prev.email,
@@ -178,12 +169,10 @@ const Checkout = () => {
           setShowAddressForm(false);
         } else {
           setShowAddressForm(true);
-          // Only prefill email if user is logged in
           setFormData((prev) => ({
             ...prev,
             email: user?.email || prev.email,
           }));
-          // Pre-fill city from geolocation if no addresses exist
           if (
             selectedLocation &&
             selectedLocation.type === "current_location" &&
@@ -202,7 +191,6 @@ const Checkout = () => {
         console.error("Error fetching addresses:", error);
         toast.error("Failed to load saved addresses");
         setShowAddressForm(true);
-        // Pre-fill city from geolocation on error as well
         if (
           selectedLocation &&
           selectedLocation.type === "current_location" &&
@@ -234,17 +222,15 @@ const Checkout = () => {
     );
     if (selectedAddress) {
       prefillFormWithAddress(selectedAddress);
-      setShowAddressForm(false); // Hide the form if an existing address is selected
-      setEditingAddressId(null); // Clear editing state
+      setShowAddressForm(false); 
+      setEditingAddressId(null); 
     }
   };
 
-  // Handle "Add New" button click
   const handleAddNewAddress = () => {
-    setSelectedAddressId(""); // Deselect any chosen address
-    setEditingAddressId(null); // Ensure no address is in editing mode
-    setShowAddressForm(true); // Show the blank form
-    // Clear form data for a fresh start, pre-filling email and potential geolocation city
+    setSelectedAddressId("");
+    setEditingAddressId(null); 
+    setShowAddressForm(true);
     setFormData({
       firstname: "",
       lastname: "",
@@ -271,15 +257,13 @@ const Checkout = () => {
     }
   };
 
-  // Handle "Edit" icon click for a saved address
   const handleEditAddress = (address) => {
-    setEditingAddressId(address._id); // Set the ID of the address being edited
-    setSelectedAddressId(address._id); // Keep this address selected
-    setShowAddressForm(true); // Show the form
-    prefillFormWithAddress(address); // Populate the form with the address data
+    setEditingAddressId(address._id); 
+    setSelectedAddressId(address._id);
+    setShowAddressForm(true); 
+    prefillFormWithAddress(address); 
   };
 
-  // Handle deleting an address
   const handleDeleteAddress = async (addressId) => {
     if (!user || !token) {
       toast.error("You must be logged in to delete addresses.");
@@ -308,18 +292,15 @@ const Checkout = () => {
         );
         toast.success("Address deleted successfully");
 
-        // If the deleted address was the selected one, unselect it and show the form
         if (selectedAddressId === addressId) {
           setSelectedAddressId("");
-          // If there are other addresses, select the first one; otherwise, show the form
           if (savedAddresses.length - 1 > 0) {
-            // Check if any addresses left
             setSelectedAddressId(savedAddresses[0]._id);
             prefillFormWithAddress(savedAddresses[0]);
             setShowAddressForm(false);
           } else {
             setShowAddressForm(true);
-            handleAddNewAddress(); // Re-initialize form for a new address
+            handleAddNewAddress();
           }
         }
       } else {
@@ -549,10 +530,8 @@ const Checkout = () => {
       );
     }
 
-    // If no saved/selected address (e.g., guest user filling form)
     if (!finalAddressForOrder && showAddressForm && !user) {
-      // Only create temp if guest and form is shown.
-      // Also, use the `formData` directly for the temporary address as it holds the current user input.
+      
       finalAddressForOrder = {
         _id: "temp-" + Date.now(),
         name: `${formData.firstname} ${formData.lastname}`.trim(),
@@ -572,24 +551,21 @@ const Checkout = () => {
       return;
     }
 
-    // --- CRITICAL FIX: Construct orderData to match backend schema ---
     const orderData = {
       customerDetails: {
-        // Ensure these match the schema (firstname, lastname, email, phone)
-        firstname: formData.firstname, // Use formData directly as it's updated from selected/temp address
-        lastname: formData.lastname, // Use formData directly
-        phone: formData.phone, // Use formData directly
-        email: formData.email.toLowerCase().trim(), // Email from form data
+        firstname: formData.firstname, 
+        lastname: formData.lastname, 
+        phone: formData.phone, 
+        email: formData.email.toLowerCase().trim(), 
       },
       shippingAddress: {
-        // Ensure these match the schema (name, street, apartment, city, state, zip, country)
-        name: `${formData.firstname} ${formData.lastname}`.trim(), // Combined name for shipping address
+        name: `${formData.firstname} ${formData.lastname}`.trim(), 
         street: formData.street,
         apartment: formData.apartment,
         city: formData.city,
         state: formData.state,
-        zip: formData.zipCode, // Mapped frontend `zipCode` to backend `zip`
-        country: finalAddressForOrder.country || "India", // Assuming a default or from fetched address
+        zip: formData.zipCode, 
+        country: finalAddressForOrder.country || "India", 
       },
       cartItems: cart.map((item) => ({
         productId: item._id,
@@ -598,33 +574,24 @@ const Checkout = () => {
         price: item.price,
         seller: item.seller?._id || item.vendorId || item.sellerId,
       })),
-      shippingMethod, // This is fine as a top-level field for now if your backend supports it,
-      // otherwise it needs to be integrated into paymentDetails or a new shippingDetails object
-      // NOTE: Your backend schema currently has shippingCost, tax, subtotal, discount, totalAmount directly under the order, not within paymentDetails
+      shippingMethod, 
       subtotal: subtotal,
       shippingCost: shippingCost,
-      // Assuming 0 tax and discount for now, you'll need to calculate these if applicable
       tax: 0,
       discount: 0,
       totalAmount: totalPrice,
-      // orderDate is often handled by createdAt timestamp in backend, so you might not need to send this
     };
 
-    // Log the constructed orderData to verify before navigation
     console.log("Order Data being sent to payment:", orderData);
 
     navigate("/payment", {
       state: {
-        orderData: orderData, // Pass the fully constructed orderData
-        // If the Payment component needs form data, pass the refined customerDetails and shippingAddress separately if needed,
-        // but `orderData` should be the primary payload for order creation.
+        orderData: orderData, 
         formData: {
-          // This `formData` is for the payment page to display customer/shipping info
           customerName: `${orderData.customerDetails.firstname} ${orderData.customerDetails.lastname}`,
           customerEmail: orderData.customerDetails.email,
           customerPhone: orderData.customerDetails.phone,
-          shippingAddressFull: formatFullAddress(orderData.shippingAddress), // Use your existing formatter
-          // Add any other specific fields the payment page needs from `orderData`
+          shippingAddressFull: formatFullAddress(orderData.shippingAddress), 
         },
       },
     });
@@ -632,6 +599,14 @@ const Checkout = () => {
   };
   return (
     <div className="bg-gray-50 min-h-screen py-8">
+      <Helmet>
+        <title>Checkout - Complete Your Order | Your Store Name</title>
+        <meta
+          name="description"
+          content={`Proceed to checkout with ${cart.length} items totaling ₹${totalPrice.toFixed(2)}. Manage shipping addresses and select delivery options.`}
+        />
+       
+      </Helmet>
       <ToastContainer position="top-center" />
       <div className="container mx-auto px-4 max-w-6xl">
         <header className="mb-8">
