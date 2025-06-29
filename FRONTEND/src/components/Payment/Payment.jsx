@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { AuthContext } from "../../Context/Context";
@@ -28,11 +28,9 @@ const PaymentPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 3. State Initialization
   const { orderData, formData } = location.state || {};
   const cartItems = orderData?.cartItems || contextCartItems || [];
 
-  // 4. Payment State Management
   const [selectedPayment, setSelectedPayment] = useState("card");
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -54,7 +52,6 @@ const PaymentPage = () => {
     name: "",
   });
 
-  // 6. Payment Methods Configuration
   const paymentMethods = [
     {
       id: "card",
@@ -91,10 +88,9 @@ const PaymentPage = () => {
       color: "purple",
       description: "Pay when you receive your order",
     },
-    // ... other payment methods
+    
   ];
 
-  // 7. Order Calculations
   const totalPrice = cartItems.reduce(
     (sum, item) => sum + item.price * (item.quantity || 1),
     0
@@ -103,19 +99,16 @@ const PaymentPage = () => {
   const tax = totalPrice * 0.08;
   const finalTotal = totalPrice + tax + shippingCost;
 
-  // 8. Card Validation
   const validateCard = () => {
     const errors = {};
     const cleanNumber = cardDetails.number.replace(/\s/g, "");
 
-    // Card number validation
     if (!cleanNumber) {
       errors.number = "Card number is required";
     } else if (!cleanNumber.match(/^\d{16}$/)) {
       errors.number = "Invalid card number (16 digits required)";
     }
 
-    // Expiry validation
     if (!cardDetails.expiry) {
       errors.expiry = "Expiry date is required";
     } else if (!cardDetails.expiry.match(/^\d{2}\/\d{2}$/)) {
@@ -135,14 +128,12 @@ const PaymentPage = () => {
       }
     }
 
-    // CVC validation
     if (!cardDetails.cvc) {
       errors.cvc = "Security code is required";
     } else if (!cardDetails.cvc.match(/^\d{3,4}$/)) {
       errors.cvc = "Invalid security code (3-4 digits)";
     }
 
-    // Name validation
     if (!cardDetails.name.trim()) {
       errors.name = "Cardholder name is required";
     } else if (cardDetails.name.trim().length < 2) {
@@ -154,7 +145,6 @@ const PaymentPage = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // 9. Data Validation Effect
   useEffect(() => {
     console.log("PaymentPage received formData:", formData);
     console.log("PaymentPage received orderData:", orderData);
@@ -164,17 +154,14 @@ const PaymentPage = () => {
     }
   }, [orderData, formData, cartItems, navigate]);
 
-  // 10. Input Formatting
   const formatCardNumber = (value) =>
     value.replace(/\D/g, "").replace(/(\d{4})(?=\d)/g, "$1 ");
   const formatExpiry = (value) =>
     value.replace(/\D/g, "").replace(/(\d{2})(?=\d)/g, "$1/");
 
-  //10.1 validateformdata
 
   const validateFormData = () => {
     console.log("=== FORM DATA VALIDATION ===");
-    // Use orderData for validation as it contains structured details
     const customerDetails = orderData?.customerDetails;
     const shippingAddress = orderData?.shippingAddress;
 
@@ -189,7 +176,6 @@ const PaymentPage = () => {
 
     const missingFields = [];
 
-    // Validate customer details
     const requiredCustomerFields = ["email", "firstname", "lastname", "phone"];
     requiredCustomerFields.forEach((field) => {
       if (!customerDetails[field]) {
@@ -197,8 +183,7 @@ const PaymentPage = () => {
       }
     });
 
-    // Validate shipping address
-    const requiredShippingFields = ["street", "city", "state", "zip"]; // Assuming 'zip' for pincode
+    const requiredShippingFields = ["street", "city", "state", "zip"]; 
     requiredShippingFields.forEach((field) => {
       if (!shippingAddress[field]) {
         missingFields.push(`shippingAddress.${field}`);
@@ -221,7 +206,6 @@ const PaymentPage = () => {
     return true;
   };
 
-  // 11. Main Payment Handler
   const handlePayment = async () => {
     console.log("=== PAYMENT PROCESS STARTED ===");
     console.log("Order Data:", orderData);
@@ -229,7 +213,6 @@ const PaymentPage = () => {
     console.log("Cart Items:", cartItems);
     console.log("Selected Payment:", selectedPayment);
 
-    // Enhanced validation with detailed logging
     if (
       !orderData ||
       !orderData.customerDetails ||
@@ -240,7 +223,6 @@ const PaymentPage = () => {
       return;
     }
 
-    // --- New Validation based on orderData structure ---
     const requiredCustomerFields = ["email", "firstname", "lastname", "phone"];
     const missingCustomerFields = requiredCustomerFields.filter(
       (field) => !orderData.customerDetails[field]
@@ -252,7 +234,7 @@ const PaymentPage = () => {
       return;
     }
 
-    const requiredShippingFields = ["street", "city", "state", "zip"]; // Using 'zip' as per your orderData
+    const requiredShippingFields = ["street", "city", "state", "zip"]; 
     const missingShippingFields = requiredShippingFields.filter(
       (field) => !orderData.shippingAddress[field]
     );
@@ -261,7 +243,7 @@ const PaymentPage = () => {
         `Missing shipping address details: ${missingShippingFields.join(", ")}`
       );
       return;
-    } // --- End New Validation ---
+    } 
     if (!cartItems.length) {
       console.error("Empty cart items");
       toast.error("Cart is empty");
@@ -269,7 +251,6 @@ const PaymentPage = () => {
     }
 
     if (!validateFormData()) {
-      // ✅ NEW: Enhanced form validation
       return;
     }
 
@@ -279,7 +260,6 @@ const PaymentPage = () => {
       return;
     }
 
-    // Card validation with detailed logging
     if (selectedPayment === "card") {
       console.log("Validating card details:", cardDetails);
       const isCardValid = validateCard();
@@ -292,7 +272,6 @@ const PaymentPage = () => {
       }
     }
 
-    // Bank transfer validation
     if (selectedPayment === "bank_transfer" && !bankReceipt) {
       toast.error("Please upload payment receipt for bank transfer");
       return;
@@ -344,28 +323,24 @@ const PaymentPage = () => {
           last4: cardDetails.number.replace(/\s/g, "").slice(-4),
         };
       case "paypal":
-        // Simulate PayPal payment success
         return {
           method: "paypal",
           status: "paid",
           transactionId: `paypal_${Date.now()}`,
         };
       case "googlepay":
-        // Simulate Google Pay payment success
         return {
           method: "googlepay",
           status: "paid",
           transactionId: `googlepay_${Date.now()}`,
         };
       case "bank_transfer":
-        // Simulate bank transfer (pending verification)
         return {
           method: "bank_transfer",
           status: "pending",
           transactionId: `bank_${Date.now()}`,
         };
       case "cod":
-        // Cash on Delivery (unpaid)
         return {
           method: "cod",
           status: "pending",
@@ -376,33 +351,26 @@ const PaymentPage = () => {
     }
   };
 
-  // 13. Vendor ID Extraction (Improved)
   const getVendorId = (item) => {
     const seller = item.seller;
 
-    // Prioritize direct object access
     if (typeof seller === "object" && seller !== null) {
-      return seller._id || seller.id || null; // Ensure it returns null if no ID found in object
+      return seller._id || seller.id || null; 
     }
 
-    // Handle string seller IDs
     if (typeof seller === "string") {
-      // A simple check for a non-empty string that looks like an ID
       if (seller.length === 24 && /^[0-9a-fA-F]+$/.test(seller)) {
         return seller;
       }
-      // Attempt to parse if it might be a stringified object
       try {
         const parsed = JSON.parse(seller);
-        return parsed._id || parsed.id || null; // Ensure null if ID not found in parsed object
+        return parsed._id || parsed.id || null; 
       } catch (e) {
         console.log("Vendor id issue ", e);
-        // Not a valid JSON string, and not a direct ID string
         return null;
       }
     }
 
-    // Fallback to other properties
     return item.vendor?.id || item.vendorId || null;
   };
 
@@ -411,12 +379,10 @@ const PaymentPage = () => {
       const enhancedItems = await Promise.all(
         items.map(async (item) => {
           try {
-            // If seller info is already present, return as is
             if (item.seller && getVendorId(item)) {
               return item;
             }
 
-            // Fetch product details to get seller info
             const productId = item.productId || item._id || item.id;
             if (productId) {
               const response = await axios.get(
@@ -436,7 +402,6 @@ const PaymentPage = () => {
               }
             }
 
-            // Return original item if no seller found
             return item;
           } catch (error) {
             console.error(
@@ -451,21 +416,18 @@ const PaymentPage = () => {
       return enhancedItems;
     } catch (error) {
       console.error("Error enhancing cart items:", error);
-      return items; // Return original items if enhancement fails
+      return items; 
     }
   };
 
-  // 14. Order Creation
   const createOrder = async (paymentResult, orderStatus) => {
     try {
       console.log("=== CREATE ORDER DEBUG ===");
       console.log("formData received:", formData);
       console.log("formData.email:", formData?.email);
 
-      // Enhanced cart items
       const enhancedCartItems = await enhanceCartItemsWithSellerInfo(cartItems);
 
-      // Safe email handling
       const safeEmail = formData?.customerEmail
         ? formData.customerEmail.toLowerCase().trim()
         : "";
@@ -477,9 +439,9 @@ const PaymentPage = () => {
   paymentResult.method === 'cod' ? 'pending' : paymentResult.status;
       const orderPayload = {
         customerDetails: {
-          email: orderData.customerDetails.email, // Ensure this matches your schema's field name (email)
-          firstname: orderData.customerDetails.firstname, // Match backend schema (firstname)
-          lastname: orderData.customerDetails.lastname, // Match backend schema (lastname)
+          email: orderData.customerDetails.email, 
+          firstname: orderData.customerDetails.firstname,
+          lastname: orderData.customerDetails.lastname,
           phone: orderData.customerDetails.phone,
         },
         cartItems: enhancedCartItems.map((item) => {
@@ -500,14 +462,13 @@ const PaymentPage = () => {
         },
         shipping: {
           method: orderData?.shippingMethod || "standard",
-          cost: shippingCost, // Make sure this is consistent with backend's expectation or calculated on backend
+          cost: shippingCost, 
           address: {
-            // ✅ FIX: Use orderData.shippingAddress properties here
-            line1: orderData.shippingAddress.street, // This should be populated from Checkout.jsx's orderData
-            line2: orderData.shippingAddress.apartment || "", // Use apartment if available, or keep as empty string
+            line1: orderData.shippingAddress.street,
+            line2: orderData.shippingAddress.apartment || "",
             city: orderData.shippingAddress.city,
             state: orderData.shippingAddress.state,
-            pincode: orderData.shippingAddress.zip, // This should be populated from Checkout.jsx's orderData
+            pincode: orderData.shippingAddress.zip,
             country: orderData.shippingAddress.country || "India",
           },
         },
@@ -574,6 +535,7 @@ const PaymentPage = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen py-8">
+      <ToastContainer position="top-center" draggable />
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header and progress indicator */}
         <header className="mb-8">
@@ -971,7 +933,6 @@ const PaymentPage = () => {
   );
 };
 
-// Card Payment Form Component
 const CardPaymentForm = ({
   cardDetails,
   setCardDetails,
