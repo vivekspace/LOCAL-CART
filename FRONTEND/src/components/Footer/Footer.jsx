@@ -58,7 +58,7 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/vendors" className="text-gray-400 hover:text-emerald-400 transition-all duration-300 flex items-center group">
+                <Link to="/vendors/register" className="text-gray-400 hover:text-emerald-400 transition-all duration-300 flex items-center group">
                   <span className="mr-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-all duration-300">
                     <FiArrowRight className="group-hover:translate-x-1 transition-transform"/>
                   </span>
