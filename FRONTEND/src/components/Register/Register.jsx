@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../../Context/Context";
 import { ToastContainer } from "react-toastify";
+import { Helmet } from "react-helmet-async"; 
 
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
@@ -21,7 +22,7 @@ export default function Register() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "customer", // Changed from "user" to match your backend enum
+    role: "customer", 
     acceptTerms: false,
   });
 
@@ -65,7 +66,6 @@ export default function Register() {
       [name]: type === "checkbox" ? checked : value,
     }));
 
-    // Clear error when user types
     if (errors[name]) {
       setErrors((prev) => ({
         ...prev,
@@ -77,7 +77,6 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Form submitted:", validateForm());
-    // First validate the form
     if (!validateForm()) {
       return;
     }
@@ -85,7 +84,6 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      // Use the register function from context
       const response = await register(formData);
 
       if (!response || !response.success) {
@@ -93,7 +91,6 @@ export default function Register() {
         throw new Error(response?.message || "Registration failed");
       }
 
-      // Handle successful registration
       toast.success("Account created successfully!");
       navigate("/");
     } catch (error) {
@@ -106,8 +103,26 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4">
+      <Helmet>
+        <title>Register - Create Your Account | LocalCart</title>
+        <meta
+          name="description"
+          content="Create a free account on LocalCart to start shopping for fresh, local products and support community businesses. Fast and secure registration."
+        />
+        <link rel="canonical" href={window.location.href} />
+
+        <meta property="og:title" content="Register - Create Your Account | LocalCart" />
+        <meta property="og:description" content="Create a free account on LocalCart to start shopping for fresh, local products and support community businesses. Fast and secure registration." />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:type" content="website" />
+        
+
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="Register - Create Your Account | LocalCart" />
+        <meta name="twitter:description" content="Create a free account on LocalCart to start shopping for fresh, local products and support community businesses. Fast and secure registration." />
+       
+      </Helmet>
       <ToastContainer/>
-      {/* Decorative elements */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
       <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
 
@@ -118,7 +133,6 @@ export default function Register() {
         className="w-full max-w-md"
       >
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Header section with gradient */}
           <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 text-center">
             <motion.div
               animate={{
@@ -292,10 +306,8 @@ export default function Register() {
                 )}
               </div>
 
-              {/* Role selection (hidden if not needed) */}
               <input type="hidden" name="role" value={formData.role} />
 
-              {/* Terms checkbox */}
               <div className="flex items-start mb-6">
                 <div className="flex items-center h-5">
                   <input

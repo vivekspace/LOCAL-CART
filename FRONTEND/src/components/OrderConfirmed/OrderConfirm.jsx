@@ -2,15 +2,14 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle, ShoppingBag, Home, Printer } from "react-feather";
 import { toast } from "react-toastify";
+import { Helmet } from "react-helmet-async"; // <-- Don't forget to import Helmet
 
 const OrderConfirmation = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { orderId, paymentDetails, amount } = state || {};
-  console.log(orderId, paymentDetails , amount)
-  
+  console.log(orderId, paymentDetails, amount);
 
-  // Redirect if accessed without order data
   useEffect(() => {
     if (!orderId) {
       toast.error("Invalid order access");
@@ -18,8 +17,37 @@ const OrderConfirmation = () => {
     }
   }, [orderId, navigate]);
 
+  if (!orderId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <p className="text-gray-600">Redirecting...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Helmet>
+        <title>Order Confirmed! - #{orderId} | EcoHarvest</title>
+        <meta
+          name="description"
+          content={`Your order #${orderId} with EcoHarvest has been successfully confirmed. Total amount paid: $${amount?.toFixed(2) || 'N/A'}. Thank you for your purchase!`}
+        />
+        <link rel="canonical" href={window.location.href} />
+
+        <meta property="og:title" content={`Order Confirmed! - #${orderId} | EcoHarvest`} />
+        <meta property="og:description" content={`Your order #${orderId} with EcoHarvest has been successfully confirmed. Total amount paid: $${amount?.toFixed(2) || 'N/A'}.`} />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:type" content="website" />
+
+       
+
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content={`Order Confirmed! - #${orderId} | EcoHarvest`} />
+        <meta name="twitter:description" content={`Your order #${orderId} with EcoHarvest has been successfully confirmed. Total amount paid: $${amount?.toFixed(2) || 'N/A'}.`} />
+        
+      </Helmet>
+
       <div className="bg-white rounded-xl shadow-md overflow-hidden w-full max-w-md">
         {/* Header */}
         <div className="bg-green-100 p-6 text-center">

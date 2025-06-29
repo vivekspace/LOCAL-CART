@@ -4,6 +4,7 @@ import { AuthContext } from "../../Context/Context";
 import { useNavigate } from "react-router-dom";
 import { HeroSlider } from "../HeroSlider/HeroSlider";
 import { ToastContainer } from "react-toastify";
+import { Helmet } from "react-helmet-async"; // Import Helmet
 
 const ShoppingPage = () => {
   const [categories, setCategories] = useState([]);
@@ -144,6 +145,35 @@ const ShoppingPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+      <Helmet>
+        <title>Shop Fresh - LocalCart | Farm Fresh Products Delivered</title>
+        <meta
+          name="description"
+          content="Discover a wide variety of farm-fresh products, locally sourced groceries, and artisanal goods. Shop fruits, vegetables, dairy, bakery, and more at LocalCart."
+        />
+        <meta
+          name="keywords"
+          content="online grocery, farm fresh, local produce, fresh fruits, fresh vegetables, dairy, bakery, organic food, LocalCart, online shopping, artisanal goods, home delivery"
+        />
+        {/* Open Graph Meta Tags for Social Sharing */}
+        <meta property="og:title" content="Shop Fresh - LocalCart" />
+        <meta
+          property="og:description"
+          content="Discover a wide variety of farm-fresh products, locally sourced groceries, and artisanal goods. Shop fruits, vegetables, dairy, bakery, and more at LocalCart."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://www.localcart.com/shop" /> {/* Replace with your actual URL */}
+        <meta property="og:image" content="https://www.localcart.com/images/og-shop-image.jpg" /> {/* Replace with a relevant image URL */}
+        {/* Twitter Card Meta Tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Shop Fresh - LocalCart" />
+        <meta
+          name="twitter:description"
+          content="Discover a wide variety of farm-fresh products, locally sourced groceries, and artisanal goods. Shop fruits, vegetables, dairy, bakery, and more at LocalCart."
+        />
+        <meta name="twitter:image" content="https://www.localcart.com/images/twitter-shop-image.jpg" /> {/* Replace with a relevant image URL */}
+      </Helmet>
+
       <HeroSlider />
       <ToastContainer position="top-center" />
 
@@ -258,7 +288,7 @@ const ShoppingPage = () => {
                                   }/uploads/${product.images[0]}`}
                                   alt={product.name}
                                   // IMPORTANT FIX: object-cover changed to object-contain for search results thumbnails
-                                  className="w-full h-full object-contain" 
+                                  className="w-full h-full object-contain"
                                   loading="lazy"
                                   decoding="async"
                                   width="200" // Adding explicit width/height for better performance

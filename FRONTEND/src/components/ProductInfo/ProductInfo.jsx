@@ -4,61 +4,48 @@ import { AuthContext } from "../../Context/Context";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MapComponent from "../MapComponent/MapComponent";
-import axios from "axios"; // Import axios for API calls
+import axios from "axios"; 
+import {Helmet} from "react-helmet-async"; // Import Helmet for SEO
 
-// --- Extracted ProductImageGallery component ---
 const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
   const productImages = useMemo(() => {
     if (product?.images?.length > 0) {
-      // Ensure image paths are absolute URLs
       return product.images.map(
         (img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`
       );
     }
-    // Fallback to a default product image if no images are available
     return [`${import.meta.env.VITE_API_URL}/uploads/default-product.png`];
   }, [product]);
 
-  // Define consistent dimensions for images
-  const mainImageWidth = 600; // Adjust based on your design
-  const mainImageHeight = 450; // Adjust based on your design (e.g., 4:3 aspect ratio)
+  const mainImageWidth = 600; 
+  const mainImageHeight = 450; 
   const thumbnailWidth = 80;
   const thumbnailHeight = 60;
 
   return (
     <div className="md:w-1/2 p-6">
-      {/* Main Image Display */}
       <div className="relative h-96 w-full mb-4 rounded-xl overflow-hidden">
-        {/* Using <picture> for Main Image for potential WebP optimization and fallbacks */}
         <picture>
-          {/* WebP source (if your server generates .webp versions, otherwise remove) */}
-          {/* <source
-            srcSet={`${productImages[selectedImage]}`}
-            type="image/webp"
-          /> */}
-          {/* Fallback source (original format) */}
+          
           <img
             src={productImages[selectedImage]}
             alt={product.name}
-            // IMPORTANT FIX: Changed object-cover to object-contain for the main image
             className="w-full h-full object-contain transition-opacity duration-300"
-            loading="eager" // Main product image is LCP candidate, so eager load
-            decoding="async" // Allow async decoding
+            loading="eager"
+            decoding="async" 
             width={mainImageWidth}
             height={mainImageHeight}
             onError={(e) => {
-              // Fallback to default image if error occurs
               e.target.src = `${
                 import.meta.env.VITE_API_URL
               }/uploads/default-product.png`;
-              e.target.onerror = null; // Prevent infinite loop
+              e.target.onerror = null; 
               e.target.className =
-                "w-full h-full object-contain bg-gray-100 p-4"; // Ensure fallback also uses object-contain
+                "w-full h-full object-contain bg-gray-100 p-4"; 
             }}
           />
         </picture>
 
-        {/* Product Badges (ensure these fields exist on your product object) */}
         {product.isNew && ( // Assuming 'isNew' is a boolean field
           <div className="absolute top-4 left-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
             NEW ARRIVAL
@@ -67,7 +54,6 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
         {product.discountPrice &&
           product.price > product.discountPrice && ( // Use discountPrice from backend
             <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-              {/* Calculate discount percentage dynamically */}
               {Math.round(
                 ((product.price - product.discountPrice) / product.price) * 100
               )}
@@ -91,11 +77,11 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
               <img
                 src={img}
                 alt={`${product.name} thumbnail ${index + 1}`}
-                className="w-full h-full object-contain" // Already fixed this one, keeping as object-contain
-                loading="lazy" // Thumbnails can be lazy-loaded
+                className="w-full h-full object-contain"
+                loading="lazy"
                 decoding="async"
-                width={thumbnailWidth} // Add width for thumbnails
-                height={thumbnailHeight} // Add height for thumbnails
+                width={thumbnailWidth}
+                height={thumbnailHeight}
                 onError={(e) => {
                   e.target.src = `${
                     import.meta.env.VITE_API_URL
@@ -392,6 +378,26 @@ const ProductCardPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Helmet>
+        <title>{foundProduct.name} - Buy {foundProduct.category} | EcoHarvest</title>
+        <meta
+          name="description"
+          content={`Discover ${foundProduct.name}, a fresh, organic ${foundProduct.category} from ${foundProduct.seller.name}. Price: $${foundProduct.price.toFixed(2)}. ${foundProduct.description ? foundProduct.description.substring(0, 150) + '...' : 'High-quality, locally sourced, and sustainably grown.'}`}
+        />
+        {/* Open Graph / Social Media Meta Tags */}
+        <meta property="og:title" content={`${foundProduct.name} - EcoHarvest`} />
+        <meta property="og:description" content={`Fresh organic ${foundProduct.category} from ${foundProduct.seller.name}. Price: $${foundProduct.price.toFixed(2)}.`} />
+        <meta property="og:image" content={`${import.meta.env.VITE_API_URL}/uploads/${foundProduct.images[0] || 'default-product.png'}`} />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:type" content="product" />
+        <meta property="product:price:amount" content={foundProduct.price.toFixed(2)} />
+        <meta property="product:price:currency" content="USD" />
+        {/* Twitter Card Meta Tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${foundProduct.name} - EcoHarvest`} />
+        <meta name="twitter:description" content={`Fresh organic ${foundProduct.category} from ${foundProduct.seller.name}. Price: $${foundProduct.price.toFixed(2)}.`} />
+        <meta name="twitter:image" content={`${import.meta.env.VITE_API_URL}/uploads/${foundProduct.images[0] || 'default-product.png'}`} />
+      </Helmet>
       <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb Navigation */}
         <nav className="flex mb-6" aria-label="Breadcrumb">
