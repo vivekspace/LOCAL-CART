@@ -1,6 +1,6 @@
 # 🛒 LocalCart - Hyperlocal Marketplace
 
-![LocalCart Banner](../LOCALCART-WEB/FRONTEND/src/assets/banner.png)
+![LocalCart Banner](/FRONTEND/src/assets/banner.png)
 
 LocalCart is a modern hyperlocal marketplace web application built with the MERN stack (MongoDB, Express, React, Node.js). It connects local vendors with nearby customers, enabling intuitive product discovery, purchasing, and management with real-time location-based features.
 
