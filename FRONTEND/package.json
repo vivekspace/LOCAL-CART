@@ -12,8 +12,6 @@
   "dependencies": {
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
-    "@tailwindcss/postcss": "^4.1.8",
-    "@tailwindcss/vite": "^4.1.8",
     "@tanstack/react-query": "^5.80.10",
     "@tanstack/react-query-devtools": "^5.80.10",
     "apexcharts": "^4.7.0",
@@ -35,11 +33,13 @@
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.1.0",
     "react-feather": "^2.0.10",
+    "react-helmet": "^6.1.0",
+    "react-helmet-async": "^2.0.5",
     "react-hook-form": "^7.56.4",
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
     "react-marker": "^1.0.1",
-    "react-router-dom": "^7.6.0",
+    "react-router-dom": "^7.6.2",
     "react-to-print": "^3.1.0",
     "react-toastify": "^11.0.5",
     "recharts": "^2.15.3",
@@ -49,6 +49,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@tailwindcss/postcss": "^4.1.7",
+    "@tailwindcss/vite": "^4.1.7",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
@@ -58,7 +60,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "postcss": "^8.5.4",
-    "tailwindcss": "^4.1.8",
+    "tailwindcss": "^4.1.7",
     "vite": "^6.3.5"
   }
 }
