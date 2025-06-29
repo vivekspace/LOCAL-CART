@@ -67,7 +67,7 @@ const ContactUs = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       {/* Vibrant Header */}
       <div className="text-center mb-12 animate-fade-in">
         <div className="inline-flex items-center justify-center mb-4 bg-green-100 rounded-full p-3">
@@ -199,7 +199,7 @@ const ContactUs = () => {
                   <p className="text-lg font-semibold text-gray-900">
                     +91 98765 43210
                   </p>
-                  <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="flex items-center mt-1 text-green-600 hover:underline">
+                  <a href="https://wa.me/9372973931" target="_blank" rel="noopener noreferrer" className="flex items-center mt-1 text-green-600 hover:underline">
                     <FaWhatsapp className="mr-2" />
                     <span className="text-sm">Available on WhatsApp</span>
                   </a>
