@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo } from "react";
+import React, { useState, useEffect, useRef, memo, useCallback } from "react"; // Added useCallback
 import {
   ShoppingCart,
   Send,
@@ -28,7 +28,9 @@ const MarkdownComponents = {
     />
   ),
   ul: (props) => <ul {...props} className="list-disc pl-5 space-y-1 my-2" />,
-  ol: (props) => <ol {...props} className="list-decimal pl-5 space-y-1 my-2" />,
+  ol: (props) => (
+    <ol {...props} className="list-decimal pl-5 space-y-1 my-2" />
+  ),
   li: (props) => <li {...props} className="pl-2" />,
   table: (props) => (
     <div className="overflow-auto">
@@ -447,13 +449,31 @@ const ChatBot = ({ isInToggle = false, isMobile = false }) => {
   const [products, setProducts] = useState([]);
   const [isProductsLoaded, setIsProductsLoaded] = useState(false);
 
-  // Effect to save messages to localStorage whenever they change
+  // Debounce ref for localStorage saving
+  const localStorageSaveTimeoutRef = useRef(null);
+
+  // Effect to save messages to localStorage whenever they change, with debouncing
   useEffect(() => {
-    try {
-      localStorage.setItem("chatMessages", JSON.stringify(messages));
-    } catch (error) {
-      console.error("Failed to save messages to local storage:", error);
+    // Clear any existing timeout
+    if (localStorageSaveTimeoutRef.current) {
+      clearTimeout(localStorageSaveTimeoutRef.current);
     }
+
+    // Set a new timeout to save messages after a short delay
+    localStorageSaveTimeoutRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem("chatMessages", JSON.stringify(messages));
+      } catch (error) {
+        console.error("Failed to save messages to local storage:", error);
+      }
+    }, 500); // Debounce time: 500 milliseconds
+
+    // Cleanup function: clear the timeout if the component unmounts
+    return () => {
+      if (localStorageSaveTimeoutRef.current) {
+        clearTimeout(localStorageSaveTimeoutRef.current);
+      }
+    };
   }, [messages]); // Dependency array: runs whenever 'messages' state changes
 
   // Enhanced API configuration
@@ -623,7 +643,8 @@ You'll receive an instant order confirmation via email and SMS with your unique 
   };
 
   // Enhanced AI processing with better context understanding
-  const processUserQuery = async (message, currentMessages) => {
+  // Using useCallback to memoize the function as it's passed down to ChatbotContent
+  const processUserQuery = useCallback(async (message, currentMessages) => {
     const currentDate = new Date().toLocaleDateString("en-IN", {
       year: "numeric",
       month: "long",
@@ -666,8 +687,8 @@ You'll receive an instant order confirmation via email and SMS with your unique 
 
       5.  **General Inquiries/FAQs:** Refer to the "General FAQs" for questions about store hours, payment methods, delivery locations, minimum order value, delivery fees, and how to contact human support.
 
-       **Special Instruction for "Who trained you?":**
-      If asked about your training or who created you, respond by stating that you are an AI assistant developed by Local Cart, powered by advanced Google AI technology. Do not explicitly state "trained by Google LLM" as your sole answer.
+        **Special Instruction for "Who trained you?":**
+      If asked about your training or who created you, respond by stating that you are an AI assistant developed by Local Cart, .
 
       **Example Response (if asked):** "I am Local Cart Assistant, an AI designed by Local Cart to help you with your shopping needs."
 
@@ -685,7 +706,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
         * Lists (- or 1.) for steps, features, or multiple options.
         * Tables for structured data (e.g., comparing products, listing order items).
         * Code blocks (\`text\`) for Order IDs, Tracking Numbers, or specific codes.
-      * **Limitations:** If a query is outside your capabilities (e.g., personal advice, complex problem-solving beyond the provided data), politely state that you can only assist with Local Cart related inquiries and suggest contacting human support.
+        * **Limitations:** If a query is outside your capabilities (e.g., personal advice, complex problem-solving beyond the provided data), politely state that you can only assist with Local Cart related inquiries and suggest contacting human support.
     `;
 
     let orderData = null;
@@ -758,37 +779,13 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       ${orderDetailsContext}
     `;
 
-    const conversationHistoryForGemini = currentMessages
-      .filter((msg) => msg.sender === "user" || msg.sender === "bot") // Only include actual chat turns
-      .map((msg) => ({
-        role: msg.sender === "user" ? "user" : "model", // Gemini expects 'model' for bot responses
-        parts: [{ text: msg.text }],
-      }));
-
-    // Add the current user query to the history
-    conversationHistoryForGemini.push({
-      role: "user",
-      parts: [{ text: message }],
-    });
-
-    const finalGeminiContent = [
-      {
-        role: "user",
-        parts: [
-          {
-            text: `${systemInstructions}\n\n${knowledgeBaseContent}\n\nCustomer query: ${message}`,
-          },
-        ],
-      },
-    ];
-
     const contentsForGemini = [];
 
+    // Add initial system instruction and an acknowledgment from the model
     contentsForGemini.push({
       role: "user",
       parts: [{ text: `${systemInstructions}\n\n${knowledgeBaseContent}` }],
     });
-    // Then, the model's "response" to these instructions (often empty or a confirmation)
     contentsForGemini.push({
       role: "model",
       parts: [
@@ -796,7 +793,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       ],
     });
 
-    // Append the actual conversation history
+    // Append the actual conversation history, ensuring valid roles
     currentMessages
       .filter((msg) => msg.sender === "user" || msg.sender === "bot")
       .forEach((msg) => {
@@ -806,6 +803,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
         });
       });
 
+    // Add the current user query
     contentsForGemini.push({ role: "user", parts: [{ text: message }] });
 
     const finalResponseText = await callGeminiAPI({
@@ -816,7 +814,8 @@ You'll receive an instant order confirmation via email and SMS with your unique 
 
     if (
       intent === "ORDER_QUERY_NO_ID" &&
-      !botResponseText.toLowerCase().includes("order id")
+      !botResponseText.toLowerCase().includes("order id") &&
+      !botResponseText.toLowerCase().includes("orderid") // Ensure both common spellings are covered
     ) {
       botResponseText = `No problem! Could you please provide your **Order ID**? It's a long string of numbers and letters, like \`684282d0aff5603f8baa3ede\`.`;
     }
@@ -827,7 +826,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
         "I'm sorry, I couldn't process your request fully. Please try again or provide more details.",
       orderData: actualOrderId && orderData ? orderData : null,
     };
-  };
+  }, [products, KNOWLEDGE_BASE, fetchOrderDetails, callGeminiAPI]); // Dependencies for useCallback
 
   // Initialize chatbot
   useEffect(() => {
@@ -867,18 +866,22 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       }
     };
     initializeChatbot();
-  }, []);
-  const sendMessage = async () => {
+  }, []); // Empty dependency array means this runs only once on mount
+
+  // Using useCallback for sendMessage to prevent unnecessary re-renders of ChatbotContent
+  const sendMessage = useCallback(async () => {
     const message = userInput.trim();
     if (!message || isLoading || !isProductsLoaded) return;
 
     const userMessageObject = { text: message, sender: "user" };
 
+    // Update messages immediately for responsiveness
     setMessages((prev) => [...prev, userMessageObject]);
     setUserInput("");
     setIsLoading(true);
 
     try {
+      // Pass the current state of messages (including the user's latest) for AI context
       const conversationHistoryForAI = [...messages, userMessageObject];
 
       const response = await processUserQuery(
@@ -899,14 +902,17 @@ You'll receive an instant order confirmation via email and SMS with your unique 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userInput, isLoading, isProductsLoaded, messages, processUserQuery]); // Dependencies for useCallback
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+  const handleKeyPress = useCallback(
+    (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    },
+    [sendMessage]
+  ); // Dependency for useCallback
 
   const chatbotContentProps = {
     messages,
