@@ -10,7 +10,7 @@ import ChatbotToggle from "./components/ChatBotToggle/ChatBotToggle";
 import VendorChatbotToggle from "./components/VendorChatbotToggle/VendorChatbotToggle";
 
 const Layout = () => {
-  const { loading, currentRole, isLoggedIn } = useAuth();
+  const { loading, currentRole } = useAuth();
   const location = useLocation();
 
   const isAdminRoute = location.pathname.startsWith("/admin");

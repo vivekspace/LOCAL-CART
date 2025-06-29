@@ -6,6 +6,7 @@ import {
   RouterProvider,
   createBrowserRouter,
   createRoutesFromElements,
+  ScrollRestoration, 
 } from "react-router-dom";
 import Layout from "./Layout.jsx";
 import Home from "./components/Home/Home.jsx";
@@ -49,14 +50,15 @@ import AdminSettingsPage from "./components/AdminLayout/AdminSetting.jsx";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AboutUsPage from "./components/AboutUs/AboutUs.jsx";
-import { Contact } from "lucide-react";
 import AdminOrdersPage from "./components/AdminOrders/AdminOrders.jsx";
 import VendorMessagesPage from "./components/VendorMessage/VendorMessage.jsx";
+import ScrollToTop from "./components/ScrollToTop/ScrollToTop.jsx";
+import { HelmetProvider } from "react-helmet-async";
 
-// Create a wrapper component for Layout that includes AuthProvider
 const LayoutWithAuth = () => {
   return (
     <AuthProvider>
+      <ScrollToTop />
       <Layout />
       <ToastContainer
         position="top-center"
@@ -72,14 +74,9 @@ const LayoutWithAuth = () => {
     </AuthProvider>
   );
 };
-
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route
-      path="/"
-      element={<LayoutWithAuth />}
-      // errorElement={<NotFoundPage />} // Fallback error boundary
-    >
+    <Route path="/" element={<LayoutWithAuth />}>
       {/* Public Routes */}
       <Route index element={<Home />} />
       <Route path="login" element={<Login />} />
@@ -88,7 +85,7 @@ const router = createBrowserRouter(
       <Route path="shopping" element={<Shopping />} />
       <Route path="product-info/:productId" element={<ProductCardPage />} />
       <Route path="contact" element={<ContactUs />} />
-      
+
       {/* User Routes */}
       <Route path="account" element={<AccountSettings />} />
       <Route path="cart" element={<Cart />} />
@@ -113,7 +110,8 @@ const router = createBrowserRouter(
       <Route path="vendor/analytics" element={<VendorAnalytics />} />
       <Route path="vendor/profile" element={<VendorProfile />} />
       <Route path="vendor/messages" element={<VendorMessagesPage />} />
-      
+      {/* <Route path="vendors/register/application" element={<VendorsPage/>}/> */}
+
       {/* Admin Routes */}
       <Route path="admin/login" element={<AdminLogin />} />
       <Route path="admin-panel" element={<AdminPanel />} />
@@ -127,7 +125,7 @@ const router = createBrowserRouter(
       <Route path="admin/products/view/:id" element={<ProductViewPage />} />
       <Route path="admin/settings" element={<AdminSettingsPage />} />
       <Route path="admin/orders" element={<AdminOrdersPage />} />
-      
+
       {/* Fallback Route */}
       <Route path="*" element={<NotFoundPage />} />
     </Route>
@@ -136,6 +134,10 @@ const router = createBrowserRouter(
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <HelmetProvider>
+      <RouterProvider router={router}>
+        <ScrollRestoration />
+      </RouterProvider>
+    </HelmetProvider>
   </StrictMode>
 );
