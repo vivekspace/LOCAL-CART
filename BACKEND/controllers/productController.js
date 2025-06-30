@@ -6,7 +6,9 @@ const path = require('path'); // Import path for joining directories
 const fs = require('fs'); // Import fs for file system operations (e.g., deleting old files)
 const UniqueLocation = require('../models/uniqueLocation'); 
 
-
+// Assume DEFAULT_PRODUCT_IMAGE is defined somewhere, e.g., in a config file or constants.
+// For example:
+const DEFAULT_PRODUCT_IMAGE = 'default-product.webp'; 
 
 // Helper function for sending consistent error responses
 const sendErrorResponse = (res, statusCode, status, message, error = null) => {
@@ -150,6 +152,7 @@ exports.createProduct = async (req, res) => {
         }
 
         // --- NEW UNIQUE LOCATION LOGIC START ---
+        // This ensures the city name associated with a new product is added to UniqueLocations
         const cityToStore = String(req.body.city).trim().toLowerCase(); // Normalize the city name
 
         if (cityToStore) { // Ensure city is not empty after trim
@@ -201,7 +204,7 @@ exports.createProduct = async (req, res) => {
             location: {
                 type: parsedLocation.type,
                 coordinates: parsedLocation.coordinates,
-                city: req.body.city
+                city: req.body.city // Ensure city is stored within the nested location object
             }
         };
 
@@ -391,7 +394,3 @@ exports.deleteProduct = async (req, res) => {
     sendErrorResponse(res, 500, 'error', 'Error deleting product', err);
   }
 };
-
-// At the very bottom of productController.js, before module.exports
-
-
