@@ -1,20 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const UniqueLocation = require('../models/uniqueLocation');
-const sendErrorResponse = require('../utils/sendErrorResponse'); 
+const sendErrorResponse = require('../utils/sendErrorResponse');
 
-router.get('/', async (req, res) => { 
+const LOCATION_TYPE_PRODUCT_BASED = 'product_based';
+
+router.get('/', async (req, res) => {
     try {
-        const locations = await UniqueLocation.find({})
-                                            .select('location_name -_id') 
-                                            .sort('location_name')      
-                                            .lean(); 
-        const locationNames = locations.map(loc => loc.location_name);
+        const uniqueLocations = await UniqueLocation.find({})
+                                        .select('location_name latitude longitude -_id')
+                                        .sort('location_name')
+                                        .lean();
+
+        const formattedLocations = uniqueLocations.map(loc => ({
+            name: loc.location_name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+            city: loc.location_name,
+            type: LOCATION_TYPE_PRODUCT_BASED,
+            lat: loc.latitude || null,
+            lng: loc.longitude || null,
+        }));
 
         res.status(200).json({
             status: 'success',
             data: {
-                locations: locationNames
+                locations: formattedLocations
             }
         });
 
