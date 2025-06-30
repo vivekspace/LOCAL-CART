@@ -1,10 +1,11 @@
-import React, { useContext, useEffect, useState, useRef } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../../Context/Context";
 import { useNavigate } from "react-router-dom";
 import { HeroSlider } from "../HeroSlider/HeroSlider";
-import { ToastContainer } from "react-toastify";
-import { Helmet } from "react-helmet-async"; // Import Helmet
+import { ToastContainer, toast } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
+import { Helmet } from "react-helmet-async";
 
 const ShoppingPage = () => {
   const [categories, setCategories] = useState([]);
@@ -12,15 +13,12 @@ const ShoppingPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [activeResultIndex, setActiveResultIndex] = useState(-1);
 
-  // Consume necessary values from AuthContext
   const {
     addToCart,
     selectedLocation,
-    products, // Consuming products directly from AuthContext
-    productsLoading, // Consuming productsLoading directly from AuthContext
-    fetchAllProducts, // Consuming fetchAllProducts directly from AuthContext
-    LOCATION_TYPE_CURRENT,
-    LOCATION_TYPE_PRODUCT_BASED,
+    products,
+    productsLoading,
+    fetchAllProducts,
   } = useContext(AuthContext);
 
   const navigate = useNavigate();
@@ -39,7 +37,6 @@ const ShoppingPage = () => {
     "Electronics",
   ];
 
-  // Effect for categories (remains local to ShoppingPage)
   useEffect(() => {
     const timer = setTimeout(() => {
       setCategories(mockCategories);
@@ -49,21 +46,12 @@ const ShoppingPage = () => {
 
   useEffect(() => {
     if (selectedLocation) {
-      console.log(
-        "ShoppingPage: Triggering product fetch for location:",
-        selectedLocation
-      );
-      fetchAllProducts(selectedLocation); // Pass selectedLocation to fetchAllProducts
-    } else {
-      console.log(
-        "ShoppingPage: Waiting for selectedLocation to be initialized..."
-      );
+      fetchAllProducts(selectedLocation);
     }
-  }, [selectedLocation, fetchAllProducts]); // fetchAllProducts is a dependency
+  }, [selectedLocation, fetchAllProducts]);
 
   const filteredProducts =
     products?.filter((product) => {
-      // Use 'products' from context
       if (!product || !product.name) return false;
 
       const matchesSearch =
@@ -84,25 +72,13 @@ const ShoppingPage = () => {
   const filteredSearch =
     products?.filter(
       (
-        product // Use 'products' from context
+        product
       ) =>
         product && product.name
           ? product.name.toLowerCase().includes(search.trim().toLowerCase())
           : false
     ) || [];
 
-  // Get unique vendors from filtered products
-  const uniqueVendors = filteredProducts.reduce((vendors, product) => {
-    if (product.vendor && !vendors.find((v) => v.name === product.vendor)) {
-      vendors.push({
-        name: product.vendor,
-        productCount: filteredProducts.filter(
-          (p) => p.vendor === product.vendor
-        ).length,
-      });
-    }
-    return vendors;
-  }, []);
 
   const handleKeyDown = (e) => {
     if (e.key === "ArrowDown") {
@@ -119,7 +95,7 @@ const ShoppingPage = () => {
         const selectedProduct = filteredSearch[activeResultIndex];
         setSearch(selectedProduct.name);
         setActiveResultIndex(-1);
-        addToCart(selectedProduct._id); // Assuming addToCart accepts product ID
+        addToCart(selectedProduct._id);
         navigate(`/product-info/${selectedProduct._id}`);
       } else if (search && search.length >= 2) {
         setActiveResultIndex(-1);
@@ -136,11 +112,16 @@ const ShoppingPage = () => {
   };
 
   const handleAddToCart = (e, productId) => {
-    console.log("Adding this product to cart:", productId);
-
     e.preventDefault();
     e.stopPropagation();
     addToCart(productId);
+  };
+
+  const handleResetFiltersAndLocation = () => {
+    setSearch("");
+    setSelectedCategory("All");
+    setActiveResultIndex(-1);
+    toast.info("Filters reset! You may need to adjust location separately.");
   };
 
   return (
@@ -155,23 +136,27 @@ const ShoppingPage = () => {
           name="keywords"
           content="online grocery, farm fresh, local produce, fresh fruits, fresh vegetables, dairy, bakery, organic food, LocalCart, online shopping, artisanal goods, home delivery"
         />
-        {/* Open Graph Meta Tags for Social Sharing */}
         <meta property="og:title" content="Shop Fresh - LocalCart" />
         <meta
           property="og:description"
           content="Discover a wide variety of farm-fresh products, locally sourced groceries, and artisanal goods. Shop fruits, vegetables, dairy, bakery, and more at LocalCart."
         />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://www.localcart.com/shop" /> {/* Replace with your actual URL */}
-        <meta property="og:image" content="https://www.localcart.com/images/og-shop-image.jpg" /> {/* Replace with a relevant image URL */}
-        {/* Twitter Card Meta Tags */}
+        <meta property="og:url" content="https://www.localcart.com/shop" />
+        <meta
+          property="og:image"
+          content="https://www.localcart.com/images/og-shop-image.jpg"
+        />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Shop Fresh - LocalCart" />
         <meta
           name="twitter:description"
           content="Discover a wide variety of farm-fresh products, locally sourced groceries, and artisanal goods. Shop fruits, vegetables, dairy, bakery, and more at LocalCart."
         />
-        <meta name="twitter:image" content="https://www.localcart.com/images/twitter-shop-image.jpg" /> {/* Replace with a relevant image URL */}
+        <meta
+          name="twitter:image"
+          content="https://www.localcart.com/images/twitter-shop-image.jpg"
+        />
       </Helmet>
 
       <HeroSlider />
@@ -179,7 +164,6 @@ const ShoppingPage = () => {
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
-          {/* Search Bar */}
           <div className="relative mb-8 max-w-2xl mx-auto">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl blur opacity-10 group-hover:opacity-20 transition duration-300"></div>
 
@@ -281,17 +265,15 @@ const ShoppingPage = () => {
                           <div className="w-8 h-8 mr-3 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                             {product.images && product.images.length > 0 ? (
                               <picture>
-                                {/* Removed specific media queries for simplicity, assumed single thumbnail size */}
                                 <img
                                   src={`${
                                     import.meta.env.VITE_API_URL
                                   }/uploads/${product.images[0]}`}
                                   alt={product.name}
-                                  // IMPORTANT FIX: object-cover changed to object-contain for search results thumbnails
                                   className="w-full h-full object-contain"
                                   loading="lazy"
                                   decoding="async"
-                                  width="200" // Adding explicit width/height for better performance
+                                  width="200"
                                   height="150"
                                   onError={(e) => {
                                     e.target.src = `${
@@ -308,8 +290,7 @@ const ShoppingPage = () => {
                               {product.name}
                             </div>
                             <div className="text-xs text-gray-500 truncate">
-                              {product.category && `${product.category} • `}$
-                              {product.price}
+                              {product.category && `${product.category} • `}${product.price}
                               {product.vendor && ` • by ${product.vendor}`}
                             </div>
                           </div>
@@ -422,7 +403,7 @@ const ShoppingPage = () => {
             </div>
           </div>
         </div>
-        {productsLoading && !products.length ? ( // Use productsLoading from context
+        {productsLoading && !products.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
               <div
@@ -455,7 +436,6 @@ const ShoppingPage = () => {
                   key={product._id || idx}
                   className="bg-white/60 backdrop-blur-md rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 group relative"
                 >
-                  {/* Badges */}
                   {product.discount && (
                     <div className="absolute top-3 left-3 z-10">
                       <div className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
@@ -472,7 +452,6 @@ const ShoppingPage = () => {
                     </div>
                   )}
 
-                  {/* Product Image */}
                   <div className="relative pb-[75%] overflow-hidden">
                     <img
                       src={
@@ -485,7 +464,6 @@ const ShoppingPage = () => {
                             }/uploads/default-product.png`
                       }
                       alt={product.name || "Product"}
-                      // IMPORTANT FIX: object-cover changed to object-contain for main product grid images
                       className="absolute h-full w-full object-contain group-hover:scale-110 transition-transform duration-500"
                       onError={(e) => {
                         e.target.src = `${
@@ -495,7 +473,6 @@ const ShoppingPage = () => {
                       }}
                     />
 
-                    {/* Hover Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between p-4">
                       <Link
                         to={`/product-info/${product._id}`}
@@ -537,7 +514,6 @@ const ShoppingPage = () => {
                     </div>
                   </div>
 
-                  {/* Product Info */}
                   <div className="p-5">
                     <div className="flex justify-between items-start mb-2">
                       <Link
@@ -582,7 +558,6 @@ const ShoppingPage = () => {
                       </div>
                     )}
 
-                    {/* Rating */}
                     <div className="flex items-center mb-3">
                       <div className="flex mr-2">
                         {[...Array(5)].map((_, i) => (
@@ -604,7 +579,6 @@ const ShoppingPage = () => {
                         ({product.reviewCount || "0"} reviews)
                       </span>
                     </div>
-                    {/* Price and Add to Cart */}
                     <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
                       <div>
                         <div className="flex items-center">
@@ -680,11 +654,7 @@ const ShoppingPage = () => {
                 </p>
                 <div className="mt-6">
                   <button
-                    onClick={() => {
-                      setSearch("");
-                      setSelectedCategory("All");
-                      setActiveResultIndex(-1);
-                    }}
+                    onClick={handleResetFiltersAndLocation}
                     className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-md text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105"
                   >
                     Reset Filters & Location
@@ -708,7 +678,7 @@ const ShoppingPage = () => {
           </div>
         )}
       </div>
-      <ToastContainer />
+      <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
     </div>
   );
 };
