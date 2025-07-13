@@ -88,15 +88,15 @@ const Layout = () => {
   console.log("Layout.jsx: Rendering Public/Default Layout"); // Debug log
   return (
     
-  <>
-      <ScrollToTop />
-      <Header />
-      <main className="lg:md:p-4">
-        <Outlet />
-      </main>
-      <Footer />
-      <ChatbotToggle />
-    </>
+  <div className="min-h-screen flex flex-col">
+    <ScrollToTop />
+    <Header /> {/* This should be fixed positioned */}
+    <main className="flex-1 pt-16 lg:md:p-4"> {/* flex-1 for proper footer placement */}
+      <Outlet />
+    </main>
+    <Footer />
+    <ChatbotToggle />
+  </div>
 );
 };
 
