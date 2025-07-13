@@ -1,31 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom'; // Import Link for navigation
 import { ShieldAlert, ShieldCheck, Edit, Trash, Eye } from 'lucide-react'; // Assuming you have lucide-react installed
-import axios from 'axios';
+// No need to import axios directly here as we will use authAxios from props
+// import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// API_BASE_URL is no longer needed here as authAxios handles the base URL
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export default function UserRow({ user, onToggleBlock }) {
+// Receive authAxios as a prop from the parent UserManagement component
+export default function UserRow({ user, onToggleBlock, authAxios }) {
     const [currentUser, setCurrentUser] = useState(user);
     const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
     const [blockReason, setBlockReason] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [actionError, setActionError] = useState(null);
 
-    const [localAdminToken, setLocalAdminToken] = useState(null); // State to hold the admin token for this component
-
-    // Effect to retrieve the admin token from localStorage.
-    // This is crucial for authentication when UserRow performs actions (block/unblock, etc.).
-    useEffect(() => {
-        const token = localStorage.getItem("adminToken"); // Retrieve the raw token string from 'adminToken' key
-        if (token) {
-            setLocalAdminToken(token);
-            setActionError(null); // Clear any previous errors
-        } else {
-            console.warn("UserRow: 'adminToken' not found in localStorage. Cannot perform actions requiring authentication.");
-            setActionError("Authentication token missing. Cannot perform actions."); // Error message to display
-        }
-    }, []); // Runs once on component mount
+    // Removed localAdminToken state and its useEffect.
+    // authAxios now carries the authentication token.
 
     // Effect to update internal currentUser state if the 'user' prop changes from parent.
     useEffect(() => {
@@ -40,29 +31,30 @@ export default function UserRow({ user, onToggleBlock }) {
     const isAdmin = currentUser.role === 'admin';
     const isSuperAdmin = currentUser.role === 'superadmin';
 
-    // Memoized function to get authorization headers, dependent on localAdminToken state.
-    const getAuthHeaders = useCallback(() => {
-        if (!localAdminToken) {
-            console.warn("UserRow: Authentication token not available. API requests will fail.");
-            return {};
-        }
-        return {
-            headers: {
-                Authorization: `Bearer ${localAdminToken}`,
-            },
-        };
-    }, [localAdminToken]);
+    // Removed getAuthHeaders useCallback as authAxios automatically adds headers.
 
     // Handler for blocking/unblocking a user
     const handleBlockUnblock = async () => {
         setIsUpdating(true); // Indicate that an update is in progress
         setActionError(null); // Clear previous action errors
+
+        // Ensure authAxios is available before making the call
+        if (!authAxios) {
+            setActionError("Authentication client not available. Please log in.");
+            setIsUpdating(false);
+            setIsBlockModalOpen(false);
+            setBlockReason('');
+            return;
+        }
+
         try {
             const newStatus = isActive ? 'blocked' : 'active';
-            const endpoint = `${API_BASE_URL}/api/admin/users/${currentUser._id}/status`;
+            // Use relative path with authAxios; it's already configured with BASE_URL
+            const endpoint = `/api/admin/users/${currentUser._id}/status`;
             const payload = { status: newStatus, reason: isActive ? blockReason : '' };
 
-            const response = await axios.patch(endpoint, payload, getAuthHeaders());
+            // Use authAxios.patch directly. It handles headers and base URL.
+            const response = await authAxios.patch(endpoint, payload);
 
             if (response.data.success) {
                 // Update the local state of the user
@@ -76,14 +68,8 @@ export default function UserRow({ user, onToggleBlock }) {
             }
         } catch (err) {
             console.error(`Error ${isActive ? 'blocking' : 'unblocking'} user:`, err);
+            // AuthContext's interceptor should handle 401 (logout and redirection)
             setActionError(err.response?.data?.message || `Failed to ${isActive ? 'block' : 'unblock'} user. Please try again.`);
-            // If 401, token is invalid/expired; clear it from local storage
-            if (err.response && err.response.status === 401) {
-                console.warn("UserRow: Admin token invalid or expired. Clearing token.");
-                localStorage.removeItem('adminToken'); // Remove the raw token
-                localStorage.removeItem('adminInfo'); // Also clear adminInfo for consistency
-                setLocalAdminToken(null);
-            }
         } finally {
             setIsUpdating(false); // End update process
             setIsBlockModalOpen(false); // Close modal
@@ -95,9 +81,17 @@ export default function UserRow({ user, onToggleBlock }) {
     const handleApproveVendor = async () => {
         setIsUpdating(true);
         setActionError(null);
+
+        if (!authAxios) {
+            setActionError("Authentication client not available. Please log in.");
+            setIsUpdating(false);
+            return;
+        }
+
         try {
-            const endpoint = `${API_BASE_URL}/api/admin/vendors/${currentUser._id}/approve`;
-            const response = await axios.patch(endpoint, {}, getAuthHeaders());
+            const endpoint = `/api/admin/vendors/${currentUser._id}/approve`;
+            // Use authAxios.patch directly.
+            const response = await authAxios.patch(endpoint, {});
 
             if (response.data.success) {
                 setCurrentUser(prevUser => ({ ...prevUser, status: 'active', role: 'seller' }));
@@ -110,11 +104,6 @@ export default function UserRow({ user, onToggleBlock }) {
         } catch (err) {
             console.error('Error approving vendor:', err);
             setActionError(err.response?.data?.message || 'Failed to approve vendor. Please try again.');
-            if (err.response && err.response.status === 401) {
-                localStorage.removeItem('adminToken');
-                localStorage.removeItem('adminInfo');
-                setLocalAdminToken(null);
-            }
         } finally {
             setIsUpdating(false);
         }
@@ -124,9 +113,17 @@ export default function UserRow({ user, onToggleBlock }) {
     const handleRejectVendor = async () => {
         setIsUpdating(true);
         setActionError(null);
+
+        if (!authAxios) {
+            setActionError("Authentication client not available. Please log in.");
+            setIsUpdating(false);
+            return;
+        }
+
         try {
-            const endpoint = `${API_BASE_URL}/api/admin/vendors/${currentUser._id}/reject`;
-            const response = await axios.patch(endpoint, {}, getAuthHeaders());
+            const endpoint = `/api/admin/vendors/${currentUser._id}/reject`;
+            // Use authAxios.patch directly.
+            const response = await authAxios.patch(endpoint, {});
 
             if (response.data.success) {
                 setCurrentUser(prevUser => ({ ...prevUser, status: 'rejected' }));
@@ -139,11 +136,6 @@ export default function UserRow({ user, onToggleBlock }) {
         } catch (err) {
             console.error('Error rejecting vendor:', err);
             setActionError(err.response?.data?.message || 'Failed to reject vendor. Please try again.');
-            if (err.response && err.response.status === 401) {
-                localStorage.removeItem('adminToken');
-                localStorage.removeItem('adminInfo');
-                setLocalAdminToken(null);
-            }
         } finally {
             setIsUpdating(false);
         }
@@ -151,9 +143,10 @@ export default function UserRow({ user, onToggleBlock }) {
 
     // Helper function to render user photo or a fallback avatar
     const renderUserPhoto = () => {
+        // API_BASE_URL can still be used here since it's for displaying images, not API calls
         const photoUrl = currentUser.photo && currentUser.photo !== 'default.jpg'
-            ? `${API_BASE_URL}/uploads/users/${currentUser.photo}`
-            : `${API_BASE_URL}/uploads/default-user-avatar.png`; // Fallback image path
+            ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/users/${currentUser.photo}`
+            : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/default-user-avatar.png`; // Fallback image path
 
         return (
             <img

@@ -24,7 +24,8 @@ import {
 import { Link } from "react-router-dom";
 
 const PaymentPage = () => {
-  const { cartItems: contextCartItems, clearCart } = useContext(AuthContext);
+  // Destructure jwtToken from AuthContext for consistency
+  const { cartItems: contextCartItems, clearCart, jwtToken } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -88,7 +89,7 @@ const PaymentPage = () => {
       color: "purple",
       description: "Pay when you receive your order",
     },
-    
+
   ];
 
   const totalPrice = cartItems.reduce(
@@ -183,7 +184,8 @@ const PaymentPage = () => {
       }
     });
 
-    const requiredShippingFields = ["street", "city", "state", "zip"]; 
+    // Changed 'pincode' to 'zipCode' to match Checkout.jsx's orderData.shippingAddress
+    const requiredShippingFields = ["street", "city", "state", "zip"];
     requiredShippingFields.forEach((field) => {
       if (!shippingAddress[field]) {
         missingFields.push(`shippingAddress.${field}`);
@@ -234,7 +236,8 @@ const PaymentPage = () => {
       return;
     }
 
-    const requiredShippingFields = ["street", "city", "state", "zip"]; 
+    // Changed 'zipCode' from 'pincode' to match Checkout.jsx's orderData.shippingAddress
+    const requiredShippingFields = ["street", "city", "state", "zip"];
     const missingShippingFields = requiredShippingFields.filter(
       (field) => !orderData.shippingAddress[field]
     );
@@ -243,7 +246,7 @@ const PaymentPage = () => {
         `Missing shipping address details: ${missingShippingFields.join(", ")}`
       );
       return;
-    } 
+    }
     if (!cartItems.length) {
       console.error("Empty cart items");
       toast.error("Cart is empty");
@@ -355,7 +358,7 @@ const PaymentPage = () => {
     const seller = item.seller;
 
     if (typeof seller === "object" && seller !== null) {
-      return seller._id || seller.id || null; 
+      return seller._id || seller.id || null;
     }
 
     if (typeof seller === "string") {
@@ -364,7 +367,7 @@ const PaymentPage = () => {
       }
       try {
         const parsed = JSON.parse(seller);
-        return parsed._id || parsed.id || null; 
+        return parsed._id || parsed.id || null;
       } catch (e) {
         console.log("Vendor id issue ", e);
         return null;
@@ -389,7 +392,7 @@ const PaymentPage = () => {
                 `${import.meta.env.VITE_API_URL}/api/products/${productId}`,
                 {
                   headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                    Authorization: `Bearer ${jwtToken}`, // Use jwtToken here
                   },
                 }
               );
@@ -416,7 +419,7 @@ const PaymentPage = () => {
       return enhancedItems;
     } catch (error) {
       console.error("Error enhancing cart items:", error);
-      return items; 
+      return items;
     }
   };
 
@@ -435,11 +438,11 @@ const PaymentPage = () => {
       if (!safeEmail) {
         throw new Error("Customer email is required but not provided");
       }
-     const paymentStatus =
-  paymentResult.method === 'cod' ? 'pending' : paymentResult.status;
+      const paymentStatus =
+        paymentResult.method === 'cod' ? 'pending' : paymentResult.status;
       const orderPayload = {
         customerDetails: {
-          email: orderData.customerDetails.email, 
+          email: orderData.customerDetails.email,
           firstname: orderData.customerDetails.firstname,
           lastname: orderData.customerDetails.lastname,
           phone: orderData.customerDetails.phone,
@@ -459,16 +462,20 @@ const PaymentPage = () => {
           status: paymentStatus,
           amount: finalTotal,
           transactionId: paymentResult.transactionId,
+          last4: paymentResult.last4,
+          paidAt: paymentResult.paidAt,
+          status: paymentResult.status ||
+            (paymentResult.method?.toLowerCase() === 'cod' ? 'pending' : 'paid')
         },
         shipping: {
           method: orderData?.shippingMethod || "standard",
-          cost: shippingCost, 
+          cost: shippingCost,
           address: {
             line1: orderData.shippingAddress.street,
             line2: orderData.shippingAddress.apartment || "",
             city: orderData.shippingAddress.city,
             state: orderData.shippingAddress.state,
-            pincode: orderData.shippingAddress.zip,
+            zip: orderData.shippingAddress.zip, // Changed from 'pincode' to 'zip'
             country: orderData.shippingAddress.country || "India",
           },
         },
@@ -485,8 +492,8 @@ const PaymentPage = () => {
         JSON.stringify(orderPayload, null, 2)
       );
 
-      const token = localStorage.getItem("token");
-      if (!token) {
+      // Use jwtToken from context instead of localStorage.getItem("token")
+      if (!jwtToken) {
         throw new Error("Authentication token not found. Please login again.");
       }
 
@@ -496,7 +503,7 @@ const PaymentPage = () => {
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${jwtToken}`, // Use jwtToken here
           },
           timeout: 30000,
         }

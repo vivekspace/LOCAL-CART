@@ -430,14 +430,14 @@ const ChatbotContent = memo(
 
 // Main ChatBot component with enhanced database integration
 const ChatBot = ({ isInToggle = false, isMobile = false }) => {
-  // Initialize messages from localStorage or a default welcome message
+  // Initialize messages from sessionStorage or a default welcome message
   const [messages, setMessages] = useState(() => {
     try {
-      const storedMessages = localStorage.getItem("chatMessages");
+      const storedMessages = sessionStorage.getItem("chatMessages"); // Changed to sessionStorage
       return storedMessages ? JSON.parse(storedMessages) : [];
     } catch (error) {
       console.error(
-        "Failed to parse stored messages from localStorage:",
+        "Failed to parse stored messages from sessionStorage:", // Changed to sessionStorage
         error
       );
       return []; // Return empty array on error
@@ -449,29 +449,29 @@ const ChatBot = ({ isInToggle = false, isMobile = false }) => {
   const [products, setProducts] = useState([]);
   const [isProductsLoaded, setIsProductsLoaded] = useState(false);
 
-  // Debounce ref for localStorage saving
-  const localStorageSaveTimeoutRef = useRef(null);
+  // Debounce ref for sessionStorage saving
+  const sessionStorageSaveTimeoutRef = useRef(null); // Changed to sessionStorage
 
-  // Effect to save messages to localStorage whenever they change, with debouncing
+  // Effect to save messages to sessionStorage whenever they change, with debouncing
   useEffect(() => {
     // Clear any existing timeout
-    if (localStorageSaveTimeoutRef.current) {
-      clearTimeout(localStorageSaveTimeoutRef.current);
+    if (sessionStorageSaveTimeoutRef.current) { // Changed to sessionStorage
+      clearTimeout(sessionStorageSaveTimeoutRef.current);
     }
 
     // Set a new timeout to save messages after a short delay
-    localStorageSaveTimeoutRef.current = setTimeout(() => {
+    sessionStorageSaveTimeoutRef.current = setTimeout(() => { // Changed to sessionStorage
       try {
-        localStorage.setItem("chatMessages", JSON.stringify(messages));
+        sessionStorage.setItem("chatMessages", JSON.stringify(messages)); // Changed to sessionStorage
       } catch (error) {
-        console.error("Failed to save messages to local storage:", error);
+        console.error("Failed to save messages to session storage:", error); // Changed to sessionStorage
       }
     }, 500); // Debounce time: 500 milliseconds
 
     // Cleanup function: clear the timeout if the component unmounts
     return () => {
-      if (localStorageSaveTimeoutRef.current) {
-        clearTimeout(localStorageSaveTimeoutRef.current);
+      if (sessionStorageSaveTimeoutRef.current) { // Changed to sessionStorage
+        clearTimeout(sessionStorageSaveTimeoutRef.current);
       }
     };
   }, [messages]); // Dependency array: runs whenever 'messages' state changes
@@ -688,7 +688,7 @@ You'll receive an instant order confirmation via email and SMS with your unique 
       5.  **General Inquiries/FAQs:** Refer to the "General FAQs" for questions about store hours, payment methods, delivery locations, minimum order value, delivery fees, and how to contact human support.
 
         **Special Instruction for "Who trained you?":**
-      If asked about your training or who created you, respond by stating that you are an AI assistant developed by Local Cart, .
+      If asked about your training or who created you, respond by stating that you are an AI assistant developed by Local Cart.
 
       **Example Response (if asked):** "I am Local Cart Assistant, an AI designed by Local Cart to help you with your shopping needs."
 

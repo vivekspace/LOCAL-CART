@@ -67,7 +67,10 @@ const Dashboard = () => {
     const fetchDashboard = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("vendorToken");
+        // --- FIX START ---
+        // Change "vendorToken" to "jwtToken" to match what's stored in localStorage
+        const token = localStorage.getItem("jwtToken"); 
+        // --- FIX END ---
 
         if (!token) {
           setError("Authentication token not found. Please log in.");
@@ -482,6 +485,7 @@ const Dashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                   <p className="mt-2 text-gray-500">No top products to display</p>
+                  <p className="text-sm text-gray-400">for the selected period</p>
                 </div>
               )}
             </div>

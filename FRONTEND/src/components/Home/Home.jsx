@@ -512,13 +512,13 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4 relative z-10">
               <Link
-                to="/signup"
+                to="/vendor/register"
                 className="inline-flex items-center justify-center bg-white text-green-600 hover:bg-gray-100 font-semibold px-8 py-4 rounded-full transition-all transform hover:-translate-y-1 shadow-lg hover:shadow-xl"
               >
                 Sign Up Free
               </Link>
               <Link
-                to="/vendors"
+                to="vendor/application/form"
                 className="inline-flex items-center justify-center bg-transparent hover:bg-white/10 text-white font-semibold px-8 py-4 rounded-full transition-all border-2 border-white hover:border-white/80"
               >
                 Become a Vendor

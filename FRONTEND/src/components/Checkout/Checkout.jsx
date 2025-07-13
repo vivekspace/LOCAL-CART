@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useCallback } from "react";
-import { AuthContext } from "../../Context/Context";
+import { AuthContext } from "../../Context/Context"; // Ensure this path is correct
 import { toast, ToastContainer } from "react-toastify"; 
 import {
   CreditCard,
@@ -16,10 +16,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async"; 
 
 const Checkout = () => {
+  // Destructure user, jwtToken, isAuthLoading, cartItems, and selectedLocation directly
   const {
     cartItems: cart,
     user,
-    token,
+    jwtToken, // Changed from 'token' to 'jwtToken'
+    isAuthLoading, // Added isAuthLoading for better control
     selectedLocation,
   } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -39,7 +41,7 @@ const Checkout = () => {
     apartment: "",
     city: "",
     zipCode: "", 
-    email: user?.email || "", 
+    email: user?.email || "", // Initialize email from user context
     state: "Maharashtra", 
   });
 
@@ -55,7 +57,7 @@ const Checkout = () => {
   const shippingCost = shippingMethod === "express" ? 100 : 50;
   const totalPrice = subtotal + shippingCost;
 
- 
+  // Memoized function to prefill the form with address data
   const prefillFormWithAddress = useCallback(
     (address) => {
       if (!address) return;
@@ -72,13 +74,14 @@ const Checkout = () => {
         apartment: address.apartment || "", 
         city: address.city || "",
         zipCode: address.zipCode || "", 
-        email: user?.email || "",
+        email: user?.email || "", // Keep user's email if available
         state: address.state || "Maharashtra",
       });
     },
-    [user?.email]
+    [user?.email] // Depend on user.email to re-create if user changes
   ); 
   
+  // Effect to pre-fill city/state if location is detected and no address is being edited/selected
   useEffect(() => {
     if (
       showAddressForm && 
@@ -86,32 +89,46 @@ const Checkout = () => {
       selectedLocation && 
       selectedLocation.type === "current_location" && 
       selectedLocation.city && 
-      selectedLocation.city.toLowerCase() !== "current location"
+      selectedLocation.city.toLowerCase() !== "current location" // Avoid placeholder string
     ) {
       setFormData((prev) => ({
         ...prev,
         city:
           selectedLocation.city.charAt(0).toUpperCase() +
           selectedLocation.city.slice(1),
-        state: "Maharashtra", 
+        state: selectedLocation.state || "Maharashtra", // Use selectedLocation.state if available
       }));
     }
   }, [selectedLocation, showAddressForm, editingAddressId]); 
 
+  // Main effect to fetch and manage addresses on component mount/user change
   useEffect(() => {
-    console.log("Starting address fetch...");
     const fetchAddresses = async () => {
+      // Wait for AuthContext to finish loading
+      if (isAuthLoading) {
+        console.log("Checkout: Auth is loading, deferring address fetch.");
+        return;
+      }
+
+      setIsFetchingAddresses(true);
       try {
         console.log(
           "Fetch addresses called with user:",
           !!user,
-          "token:",
-          !!token
+          "jwtToken:",
+          !!jwtToken
         );
-        if (!user || !token) {
-          console.log("No user or token, showing guest form");
-          setIsFetchingAddresses(false);
+
+        // If user is not logged in, show the address form for guest checkout
+        if (!user || !jwtToken) {
+          console.log("No user or jwtToken, showing guest form");
           setShowAddressForm(true); 
+          // Pre-fill email if user object exists (even if not fully authenticated)
+          setFormData((prev) => ({
+            ...prev,
+            email: user?.email || prev.email,
+          }));
+          // Pre-fill city/state from selectedLocation if available for guests
           if (
             selectedLocation &&
             selectedLocation.type === "current_location" &&
@@ -122,17 +139,13 @@ const Checkout = () => {
               city:
                 selectedLocation.city.charAt(0).toUpperCase() +
                 selectedLocation.city.slice(1),
-              state: "Maharashtra",
-            }));
-          } else {
-            setFormData((prev) => ({
-              ...prev,
-              email: user?.email || prev.email,
+              state: selectedLocation.state || "Maharashtra",
             }));
           }
-          return;
+          return; // Exit as there's no authenticated data to fetch
         }
 
+        // If user is logged in, fetch their saved addresses
         console.log(
           "Fetching from URL:",
           `${import.meta.env.VITE_API_URL}/api/users/me/addresses`
@@ -141,7 +154,7 @@ const Checkout = () => {
           `${import.meta.env.VITE_API_URL}/api/users/me/addresses`,
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${jwtToken}`, // Use jwtToken here
               "Content-Type": "application/json",
             },
           }
@@ -153,6 +166,10 @@ const Checkout = () => {
             .json()
             .catch(() => ({ message: "No error body" }));
           console.error("API response not OK:", response.status, errorData);
+          // If 401, AuthContext should handle logout/redirect, otherwise toast error
+          if (response.status !== 401) {
+            toast.error(errorData.message || "Failed to fetch addresses");
+          }
           throw new Error(errorData.message || "Failed to fetch addresses");
         }
 
@@ -166,9 +183,11 @@ const Checkout = () => {
             data.data.addresses[0];
           setSelectedAddressId(defaultAddress._id);
           prefillFormWithAddress(defaultAddress); // Use the memoized function
-          setShowAddressForm(false);
+          setShowAddressForm(false); // Hide the form as saved addresses are available
         } else {
+          // No saved addresses, show the form for a new address
           setShowAddressForm(true);
+          // Pre-fill email and location data for new address form
           setFormData((prev) => ({
             ...prev,
             email: user?.email || prev.email,
@@ -183,14 +202,17 @@ const Checkout = () => {
               city:
                 selectedLocation.city.charAt(0).toUpperCase() +
                 selectedLocation.city.slice(1),
-              state: "Maharashtra",
+              state: selectedLocation.state || "Maharashtra",
             }));
           }
         }
       } catch (error) {
         console.error("Error fetching addresses:", error);
-        toast.error("Failed to load saved addresses");
+        // If an error occurs (e.g., network, or API error not handled by 401),
+        // default to showing the form for manual input.
+        toast.error("Failed to load saved addresses. Please enter manually.");
         setShowAddressForm(true);
+        // Attempt to pre-fill from location even on error
         if (
           selectedLocation &&
           selectedLocation.type === "current_location" &&
@@ -201,7 +223,7 @@ const Checkout = () => {
             city:
               selectedLocation.city.charAt(0).toUpperCase() +
               selectedLocation.city.slice(1),
-            state: "Maharashtra",
+            state: selectedLocation.state || "Maharashtra",
           }));
         }
       } finally {
@@ -210,7 +232,7 @@ const Checkout = () => {
     };
 
     fetchAddresses();
-  }, [user, token, selectedLocation, prefillFormWithAddress]); // prefillFormWithAddress is now stable due to useCallback
+  }, [user, jwtToken, isAuthLoading, selectedLocation, prefillFormWithAddress]); 
 
   // --- Handlers ---
 
@@ -244,7 +266,7 @@ const Checkout = () => {
           : "",
       zipCode: "",
       email: user?.email || "",
-      state: "Maharashtra",
+      state: selectedLocation?.state || "Maharashtra", // Pre-fill state from location
     });
     if (
       selectedLocation &&
@@ -259,13 +281,13 @@ const Checkout = () => {
 
   const handleEditAddress = (address) => {
     setEditingAddressId(address._id); 
-    setSelectedAddressId(address._id);
+    setSelectedAddressId(address._id); // Ensure this address is selected
     setShowAddressForm(true); 
     prefillFormWithAddress(address); 
   };
 
   const handleDeleteAddress = async (addressId) => {
-    if (!user || !token) {
+    if (!user || !jwtToken) { // Use jwtToken
       toast.error("You must be logged in to delete addresses.");
       return;
     }
@@ -281,7 +303,7 @@ const Checkout = () => {
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${jwtToken}`, // Use jwtToken
           },
         }
       );
@@ -292,15 +314,25 @@ const Checkout = () => {
         );
         toast.success("Address deleted successfully");
 
+        // After deletion, re-select an address or show add form
         if (selectedAddressId === addressId) {
           setSelectedAddressId("");
-          if (savedAddresses.length - 1 > 0) {
-            setSelectedAddressId(savedAddresses[0]._id);
-            prefillFormWithAddress(savedAddresses[0]);
-            setShowAddressForm(false);
+          if (savedAddresses.length - 1 > 0) { // Check if there are remaining addresses
+            const remainingAddresses = savedAddresses.filter(addr => addr._id !== addressId);
+            const newSelected = remainingAddresses.find(addr => addr.isDefault) || remainingAddresses[0];
+            if (newSelected) {
+              setSelectedAddressId(newSelected._id);
+              prefillFormWithAddress(newSelected);
+              setShowAddressForm(false);
+            } else {
+              // No addresses left after deletion
+              setShowAddressForm(true);
+              handleAddNewAddress(); // Show empty form
+            }
           } else {
+            // No addresses left after deletion
             setShowAddressForm(true);
-            handleAddNewAddress();
+            handleAddNewAddress(); // Show empty form
           }
         }
       } else {
@@ -319,22 +351,21 @@ const Checkout = () => {
 
   // Set default address
   const handleSetDefaultAddress = async (addressId) => {
-    if (!user || !token) {
+    if (!user || !jwtToken) { // Use jwtToken
       toast.error("You must be logged in to set a default address.");
       return;
     }
 
     try {
-      // Assuming your backend expects a PATCH to /api/users/me/addresses/:id/default
       const response = await fetch(
         `${
           import.meta.env.VITE_API_URL
         }/api/users/me/addresses/${addressId}/default`,
         {
-          method: "PATCH", // Or "PUT" if your API uses that
+          method: "PATCH", 
           headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json", // Often needed for PATCH/PUT
+            Authorization: `Bearer ${jwtToken}`, // Use jwtToken
+            "Content-Type": "application/json", 
           },
         }
       );
@@ -382,18 +413,17 @@ const Checkout = () => {
     if (!formData.firstname) errors.push("First name is required");
     if (!formData.lastname) errors.push("Last name is required");
     if (!formData.phone) errors.push("Phone number is required");
-    if (!formData.street) errors.push("Address line 1 (Street) is required"); // Updated message
+    if (!formData.street) errors.push("Address line 1 (Street) is required"); 
     if (!formData.city) errors.push("City is required");
-    if (!formData.zipCode) errors.push("Pincode is required"); // Updated message
+    if (!formData.zipCode) errors.push("Pincode is required"); 
     if (!formData.email) errors.push("Email is required");
 
     if (formData.phone && !/^[0-9]{10}$/.test(formData.phone)) {
       errors.push("Phone number must be 10 digits");
     }
 
-    // Corrected to zipCode as per formData state
     if (formData.zipCode && !/^[0-9]{6}$/.test(formData.zipCode)) {
-      errors.push("Pincode (Zip Code) must be 6 digits"); // Updated message
+      errors.push("Pincode (Zip Code) must be 6 digits"); 
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -411,9 +441,10 @@ const Checkout = () => {
   // Save address (new or edit)
   const handleSaveAddress = async () => {
     if (!validateForm()) return false;
-    if (!user || !token) {
+    // Only allow saving address if user is logged in
+    if (!user || !jwtToken) { 
       toast.error("You must be logged in to save addresses.");
-      return false; // Prevent saving for guests this way
+      return false; 
     }
 
     try {
@@ -426,7 +457,9 @@ const Checkout = () => {
         state: formData.state,
         zipCode: formData.zipCode,
         phone: formData.phone,
-        isDefault: savedAddresses.length === 0, // Only set as default if it's the first address
+        // Set as default if it's the first address OR if it's being edited and was already default
+        // Or if it's the only address being saved/updated
+        isDefault: savedAddresses.length === 0 || (editingAddressId && savedAddresses.find(addr => addr._id === editingAddressId)?.isDefault) || (!editingAddressId && savedAddresses.length === 0)
       };
 
       const url = editingAddressId
@@ -441,7 +474,7 @@ const Checkout = () => {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${jwtToken}`, // Use jwtToken
         },
         body: JSON.stringify(addressData),
       });
@@ -485,7 +518,6 @@ const Checkout = () => {
 
   // Format full address for display
   const formatFullAddress = (address) => {
-    // Ensure you use the correct properties from the address object
     return [
       address.street,
       address.apartment,
@@ -513,9 +545,9 @@ const Checkout = () => {
       return;
     }
 
-    // If the address form is shown (meaning it's a new address or an edited one),
-    // and the user is logged in, save it first.
-    if (user && token && showAddressForm) {
+    // If the address form is shown AND the user is logged in, save it first.
+    // Guests' addresses are not saved permanently at this step.
+    if (user && jwtToken && showAddressForm) { // Use jwtToken here
       const saved = await handleSaveAddress();
       if (!saved) {
         setIsSubmitting(false);
@@ -528,20 +560,18 @@ const Checkout = () => {
       finalAddressForOrder = savedAddresses.find(
         (addr) => addr._id === selectedAddressId
       );
-    }
-
-    if (!finalAddressForOrder && showAddressForm && !user) {
+    } else if (showAddressForm) { // If no address selected but form is shown (newly entered or guest)
       
       finalAddressForOrder = {
-        _id: "temp-" + Date.now(),
+        _id: "temp-" + Date.now(), // Temporary ID for guest orders
         name: `${formData.firstname} ${formData.lastname}`.trim(),
         street: formData.street,
         apartment: formData.apartment,
         city: formData.city,
         state: formData.state,
-        zipCode: formData.zipCode, // Use zipCode here from formData
+        zipCode: formData.zipCode, 
         phone: formData.phone,
-        isDefault: true,
+        isDefault: true, // Mark as default for this order
       };
     }
 
@@ -564,8 +594,8 @@ const Checkout = () => {
         apartment: formData.apartment,
         city: formData.city,
         state: formData.state,
-        zip: formData.zipCode, 
-        country: finalAddressForOrder.country || "India", 
+        zip: formData.zipCode, // Use zipCode here from formData
+        country: finalAddressForOrder.country || "India", // Use country from finalAddressForOrder or default
       },
       cartItems: cart.map((item) => ({
         productId: item._id,
@@ -597,6 +627,7 @@ const Checkout = () => {
     });
     setIsSubmitting(false);
   };
+
   return (
     <div className="bg-gray-50 min-h-screen py-8">
       <Helmet>
@@ -605,7 +636,7 @@ const Checkout = () => {
           name="description"
           content={`Proceed to checkout with ${cart.length} items totaling ₹${totalPrice.toFixed(2)}. Manage shipping addresses and select delivery options.`}
         />
-       
+        
       </Helmet>
       <ToastContainer position="top-center" />
       <div className="container mx-auto px-4 max-w-6xl">
@@ -943,7 +974,7 @@ const Checkout = () => {
                       </div>
 
                       <div className="flex justify-between">
-                        {user && token && (
+                        {user && jwtToken && ( // Only show save button if logged in
                           <button
                             type="button"
                             onClick={handleSaveAddress}
@@ -1027,7 +1058,7 @@ const Checkout = () => {
                           <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 h-12 w-12 flex-shrink-0 mr-3 flex items-center justify-center">
                             <img
                               src={`${import.meta.env.VITE_API_URL}/uploads/${
-                                item.images[0]
+                                item.images?.[0]?.url || item.images?.[0] // Handle both url property and direct string
                               }`}
                               alt={item.name}
                               className="w-full h-auto object-cover"

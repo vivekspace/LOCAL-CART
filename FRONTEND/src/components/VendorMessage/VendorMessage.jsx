@@ -1,61 +1,66 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ShoppingBag, Send, MessageSquare, RefreshCw, XCircle, ChevronDown, User, Calendar, Loader2 , CheckCircle} from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ShoppingBag, Send, MessageSquare, RefreshCw, XCircle, ChevronDown, User, Calendar, Loader2, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../Context/Context';
+// API_BASE_URL is now managed by authAxios, so it's not strictly needed here for API calls.
+// const API_BASE_URL = 'http://localhost:5000/api';
 
 const VendorMessagesPage = () => {
+  // Destructure authAxios, jwtToken, and isAuthLoading from AuthContext
+  const { authAxios, jwtToken, isAuthLoading } = useAuth();
+
   const [orders, setOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [loadingOrders, setLoadingOrders] = useState(true); // For order data fetching
   const [ordersError, setOrdersError] = useState(null);
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [messageStatus, setMessageStatus] = useState(null);
+  const [messageStatus, setMessageStatus] = useState(null); // 'success' or 'error'
   const [messageFeedback, setMessageFeedback] = useState('');
   const [isOrderDropdownOpen, setIsOrderDropdownOpen] = useState(false);
 
-  const API_BASE_URL = 'http://localhost:5000/api';
+  // Ref for managing message feedback timeout
+  const messageFeedbackTimeoutRef = useRef(null);
 
-  const getVendorToken = () => {
-    return localStorage.getItem('vendorToken');
-  };
+  // Removed getVendorToken as authAxios handles the token
 
   const fetchVendorOrders = useCallback(async () => {
-    setLoadingOrders(true);
-    setOrdersError(null);
-    const token = getVendorToken();
-
-    if (!token) {
-      setOrdersError("Please log in to view your orders");
+    // If auth is still loading or no token, don't proceed with fetching orders
+    if (isAuthLoading) {
+      setLoadingOrders(true); // Keep loading state true while auth is pending
+      return;
+    }
+    if (!jwtToken) {
+      setOrdersError("Please log in as a vendor to view your orders.");
       setLoadingOrders(false);
       return;
     }
 
+    setLoadingOrders(true);
+    setOrdersError(null);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/orders/vendor/orders`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(response.status === 401 
-          ? "Session expired. Please log in again." 
-          : "Failed to load orders");
+      // Use authAxios for authenticated requests. It handles the base URL and Authorization header.
+const response = await authAxios.get('/api/orders/vendor/orders');
+
+      // authAxios automatically throws for non-2xx responses, so no need for response.ok check
+      setOrders(response.data.orders || []);
+      // If no orders are found, and no prior error, set a message
+      if (!response.data.orders || response.data.orders.length === 0) {
+        setOrdersError("No orders found for your vendor account.");
       }
-      
-      const data = await response.json();
-      setOrders(data.orders || []);
     } catch (err) {
       console.error("Error fetching orders:", err);
-      setOrdersError(err.message);
+      // authAxios interceptor should handle 401, so we just display the error message
+      setOrdersError(err.response?.data?.message || "Failed to load orders. Please try again.");
     } finally {
       setLoadingOrders(false);
     }
-  }, [API_BASE_URL]);
+  }, [authAxios, isAuthLoading, jwtToken]); // Dependencies for useCallback
 
   useEffect(() => {
     fetchVendorOrders();
-  }, [fetchVendorOrders]);
+  }, [fetchVendorOrders]); // Dependency for useEffect
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -63,55 +68,55 @@ const VendorMessagesPage = () => {
     setMessageStatus(null);
     setMessageFeedback('');
 
+    // Clear any existing timeout for message feedback
+    if (messageFeedbackTimeoutRef.current) {
+      clearTimeout(messageFeedbackTimeoutRef.current);
+    }
+
     if (!selectedOrderId || !messageContent.trim()) {
       setMessageStatus('error');
-      setMessageFeedback(!selectedOrderId 
-        ? 'Please select an order' 
+      setMessageFeedback(!selectedOrderId
+        ? 'Please select an order'
         : 'Message cannot be empty');
       setSendingMessage(false);
+      messageFeedbackTimeoutRef.current = setTimeout(() => setMessageFeedback(''), 5000);
       return;
     }
 
-    const token = getVendorToken();
-    if (!token) {
+    // Ensure authAxios is available
+    if (!authAxios) {
       setMessageStatus('error');
-      setMessageFeedback("Session expired. Please log in.");
+      setMessageFeedback("Authentication client not available. Please log in.");
       setSendingMessage(false);
+      messageFeedbackTimeoutRef.current = setTimeout(() => setMessageFeedback(''), 5000);
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/orders/vendor/message-customer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          orderId: selectedOrderId,
-          messageContent: messageContent.trim()
-        }),
+      // Use authAxios for authenticated POST request
+const response = await authAxios.post('/api/orders/vendor/message-customer', {
+        orderId: selectedOrderId,
+        messageContent: messageContent.trim()
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessageStatus('success');
-        setMessageFeedback("Message sent successfully!");
-        setMessageContent('');
-      } else {
-        throw new Error(data.message || 'Failed to send message');
-      }
+      // authAxios automatically throws for non-2xx responses
+      setMessageStatus('success');
+      setMessageFeedback("Message sent successfully!");
+      setMessageContent('');
     } catch (err) {
+      console.error("Error sending message:", err);
       setMessageStatus('error');
-      setMessageFeedback(err.message);
+      setMessageFeedback(err.response?.data?.message || 'Failed to send message. Please try again.');
     } finally {
       setSendingMessage(false);
-      setTimeout(() => setMessageFeedback(''), 5000);
+      messageFeedbackTimeoutRef.current = setTimeout(() => setMessageFeedback(''), 5000);
     }
   };
 
   const selectedOrder = orders.find(order => order._id === selectedOrderId);
+
+  // Determine overall loading state for the UI
+  const overallLoading = loadingOrders || isAuthLoading;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 font-sans">
@@ -127,13 +132,13 @@ const VendorMessagesPage = () => {
               Communicate with customers about their orders
             </p>
           </div>
-          
+
           <button
             onClick={fetchVendorOrders}
-            disabled={loadingOrders}
+            disabled={overallLoading}
             className="flex items-center px-4 py-2.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-gray-700 font-medium"
           >
-            {loadingOrders ? (
+            {overallLoading ? (
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
             ) : (
               <RefreshCw className="w-5 h-5 mr-2" />
@@ -143,7 +148,7 @@ const VendorMessagesPage = () => {
         </div>
 
         {/* Error Message */}
-        {ordersError && (
+        {(ordersError || (!jwtToken && !isAuthLoading)) && ( // Show error if ordersError or if no token after auth loading
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -151,7 +156,9 @@ const VendorMessagesPage = () => {
           >
             <div className="flex items-center">
               <XCircle className="w-5 h-5 text-red-500 mr-2" />
-              <p className="text-red-700 font-medium">{ordersError}</p>
+              <p className="text-red-700 font-medium">
+                {ordersError || "You are not logged in as a vendor. Please log in."}
+              </p>
             </div>
           </motion.div>
         )}
@@ -168,8 +175,8 @@ const VendorMessagesPage = () => {
             <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">
               Select Order
             </h2>
-            
-            {loadingOrders ? (
+
+            {overallLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
               </div>
@@ -192,7 +199,7 @@ const VendorMessagesPage = () => {
                     )}
                     <ChevronDown className={`w-5 h-5 transition-transform ${isOrderDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
-                  
+
                   <AnimatePresence>
                     {isOrderDropdownOpen && (
                       <motion.div
@@ -204,7 +211,7 @@ const VendorMessagesPage = () => {
                         {orders.map(order => {
                           const orderDate = order.createdAt ? new Date(order.createdAt) : null;
                           const displayDate = orderDate?.toLocaleDateString() || 'N/A';
-                          
+
                           return (
                             <button
                               key={order._id}
@@ -267,7 +274,7 @@ const VendorMessagesPage = () => {
             <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">
               Compose Message
             </h2>
-            
+
             <form onSubmit={handleSendMessage} className="space-y-6">
               <div>
                 <label htmlFor="messageContent" className="block text-sm font-medium text-gray-700 mb-2">
@@ -280,7 +287,7 @@ const VendorMessagesPage = () => {
                   placeholder="Write your message to the customer..."
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
-                  disabled={!selectedOrderId || sendingMessage}
+                  disabled={!selectedOrderId || sendingMessage || overallLoading || !jwtToken} // Disable if not authenticated
                 ></textarea>
               </div>
 
@@ -307,7 +314,7 @@ const VendorMessagesPage = () => {
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  disabled={!selectedOrderId || !messageContent.trim() || sendingMessage}
+                  disabled={!selectedOrderId || !messageContent.trim() || sendingMessage || overallLoading || !jwtToken} // Disable if not authenticated
                   className="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {sendingMessage ? (

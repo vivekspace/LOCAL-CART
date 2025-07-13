@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   CheckCircleIcon,
@@ -9,15 +8,18 @@ import {
   ExclamationCircleIcon,
   ArrowLeftIcon,
   ReceiptRefundIcon,
-  QuestionMarkCircleIcon
+  QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
+import { useAuth } from "../../Context/Context.jsx"; // Import useAuth hook
 
 const OrderedItemsPage = () => {
   const { orderId } = useParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const { authAxios } = useAuth(); // Use the authAxios instance from AuthContext
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -31,20 +33,8 @@ const OrderedItemsPage = () => {
       }
 
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          throw new Error("Authentication token not found. Please login.");
-        }
-
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/orders/${orderId}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        // Use authAxios which already handles token attachment and 401 refresh
+        const response = await authAxios.get(`/api/orders/${orderId}`);
 
         const orderData = {
           ...response.data,
@@ -59,9 +49,6 @@ const OrderedItemsPage = () => {
         let errorMessage = "Failed to fetch order";
         if (err.response) {
           switch (err.response.status) {
-            case 401:
-              errorMessage = "Session expired or not authorized. Please login again.";
-              break;
             case 404:
               errorMessage = "Order not found or you don't have access to it.";
               break;
@@ -69,7 +56,10 @@ const OrderedItemsPage = () => {
               errorMessage = "Server error. Please try again later.";
               break;
             default:
-              errorMessage = err.response.data?.message || err.response.data?.error || errorMessage;
+              errorMessage =
+                err.response.data?.message ||
+                err.response.data?.error ||
+                errorMessage;
           }
         } else if (err.request) {
           errorMessage = "Network error. Please check your connection.";
@@ -78,17 +68,14 @@ const OrderedItemsPage = () => {
         }
 
         setError(errorMessage);
-
-        if (err.response?.status === 401) {
-          setTimeout(() => window.location.reload(), 2000);
-        }
+        // No need for explicit 401 handling here, authAxios interceptor does it.
       } finally {
         setLoading(false);
       }
     };
 
     fetchOrder();
-  }, [orderId]);
+  }, [orderId, authAxios]); // Add authAxios to dependencies
 
   const getStatusProgress = (status) => {
     switch (status) {
@@ -125,7 +112,9 @@ const OrderedItemsPage = () => {
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-700 font-medium">Loading your order details...</p>
+          <p className="text-lg text-gray-700 font-medium">
+            Loading your order details...
+          </p>
           <p className="text-sm text-gray-500 mt-1">
             We're preparing your order information
           </p>
@@ -139,7 +128,9 @@ const OrderedItemsPage = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-sm">
           <ExclamationCircleIcon className="mx-auto h-16 w-16 text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Oops! Something went wrong</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Oops! Something went wrong
+          </h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="flex justify-center space-x-4">
             <button
@@ -195,26 +186,39 @@ const OrderedItemsPage = () => {
             <ArrowLeftIcon className="w-5 h-5 mr-1" />
             Back to My Orders
           </Link>
-          
+
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Order Details
               </h1>
               <p className="text-gray-600 mt-1">
-                Order #{order.orderNumber} • Placed on {new Date(order.createdAt).toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
+                Order #{order.orderNumber} • Placed on{" "}
+                {new Date(order.createdAt).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
                 })}
               </p>
             </div>
-            
-            <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-              {order.status === 'processing' && <ClockIcon className="w-4 h-4 mr-2" />}
-              {order.status === 'shipped' && <TruckIcon className="w-4 h-4 mr-2" />}
-              {order.status === 'delivered' && <CheckCircleIcon className="w-4 h-4 mr-2" />}
-              {order.status === 'cancelled' && <ExclamationCircleIcon className="w-4 h-4 mr-2" />}
+
+            <div
+              className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
+                order.status
+              )}`}
+            >
+              {order.status === "processing" && (
+                <ClockIcon className="w-4 h-4 mr-2" />
+              )}
+              {order.status === "shipped" && (
+                <TruckIcon className="w-4 h-4 mr-2" />
+              )}
+              {order.status === "delivered" && (
+                <CheckCircleIcon className="w-4 h-4 mr-2" />
+              )}
+              {order.status === "cancelled" && (
+                <ExclamationCircleIcon className="w-4 h-4 mr-2" />
+              )}
               <span className="capitalize">{order.status}</span>
             </div>
           </div>
@@ -225,7 +229,7 @@ const OrderedItemsPage = () => {
           {/* Left column - Order items */}
           <div className="lg:col-span-2 space-y-6">
             {/* Order status tracker */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
@@ -234,7 +238,7 @@ const OrderedItemsPage = () => {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Order Progress
               </h2>
-              
+
               {order.status !== "cancelled" ? (
                 <div className="space-y-8">
                   <div className="flex justify-between items-center relative">
@@ -247,63 +251,86 @@ const OrderedItemsPage = () => {
                         }}
                       ></div>
                     </div>
-                    
+
                     {/* Processing step */}
                     <div className="flex flex-col items-center z-10">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
-                        ["processing", "shipped", "delivered"].includes(order.status)
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-200 text-gray-500"
-                      }`}>
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                          ["processing", "shipped", "delivered"].includes(
+                            order.status
+                          )
+                            ? "bg-green-500 text-white"
+                            : "bg-gray-200 text-gray-500"
+                        }`}
+                      >
                         <ShoppingBagIcon className="w-5 h-5" />
                       </div>
-                      <span className={`text-xs font-medium ${
-                        ["processing", "shipped", "delivered"].includes(order.status)
-                          ? "text-gray-900"
-                          : "text-gray-500"
-                      }`}>Processing</span>
+                      <span
+                        className={`text-xs font-medium ${
+                          ["processing", "shipped", "delivered"].includes(
+                            order.status
+                          )
+                            ? "text-gray-900"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        Processing
+                      </span>
                     </div>
-                    
+
                     {/* Shipped step */}
                     <div className="flex flex-col items-center z-10">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
-                        ["shipped", "delivered"].includes(order.status)
-                          ? "bg-green-500 text-white"
-                          : ["processing"].includes(order.status)
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                          ["shipped", "delivered"].includes(order.status)
+                            ? "bg-green-500 text-white"
+                            : ["processing"].includes(order.status)
                             ? "bg-gray-200 text-gray-500"
                             : "bg-gray-200 text-gray-500"
-                      }`}>
+                        }`}
+                      >
                         <TruckIcon className="w-5 h-5" />
                       </div>
-                      <span className={`text-xs font-medium ${
-                        ["shipped", "delivered"].includes(order.status)
-                          ? "text-gray-900"
-                          : "text-gray-500"
-                      }`}>Shipped</span>
+                      <span
+                        className={`text-xs font-medium ${
+                          ["shipped", "delivered"].includes(order.status)
+                            ? "text-gray-900"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        Shipped
+                      </span>
                     </div>
-                    
+
                     {/* Delivered step */}
                     <div className="flex flex-col items-center z-10">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
-                        order.status === "delivered"
-                          ? "bg-green-500 text-white"
-                          : ["processing", "shipped"].includes(order.status)
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                          order.status === "delivered"
+                            ? "bg-green-500 text-white"
+                            : ["processing", "shipped"].includes(order.status)
                             ? "bg-gray-200 text-gray-500"
                             : "bg-gray-200 text-gray-500"
-                      }`}>
+                        }`}
+                      >
                         <CheckCircleIcon className="w-5 h-5" />
                       </div>
-                      <span className={`text-xs font-medium ${
-                        order.status === "delivered"
-                          ? "text-gray-900"
-                          : "text-gray-500"
-                      }`}>Delivered</span>
+                      <span
+                        className={`text-xs font-medium ${
+                          order.status === "delivered"
+                            ? "text-gray-900"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        Delivered
+                      </span>
                     </div>
                   </div>
-                  
+
                   {order.status === "processing" && (
                     <p className="text-sm text-gray-600">
-                      Your order is being prepared. We'll notify you when it ships.
+                      Your order is being prepared. We'll notify you when it
+                      ships.
                     </p>
                   )}
                   {order.status === "shipped" && (
@@ -313,7 +340,10 @@ const OrderedItemsPage = () => {
                       </p>
                       {order.trackingNumber && (
                         <p className="text-sm text-blue-700 mt-1">
-                          Tracking number: <span className="font-medium">{order.trackingNumber}</span>
+                          Tracking number:{" "}
+                          <span className="font-medium">
+                            {order.trackingNumber}
+                          </span>
                         </p>
                       )}
                     </div>
@@ -337,7 +367,7 @@ const OrderedItemsPage = () => {
             </motion.div>
 
             {/* Order items */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
@@ -348,10 +378,10 @@ const OrderedItemsPage = () => {
                   Order Items ({order.items.length})
                 </h2>
               </div>
-              
+
               <div className="divide-y divide-gray-200">
                 {order.items.map((item, index) => (
-                  <motion.div 
+                  <motion.div
                     key={item.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -363,17 +393,21 @@ const OrderedItemsPage = () => {
                         <img
                           src={
                             item.images && item.images.length > 0
-                              ? `${import.meta.env.VITE_API_URL}/uploads/${item.images[0]}`
+                              ? `${import.meta.env.VITE_API_URL}/uploads/${
+                                  item.images[0]
+                                }`
                               : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
                           }
                           alt={item.name}
                           className="w-full h-full object-contain p-2"
                           onError={(e) => {
-                            e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`;
+                            e.target.src = `${
+                              import.meta.env.VITE_API_URL
+                            }/uploads/default-product.png`;
                           }}
                         />
                       </div>
-                      
+
                       <div className="ml-4 flex-grow">
                         <div className="flex justify-between">
                           <div>
@@ -390,14 +424,15 @@ const OrderedItemsPage = () => {
                             <p className="text-sm font-medium text-gray-900">
                               ₹{item.price.toFixed(2)}
                             </p>
-                            {item.originalPrice && item.originalPrice > item.price && (
-                              <p className="text-xs text-gray-500 line-through">
-                                ₹{item.originalPrice.toFixed(2)}
-                              </p>
-                            )}
+                            {item.originalPrice &&
+                              item.originalPrice > item.price && (
+                                <p className="text-xs text-gray-500 line-through">
+                                  ₹{item.originalPrice.toFixed(2)}
+                                </p>
+                              )}
                           </div>
                         </div>
-                        
+
                         <div className="mt-4 flex justify-between items-end">
                           <p className="text-sm text-gray-500">
                             Qty: {item.quantity}
@@ -408,7 +443,7 @@ const OrderedItemsPage = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {order.status === "delivered" && (
                       <div className="mt-4 pt-4 border-t border-gray-100">
                         <button className="text-sm font-medium text-green-600 hover:text-green-700 flex items-center">
@@ -425,7 +460,7 @@ const OrderedItemsPage = () => {
 
           {/* Right column - Order summary */}
           <div className="lg:col-span-1 space-y-6">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
@@ -490,11 +525,14 @@ const OrderedItemsPage = () => {
                   <p className="font-medium">{order.shippingAddress.name}</p>
                   <p>{order.shippingAddress.street}</p>
                   <p>
-                    {order.shippingAddress.city}, {order.shippingAddress.state}{" "}
+                    {order.shippingAddress.city},{" "}
+                    {order.shippingAddress.state}{" "}
                     {order.shippingAddress.zip}
                   </p>
                   <p>{order.shippingAddress.country}</p>
-                  <p className="mt-2 font-medium">Phone: {order.shippingAddress.phone}</p>
+                  <p className="mt-2 font-medium">
+                    Phone: {order.shippingAddress.phone}
+                  </p>
                 </div>
               </div>
 
@@ -504,12 +542,14 @@ const OrderedItemsPage = () => {
                 </h3>
                 <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
                   <p className="capitalize font-medium">
-                    {order.paymentMethod.type} ending in {order.paymentMethod.last4}
+                    {order.paymentMethod.type} ending in{" "}
+                    {order.paymentMethod.last4}
                   </p>
                   {order.paymentMethod.status === "paid" ? (
                     <p className="inline-flex items-center text-green-600 mt-2">
                       <CheckCircleIcon className="w-4 h-4 mr-2" />
-                      Paid on {new Date(order.paymentMethod.paidAt).toLocaleDateString()}
+                      Paid on{" "}
+                      {new Date(order.paymentMethod.paidAt).toLocaleDateString()}
                     </p>
                   ) : (
                     <p className="inline-flex items-center text-yellow-600 mt-2">

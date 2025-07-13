@@ -1,12 +1,15 @@
-import React from "react";
-import { useState, useEffect } from "react";
-import { FiPlus, FiSearch, FiEdit, FiTrash2, FiFilter, FiChevronDown, FiChevronUp , FiTrendingUp , FiClock } from "react-icons/fi";
-import axios from "axios";
+import React, { useState, useEffect, useContext } from "react"; // Added useContext
+import { FiPlus, FiSearch, FiEdit, FiTrash2, FiFilter, FiChevronDown, FiChevronUp, FiTrendingUp, FiClock } from "react-icons/fi";
+import axios from "axios"; // Keep axios for error handling or if other direct calls are needed later
 import { Link } from "react-router-dom";
 import { Box } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AuthContext } from "../../Context/Context.jsx"; // Import AuthContext
 
 const VendorProductsPage = () => {
+  // Destructure auth-related properties from AuthContext
+  const { authAxios, isLoggedIn, isSeller, user } = useContext(AuthContext);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [products, setProducts] = useState([]);
@@ -18,24 +21,22 @@ const VendorProductsPage = () => {
   // Fetch products from database
   useEffect(() => {
     const fetchProducts = async () => {
-      try {
-        const token = localStorage.getItem("vendorToken");
-        if (!token) {
-          setError("No token found. Please login again.");
-          setLoading(false);
-          return;
-        }
+      // Check authentication and role first
+      if (!isLoggedIn || !isSeller) {
+        setError("You are not logged in as a seller or not authorized to view this page.");
+        setLoading(false);
+        return;
+      }
 
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/vendor/products`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+      try {
+        setLoading(true);
+        setError(null); // Clear previous errors
+
+        // Use authAxios for authenticated requests
+        const response = await authAxios.get(`/api/vendor/products`);
         setProducts(response.data.data);
       } catch (err) {
+        console.error('Error fetching vendor products:', err);
         setError(err.response?.data?.message || "Failed to fetch products");
       } finally {
         setLoading(false);
@@ -43,7 +44,8 @@ const VendorProductsPage = () => {
     };
 
     fetchProducts();
-  }, []);
+    // Dependencies: Re-run if authAxios, isLoggedIn, or isSeller changes
+  }, [authAxios, isLoggedIn, isSeller]);
 
   const handleSort = (key) => {
     let direction = 'ascending';
@@ -78,27 +80,21 @@ const VendorProductsPage = () => {
 
   const handleDelete = async (productId) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
-    
-    try {
-      const token = localStorage.getItem("vendorToken");
-      if (!token) {
-        alert("No token found. Please login again.");
-        return;
-      }
 
-      await axios.delete(
-        `${import.meta.env.VITE_API_URL}/api/vendor/products/${productId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+    // Check authentication and role before deleting
+    if (!isLoggedIn || !isSeller) {
+      alert("You are not logged in as a seller or not authorized to delete products.");
+      return;
+    }
+
+    try {
+      // Use authAxios for authenticated delete requests
+      await authAxios.delete(`/api/vendor/products/${productId}`);
 
       setProducts(products.filter((product) => product._id !== productId));
     } catch (err) {
       console.error("Error deleting product:", err);
-      alert("Failed to delete product");
+      alert(err.response?.data?.message || "Failed to delete product");
     }
   };
 
@@ -108,18 +104,18 @@ const VendorProductsPage = () => {
 
   if (loading) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-50 to-gray-100"
       >
         <div className="text-center">
-          <motion.div 
+          <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
             className="rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"
           />
-          <motion.p 
+          <motion.p
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -127,7 +123,7 @@ const VendorProductsPage = () => {
           >
             Loading your products...
           </motion.p>
-          <motion.p 
+          <motion.p
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
@@ -142,19 +138,20 @@ const VendorProductsPage = () => {
 
   if (error) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="p-6 bg-gradient-to-r from-red-50 to-pink-50 text-red-600 rounded-xl max-w-xl mx-auto mt-10 shadow-lg border border-red-100"
       >
         <h2 className="text-lg font-semibold mb-2 flex items-center">
           <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1
+0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
           Error Loading Products
         </h2>
         <p className="mb-4">{error}</p>
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
         >
@@ -167,13 +164,13 @@ const VendorProductsPage = () => {
   return (
     <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
       {/* Header */}
-      <motion.div 
+      <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="flex flex-wrap lg:md:justify-between items-center mb-8"
       >
         <div className="flex justify-center items-center gap-4 lg:md:mb-0 mb-4">
-          <motion.div 
+          <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -186,7 +183,7 @@ const VendorProductsPage = () => {
         </div>
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Link
-            to={"/vendor-sell"}
+            to={"/vendor/sell"}
             className="flex items-center bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-3 rounded-lg transition-all shadow-md hover:shadow-lg w-full lg:md:w-auto"
           >
             <FiPlus className="mr-2" />
@@ -196,7 +193,7 @@ const VendorProductsPage = () => {
       </motion.div>
 
       {/* Search and Filter */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
@@ -254,7 +251,7 @@ const VendorProductsPage = () => {
       </motion.div>
 
       {/* Stats Cards */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
@@ -281,7 +278,7 @@ const VendorProductsPage = () => {
       </motion.div>
 
       {/* Products Table */}
-      <motion.div 
+      <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.4 }}
@@ -291,26 +288,26 @@ const VendorProductsPage = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <TableHeader 
-                  title="Product" 
+                <TableHeader
+                  title="Product"
                   sortKey="name"
                   handleSort={handleSort}
                   sortConfig={sortConfig}
                 />
-                <TableHeader 
-                  title="Category" 
+                <TableHeader
+                  title="Category"
                   sortKey="category"
                   handleSort={handleSort}
                   sortConfig={sortConfig}
                 />
-                <TableHeader 
-                  title="Price" 
+                <TableHeader
+                  title="Price"
                   sortKey="price"
                   handleSort={handleSort}
                   sortConfig={sortConfig}
                 />
-                <TableHeader 
-                  title="Stock" 
+                <TableHeader
+                  title="Stock"
                   sortKey="stock"
                   handleSort={handleSort}
                   sortConfig={sortConfig}
@@ -327,7 +324,7 @@ const VendorProductsPage = () => {
               {filteredProducts.length > 0 ? (
                 filteredProducts.map((product) => (
                   <React.Fragment key={product._id}>
-                    <tr 
+                    <tr
                       className="hover:bg-gray-50 cursor-pointer"
                       onClick={() => toggleExpandProduct(product._id)}
                     >
@@ -401,7 +398,7 @@ const VendorProductsPage = () => {
                     </tr>
                     <AnimatePresence>
                       {expandedProduct === product._id && (
-                        <motion.tr 
+                        <motion.tr
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
@@ -460,14 +457,14 @@ const VendorProductsPage = () => {
                       </svg>
                       <h3 className="mt-4 text-lg font-medium text-gray-900">No products found</h3>
                       <p className="mt-1 text-sm text-gray-500">
-                        {searchTerm 
+                        {searchTerm
                           ? "Try adjusting your search query"
-                          : activeFilter !== "all" 
+                          : activeFilter !== "all"
                             ? "No products match your filter"
                             : "You haven't added any products yet"}
                       </p>
                       <Link
-                        to="/vendor-sell"
+                        to="/vendor/sell"
                         className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                       >
                         <FiPlus className="-ml-1 mr-2 h-5 w-5" />
@@ -488,10 +485,10 @@ const VendorProductsPage = () => {
 const TableHeader = ({ title, sortKey, handleSort, sortConfig }) => {
   const isSorted = sortConfig.key === sortKey;
   const isAscending = isSorted && sortConfig.direction === 'ascending';
-  
+
   return (
-    <th 
-      scope="col" 
+    <th
+      scope="col"
       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
       onClick={() => handleSort(sortKey)}
     >
@@ -513,7 +510,7 @@ const TableHeader = ({ title, sortKey, handleSort, sortConfig }) => {
 
 const StatCard = ({ title, value, icon, color = "from-gray-500 to-gray-700" }) => {
   return (
-    <motion.div 
+    <motion.div
       whileHover={{ y: -5 }}
       className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all`}
     >

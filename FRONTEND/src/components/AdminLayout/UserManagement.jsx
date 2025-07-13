@@ -1,90 +1,77 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+// axios is implicitly used by authAxios, but can be kept if direct axios calls are still made elsewhere.
+// Since UserManagement only uses authAxios, direct axios import can be removed if not used.
+// import axios from 'axios';
 import UserRow from './UserRow'; // Ensure this path is correct
-// No need to import Link here as UserManagement doesn't link directly to user detail page itself.
-// Link will be used in UserRow.jsx.
+import { useAuth } from '../../Context/Context';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate for redirection
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// API_BASE_URL is no longer needed here as authAxios manages the base URL
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function UserManagement() {
     const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // For users data fetch
     const [error, setError] = useState(null);
-    const [isTokenLoading, setIsTokenLoading] = useState(true);
-    const [adminToken, setAdminToken] = useState(null);
 
-    // CRITICAL FIX: Get 'adminToken' directly from localStorage
-    // This useEffect runs once on component mount to retrieve the authentication token.
+    // Destructure necessary values from AuthContext
+    const { jwtToken, authAxios, isAuthLoading, adminSignOut } = useAuth();
+    const navigate = useNavigate();
+
+    // Removed the local adminToken and isTokenLoading states and their useEffect,
+    // as AuthContext now provides jwtToken and handles initial loading.
+
+    // Removed getAuthHeaders useCallback as authAxios automatically adds headers.
+
     useEffect(() => {
-        const token = localStorage.getItem("adminToken"); // <-- This is the key that holds the raw token
+        const fetchUsers = async () => {
+            // Check if authentication is still loading or if no token is available after loading
+            if (isAuthLoading) {
+                setLoading(true); // Still loading auth, so user data is also pending
+                return;
+            }
 
-        if (token) {
-            setAdminToken(token);
-            setError(null); // Clear any previous token-related errors
-        } else {
-            console.warn("UserManagement: 'adminToken' not found in localStorage. Admin is not logged in.");
-            setError("Admin token required to fetch users. Please ensure you are logged in."); // Error message seen on UI
-            setAdminToken(null); // Explicitly set to null if not found
-        }
+            if (!jwtToken) {
+                console.warn("UserManagement: JWT token not found. Redirecting to login.");
+                setError("Admin token required to fetch users. Please ensure you are logged in.");
+                setLoading(false); // No token, so not loading user data
+                // No need for explicit navigate here, the error state will render a login button.
+                // Or you could navigate directly if that's the desired UX for missing token
+                return;
+            }
 
-        setIsTokenLoading(false); // Mark token loading as complete
-    }, []); // Empty dependency array means this runs once on mount
+            setLoading(true); // Set loading state to true before API call
+            setError(null); // Clear any previous errors
 
-    // Memoized function to generate authorization headers for API calls.
-    // It depends on the 'adminToken' state.
-    const getAuthHeaders = useCallback(() => {
-        if (!adminToken) {
-            console.warn("Authentication token not available. API requests will fail.");
-            return {};
-        }
-        return {
-            headers: {
-                Authorization: `Bearer ${adminToken}`,
-            },
-        };
-    }, [adminToken]);
+            try {
+                // Use authAxios for the API call. It's pre-configured with the base URL and JWT token.
+                const response = await authAxios.get(`/api/admin/users`);
 
-   
-    useEffect(() => {
-        if (!isTokenLoading && adminToken) { // Only attempt fetch if token is loaded and present
-            const fetchUsers = async () => {
-                setLoading(true); // Set loading state to true before API call
-                setError(null); // Clear any previous errors
-
-                try {
-                    const response = await axios.get(`${API_BASE_URL}/api/admin/users`, getAuthHeaders());
-
-                    if (response.data.success) {
-                        setUsers(response.data.users); // Update users state with data from backend
-                    } else {
-                        // Handle cases where backend responds with success: false
-                        throw new Error(response.data.message || 'Failed to fetch users data.');
-                    }
-                } catch (err) {
-                    console.error('Error fetching users:', err);
-                    // Handle 401 Unauthorized errors (token expired/invalid)
-                    if (err.response && err.response.status === 401) {
-                        setError("Your session has expired or is invalid. Please log in again.");
-                        localStorage.removeItem('adminToken'); // Clear bad token
-                        localStorage.removeItem('adminInfo'); // Also clear adminInfo for consistency
-                        setAdminToken(null); // Clear token from state
-                    } else {
-                        // General error handling
-                        setError(err.response?.data?.message || 'Failed to load users. Please try again.');
-                    }
-                } finally {
-                    setLoading(false); // Always set loading to false when done
+                // authAxios (configured via interceptors in AuthContext) will throw an error for non-2xx responses.
+                // Thus, a direct check for response.data.success might not be strictly necessary if interceptors handle it,
+                // but keeping it for explicit success check of the backend's data structure is fine.
+                if (response.data.success) {
+                    setUsers(response.data.users); // Update users state with data from backend
+                } else {
+                    // Handle cases where backend responds with success: false
+                    throw new Error(response.data.message || 'Failed to fetch users data.');
                 }
-            };
+            } catch (err) {
+                console.error('Error fetching users:', err);
+                // AuthContext's interceptor should handle 401 (logout and redirection)
+                setError(err.response?.data?.message || 'Failed to load users. Please try again.');
+            } finally {
+                setLoading(false); // Always set loading to false when done
+            }
+        };
 
-            fetchUsers();
-        } else if (!isTokenLoading && !adminToken) {
-            setLoading(false);
-        }
-    }, [isTokenLoading, adminToken, getAuthHeaders]); // Dependencies for this useEffect
+        fetchUsers();
+    }, [jwtToken, authAxios, isAuthLoading, navigate]); // Add jwtToken, authAxios, isAuthLoading to dependencies
 
-  
     const handleToggleBlock = useCallback((userId, newStatus) => {
+        // This function primarily updates the local state.
+        // The actual API call for blocking/unblocking is likely within UserRow.jsx,
+        // which would also need to use `authAxios`
         setUsers(prevUsers =>
             prevUsers.map(user =>
                 user._id === userId ? { ...user, status: newStatus } : user
@@ -92,20 +79,20 @@ export default function UserManagement() {
         );
     }, []);
 
-    // Conditional rendering for loading, error, or data display.
-   if (loading || isTokenLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-700">Loading your analytics...</p>
-          <p className="text-sm text-gray-500">
-            LocalCart is crunching the numbers
-          </p>
-        </div>
-      </div>
-    );
-  }
+    // Conditional rendering for combined loading, error, or data display.
+    if (loading || isAuthLoading) { // Check both local loading and auth context loading
+        return (
+            <div className="flex justify-center items-center h-screen bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
+                    <p className="text-lg text-gray-700">Loading user data...</p>
+                    <p className="text-sm text-gray-500">
+                        LocalCart is crunching the numbers
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     if (error) {
         return (
@@ -114,10 +101,11 @@ export default function UserManagement() {
                     <p className="font-bold">Error:</p>
                     <p>{error}</p>
                 </div>
-                {!adminToken && (
+                {/* Show "Go to Login" button only if there's an error AND no token after auth loading is complete */}
+                {!jwtToken && !isAuthLoading && (
                     <div className="mt-4 text-center">
                         <button
-                            onClick={() => window.location.href = '/admin/login'} 
+                            onClick={() => navigate('/admin/login')} // Use navigate for SPA routing
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
                         >
                             Go to Login
@@ -146,7 +134,8 @@ export default function UserManagement() {
                 <div className="min-w-[900px]">
                     {users.length > 0 ? (
                         users.map(user => (
-                            <UserRow key={user._id} user={user} onToggleBlock={handleToggleBlock} />
+                            // Pass authAxios down if UserRow makes API calls that need authentication
+                            <UserRow key={user._id} user={user} onToggleBlock={handleToggleBlock} authAxios={authAxios} />
                         ))
                     ) : (
                         <div className="p-6 text-center text-gray-600">No users found.</div>

@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify"; // Keep ToastContainer if rendered here, otherwise remove
-import { useAuth } from "../../Context/Context"; // Use the custom useAuth hook
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
+import { useAuth } from "../../Context/Context";
 import { Lock, Mail, Eye, EyeOff, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -11,50 +10,54 @@ const VendorLogin = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(""); // Local error state for form display
+  const [error, setError] = useState("");
 
   const navigate = useNavigate();
-  // Use the custom useAuth hook for consistency across your app
-  const { vendorLogin } = useAuth(); // Destructure 'vendorLogin' from AuthContext via useAuth hook
+  const { vendorLogin } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     setIsLoading(true);
-    setError(""); // Clear previous errors on new submission
+    setError("");
 
     try {
-      // Client-side validation
       if (!email || !password) {
-        toast.error("Please fill in all fields."); // Toast for client-side validation
+        toast.error("Please fill in all fields.");
         setError("Please fill in all fields.");
         setIsLoading(false);
         return;
       }
 
-      // Call vendorLogin function from AuthContext and capture its return value
-      // Normalize email: trim and convert to lowercase for consistency with other login forms
       const loginResult = await vendorLogin({
         email: email.trim().toLowerCase(),
         password,
       });
 
-      // Check the success property from the login result returned by AuthContext
-      if (loginResult.success) {
-        // AuthContext's vendorLogin function already shows a success toast.
-        navigate("/vendor/dashboard"); // Redirect on successful login
+      console.log("VendorLogin.jsx: loginResult received:", loginResult); // Debug log
+
+      if (loginResult.success && loginResult.vendor) {
+        const userRole = loginResult.vendor.role;
+        console.log("VendorLogin.jsx: User role for redirection:", userRole);
+
+        if (userRole === 'admin') {
+          navigate("/admin-panel", { replace: true });
+        } else if (userRole === 'seller') { // This should now match the backend
+          navigate("/vendor/dashboard", { replace: true }); // Ensure replace: true
+          console.log("VendorLogin.jsx: Navigating to /vendor/dashboard."); // ADD THIS LOG
+        } else if (userRole === 'customer') {
+          navigate("/user-dashboard", { replace: true });
+        } else {
+          console.warn("VendorLogin.jsx: Unknown user role, navigating to home.");
+          navigate("/", { replace: true });
+        }
       } else {
-        // If login was not successful, AuthContext's vendorLogin function already toasted the error.
-        // Set the local error state for display under the form (optional, but good for form feedback).
         setError(loginResult.message || "Vendor login failed. Please try again.");
       }
     } catch (err) {
-      // This catch block will primarily handle truly unexpected errors that
-      // the AuthContext's vendorLogin function *doesn't* catch and return.
       console.error("Vendor Login (VendorLogin.jsx) unexpected error:", err);
       const errorMessage = err.message || "An unexpected error occurred during vendor login.";
       setError(errorMessage);
-      // toast.error(errorMessage); // Removed duplicate toast, relying on AuthContext
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +65,6 @@ const VendorLogin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4">
-      {/* Decorative elements */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
       <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
 
@@ -167,7 +169,7 @@ const VendorLogin = () => {
               <motion.button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ${
+                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors ${
                   isLoading ? "opacity-80 cursor-not-allowed" : ""
                 }`}
                 whileHover={{ scale: 1.02 }}
@@ -206,7 +208,6 @@ const VendorLogin = () => {
           </div>
         </div>
       </motion.div>
-      <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
     </div>
   );
 };

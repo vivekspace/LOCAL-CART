@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify"; // Removed ToastContainer import
 import { useAuth } from "../../Context/Context";
-import "react-toastify/dist/ReactToastify.css";
+// Removed "react-toastify/dist/ReactToastify.css" import (should be in main.jsx)
 import { Lock, Mail, Eye, EyeOff, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
-import { Helmet } from 'react-helmet-async'; // <--- ADD THIS IMPORT
+import { Helmet } from 'react-helmet-async';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const { login, auth } = useAuth(); // Destructure 'auth' from useAuth
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,10 +41,13 @@ export default function Login() {
         return;
       }
 
+      // Call the general login function from AuthContext
       const loginResult = await login({
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
+
+      console.log("Login.jsx: loginResult received:", loginResult); // Debug log
 
       if (loginResult.success) {
         if (formData.remember) {
@@ -53,7 +56,23 @@ export default function Login() {
           localStorage.removeItem("rememberMe");
         }
 
-        navigate("/");
+        
+        if (loginResult.user) {
+          console.log("Login.jsx: User role for redirection:", loginResult.user.role); // Debug log
+          if (loginResult.user.role === 'admin') {
+            navigate("/admin-panel");
+          } else if (loginResult.user.role === 'seller') { // Use 'seller' to match your backend enum
+            navigate("/vendor/dashboard");
+          } else if (loginResult.user.role === 'customer') {
+            navigate("/profile");
+          } else {
+            navigate("/");
+          }
+        } else {
+          // If loginResult.user is unexpectedly null, navigate to home or show error
+          console.error("Login.jsx: Login successful but user data is missing in result.");
+          navigate("/"); // Fallback to home
+        }
       } else {
         setError(loginResult.message || "Login failed. Please try again.");
       }
@@ -68,22 +87,18 @@ export default function Login() {
   };
 
   return (
-    <> {/* Use a React Fragment as Helmet must be a direct child */}
+    <>
       <Helmet>
         <title>Login to LocalCart | Your Local Marketplace</title>
         <meta name="description" content="Log in to your LocalCart account to access your personalized shopping experience, orders, and more." />
         <meta name="keywords" content="LocalCart login, user sign in, customer account, secure login" />
-        {/* Open Graph / Social Media Tags (Optional, but good for sharing) */}
         <meta property="og:title" content="Login to LocalCart" />
         <meta property="og:description" content="Access your LocalCart account for fresh, local products." />
-        <meta property="og:url" content="https://yourwebsite.com/login" /> {/* Replace with your actual domain */}
+        <meta property="og:url" content="https://yourwebsite.com/login" />
         <meta property="og:type" content="website" />
-        {/* You can add an og:image here if you have a general login page image */}
-        {/* <meta property="og:image" content="https://yourwebsite.com/images/login-share.jpg" /> */}
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4">
-        {/* Decorative elements */}
         <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
 
@@ -94,7 +109,6 @@ export default function Login() {
           className="w-full max-w-md"
         >
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-            {/* Header section with gradient */}
             <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 text-center">
               <motion.div
                 animate={{
@@ -115,16 +129,13 @@ export default function Login() {
               <p className="text-green-100 mt-1">Your local marketplace</p>
             </div>
 
-            {/* Form section */}
             <div className="p-8">
               <form onSubmit={handleSubmit}>
-                {/* Error display */}
                 {error && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-red-600 text-sm">{error}</p>
                   </div>
                 )}
-                {/* Email field */}
                 <div className="mb-6">
                   <label
                     htmlFor="email"
@@ -149,7 +160,6 @@ export default function Login() {
                   </div>
                 </div>
 
-                {/* Password field */}
                 <div className="mb-6">
                   <label
                     htmlFor="password"
@@ -186,7 +196,6 @@ export default function Login() {
                   </div>
                 </div>
 
-                {/* Remember me & Forgot password */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center">
                     <input
@@ -212,7 +221,6 @@ export default function Login() {
                   </Link>
                 </div>
 
-                {/* Submit button */}
                 <motion.button
                   type="submit"
                   className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ${
@@ -252,7 +260,6 @@ export default function Login() {
                 </motion.button>
               </form>
 
-              {/* Divider */}
               <div className="mt-6">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
@@ -266,7 +273,6 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Sign up link */}
               <div className="mt-6 text-center">
                 <Link
                   to="/register"
@@ -278,9 +284,6 @@ export default function Login() {
             </div>
           </div>
         </motion.div>
-        {/* Ensure ToastContainer is rendered somewhere in your app, often in App.jsx.
-            Removed the commented out ToastContainer here to avoid rendering multiple if it's already in App.jsx. */}
-        <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
       </div>
     </>
   );

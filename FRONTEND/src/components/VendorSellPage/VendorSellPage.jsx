@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Upload, Image, Plus, Loader2, X, DollarSign, Package, Tag, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../../Context/Context";
+import axios from "axios"; // Import axios if you still need it for non-authAxios calls or error checking
 
 const AddProduct = () => {
   const [geoLocation, setGeoLocation] = useState({ lat: null, lng: null });
@@ -13,22 +15,35 @@ const AddProduct = () => {
     price: "",
     category: "Fruits", // Default category set here
     stock: "",
-    vendorId: "",
+    vendorId: "", // This will be set from auth context
   });
-
-  useEffect(() => {
-    // Attempt to get vendorId from localStorage
-    const vendor = JSON.parse(localStorage.getItem("user"));
-    if (vendor?.id) {
-      setFormData(prev => ({ ...prev, vendorId: vendor.id }));
-    }
-  }, []);
 
   const [images, setImages] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+
+  // Use the useAuth hook to get auth-related state and methods
+  const { authAxios, user, isLoggedIn, isSeller } = useAuth();
+
+  // IMPORTANT: Replace 'YOUR_API_BASE_URL_HERE' with your actual backend API URL.
+  const API_URL = import.meta.env.VITE_API_URL;
+
+    useEffect(() => {
+    // Check if user has 'seller' role (this is what's actually stored in the database)
+    if (isLoggedIn && user?._id) {
+      // Check if user role is 'seller' (the actual role stored in DB)
+      const isVendor = user.role === 'seller' || isSeller; // Check for 'seller' role
+      
+      if (isVendor) {
+        setFormData(prev => ({ ...prev, vendorId: user._id }));
+      } else {
+        toast.warn("You are not authorized to add products. Please log in as a vendor.");
+        navigate("/vendor/login");
+      }
+    }
+  }, [user, isLoggedIn, isSeller, navigate]);
 
   const categories = [
     "Fruits",
@@ -51,7 +66,6 @@ const AddProduct = () => {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     
-    // Limit to a maximum of 5 images
     if (files.length + images.length > 5) {
       toast.error("Maximum 5 images allowed");
       return;
@@ -63,9 +77,7 @@ const AddProduct = () => {
   };
 
   const removeImage = (index) => {
-    // Revoke the object URL to free up memory
     URL.revokeObjectURL(previewUrls[index]);
-    // Remove image and its preview URL by index
     const newImages = [...images];
     const newPreviews = [...previewUrls];
     newImages.splice(index, 1);
@@ -75,20 +87,17 @@ const AddProduct = () => {
   };
 
   useEffect(() => {
-    // Get user's current geolocation
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
           setGeoLocation({ lat: latitude, lng: longitude });
 
-          // Reverse geocode to get city name using OpenStreetMap Nominatim
           try {
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
             );
             const data = await res.json();
-            // Extract city from various possible fields
             setCity(
               data.address.city || data.address.town || data.address.village || ""
             );
@@ -99,10 +108,9 @@ const AddProduct = () => {
         },
         (error) => {
           console.error("Geolocation error:", error);
-          // Inform user if geolocation fails
           toast.error("Geolocation access denied or unavailable. Please enable location services.");
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } // Geolocation options
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
       toast.warn("Geolocation is not supported by your browser.");
@@ -114,59 +122,67 @@ const AddProduct = () => {
     setIsLoading(true);
 
     try {
-      const vendorToken = localStorage.getItem("vendorToken");
-      if (!vendorToken) {
-        toast.error("Authentication required. Please log in.");
-        navigate("/vendor/login"); // Redirect to login if token is missing
+      // Updated role check - check for 'vendor' role specifically
+      const isVendor = user?.role === 'vendor' || isSeller;
+      
+      if (!isLoggedIn || !isVendor || !user?._id) {
+        toast.error("Authentication required. Please log in as a vendor.");
+        navigate("/vendor/login");
+        return;
+      }
+
+      if (!formData.vendorId) {
+        toast.error("Vendor ID is missing. Please try logging in again or refresh the page.");
+        setIsLoading(false);
         return;
       }
 
       const formDataToSend = new FormData();
-      // Append all form data fields
       Object.entries(formData).forEach(([key, value]) => {
         formDataToSend.append(key, value);
       });
 
-      // Append location data
-      formDataToSend.append(
-        "location",
-        JSON.stringify({
-          type: "Point",
-          coordinates: [geoLocation.lng, geoLocation.lat],
-          city, // city is part of the location object
-        })
-      );
+      if (geoLocation.lat !== null && geoLocation.lng !== null) {
+        formDataToSend.append(
+          "location",
+          JSON.stringify({
+            type: "Point",
+            coordinates: [geoLocation.lng, geoLocation.lat],
+            city,
+          })
+        );
+      } else {
+        toast.error("Geolocation is not available. Cannot add product without location.");
+        setIsLoading(false);
+        return;
+      }
       
-      // IMPORTANT FIX: Ensure 'city' is appended as a separate top-level field if backend expects it
-      formDataToSend.append("city", city); 
-
-      // Append product images
+      formDataToSend.append("city", city);
       images.forEach(image => formDataToSend.append("productImages", image));
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/products/vendor`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${vendorToken}` }, // No 'Content-Type' for FormData, browser sets it
-          body: formDataToSend,
-        }
+      const response = await authAxios.post(
+        `${API_URL}/api/products/vendor`,
+        formDataToSend
       );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Product upload failed");
-      }
 
       toast.success("Product listed successfully!");
       navigate("/vendor/dashboard");
     } catch (err) {
-      console.error("Product listing error:", err); // Log detailed error for debugging
-      toast.error(err.message || "Failed to list product. Please try again.");
+      console.error("Product listing error:", err);
+      if (axios.isAxiosError(err)) {
+        const errorMessage = err.response?.data?.message || err.message;
+        toast.error(errorMessage || "Failed to list product. Please try again.");
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          toast.error("You are not authorized. Please log in as a vendor with correct permissions.");
+          navigate("/vendor/login");
+        }
+      } else {
+        toast.error(err.message || "Failed to list product. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
   };
-
   // Loading state UI
   if (isLoading) {
     return (
@@ -376,11 +392,12 @@ const AddProduct = () => {
             <div className="pt-2">
               <motion.button
                 type="submit"
-                disabled={isLoading || previewUrls.length === 0}
-                whileHover={!isLoading && previewUrls.length > 0 ? { scale: 1.02 } : {}}
-                whileTap={!isLoading && previewUrls.length > 0 ? { scale: 0.98 } : {}}
+                // Disable if loading, no images, or not logged in as a seller
+                disabled={isLoading || previewUrls.length === 0 || !isLoggedIn || !isSeller}
+                whileHover={!isLoading && previewUrls.length > 0 && isLoggedIn && isSeller ? { scale: 1.02 } : {}}
+                whileTap={!isLoading && previewUrls.length > 0 && isLoggedIn && isSeller ? { scale: 0.98 } : {}}
                 className={`w-full py-3 px-6 rounded-lg font-medium text-white flex items-center justify-center ${
-                  isLoading || previewUrls.length === 0
+                  isLoading || previewUrls.length === 0 || !isLoggedIn || !isSeller
                     ? "bg-gray-300 cursor-not-allowed"
                     : "bg-green-600 hover:bg-green-700"
                 } transition-colors`}

@@ -1,5 +1,3 @@
-// src/components/AdminPanel/AdminPanel.jsx
-
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Chart as ChartJS,
@@ -28,6 +26,20 @@ import {
   Check,
   X,
 } from "lucide-react";
+import { useAuth } from "../../Context/Context"; // Correct import for useAuth hook
+import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom"; // Assuming you use react-router-dom
+
+// Define a simple LoadingSpinner component if it's not imported
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center h-screen bg-gray-50">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
+      <p className="text-lg text-gray-700">Loading your analytics...</p>
+      <p className="text-sm text-gray-500">LocalCart is crunching the numbers</p>
+    </div>
+  </div>
+);
 
 ChartJS.register(
   CategoryScale,
@@ -44,11 +56,52 @@ ChartJS.register(
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const AdminPanel = () => {
+  // Destructure properties directly from useAuth
+  const { user, jwtToken, isAuthLoading, logout } = useAuth();
+  const navigate = useNavigate(); // For redirection
+
+  // Initial authentication and authorization check
+  useEffect(() => {
+    if (!isAuthLoading) {
+      if (!user || user.role !== 'admin') {
+        toast.error("You are not authorized to view the admin panel.");
+        // Redirect to a non-admin page, e.g., home or login
+        navigate("/"); 
+        // Or show a specific unauthorized message and prevent further rendering if you don't redirect
+      }
+    }
+  }, [isAuthLoading, user, navigate]); // Add navigate to dependencies
+
+  // Display loading spinner while auth is loading
+  if (isAuthLoading) {
+    console.log("AdminPanel: AuthContext loading. Displaying loading state.");
+    return <LoadingSpinner />;
+  }
+
+  // If auth is loaded but user is not admin, show unauthorized message and stop rendering
+  // This handles the case where navigate() might not immediately reroute
+  if (!user || user.role !== 'admin') {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="text-center p-6 bg-white shadow-lg rounded-lg">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+          <p className="text-gray-700">You do not have the necessary permissions to view this page.</p>
+          <button
+            onClick={() => logout()}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Log Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // State variables
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [adminToken, setAdminToken] = useState(null);
-  const [screenWidth, setScreenWidth] = useState(window.innerWidth); // State to track screen width
+  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
 
   const [dashboardStats, setDashboardStats] = useState({
     totalSales: "0.00",
@@ -60,9 +113,9 @@ const AdminPanel = () => {
     ordersChange: "+0%",
     ordersTrend: "up",
     customersChange: "+0%",
-    customersTrend: "up",
+    customersTrend: "+0%",
     productsChange: "+0%",
-    productsTrend: "down",
+    totalProductsTrend: "down",
   });
 
   const [salesOverviewData, setSalesOverviewData] = useState({
@@ -77,17 +130,6 @@ const AdminPanel = () => {
   const [products, setProducts] = useState([]);
   const [vendorRequests, setVendorRequests] = useState([]);
 
-  useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (token) {
-      setAdminToken(token);
-    } else {
-      console.warn(
-        "No adminToken found in localStorage. Admin features may be restricted."
-      );
-    }
-  }, []);
-
   // Effect to update screenWidth on resize
   useEffect(() => {
     const handleResize = () => {
@@ -97,150 +139,101 @@ const AdminPanel = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // getAuthHeaders now uses jwtToken directly from useAuth
   const getAuthHeaders = useCallback(() => {
-    if (!adminToken) {
-      console.error("Authentication token not available.");
+    if (!jwtToken) {
+      console.error("Authentication token not available in AdminPanel.");
       return {};
     }
     return {
       headers: {
-        Authorization: `Bearer ${adminToken}`,
+        Authorization: `Bearer ${jwtToken}`,
       },
     };
-  }, [adminToken]);
+  }, [jwtToken]); // Dependency is jwtToken
 
-  useEffect(() => {
-    if (activeTab === "dashboard" && adminToken) {
-      const fetchDashboardData = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-          const res = await axios.get(
-            `${API_BASE_URL}/api/admin/dashboard/stats`,
-            getAuthHeaders()
-          );
-          const data = res.data.data;
+  // Centralized data fetching logic for dashboard, products, and vendors
+  const fetchData = useCallback(async (tab) => {
+    setLoading(true);
+    setError(null);
 
-          setDashboardStats({
-            totalSales: `$${
-              data.totalSales ? data.totalSales.toFixed(2) : "0.00"
-            }`,
-            orders: data.totalOrders?.toLocaleString() || "0",
-            customers: data.totalCustomers?.toLocaleString() || "0",
-            products: data.totalProducts?.toLocaleString() || "0",
-            salesChange: data.salesChange || "+0%",
-            salesTrend: data.salesTrend || "up",
-            ordersChange: data.ordersChange || "+0%",
-            ordersTrend: data.ordersTrend || "up",
-            customersChange: data.customersChange || "+0%",
-            customersTrend: data.customersTrend || "up",
-            productsChange: data.productsChange || "+0%",
-            productsTrend: data.productsTrend || "down",
-          });
-
-          setSalesOverviewData({
-            labels: data.salesOverview?.labels || [],
-            datasets: [
-              {
-                label: "Sales ($)",
-                data: data.salesOverview?.sales || [],
-                backgroundColor: "#10B981",
-                borderColor: "#059669",
-                borderWidth: 2,
-                borderRadius: 8,
-              },
-            ],
-          });
-
-          setOrderStatusChartData({
-            labels: data.orderStatus?.labels || [],
-            datasets: [
-              {
-                data: data.orderStatus?.counts || [],
-                backgroundColor: [
-                  "#10B981",
-                  "#F59E0B",
-                  "#EF4444",
-                  "#3B82F6",
-                  "#6366F1",
-                  "#A855F7",
-                  "#EC4899",
-                ],
-                borderWidth: 0,
-              },
-            ],
-          });
-
-          setRecentOrders(data.recentOrders || []);
-        } catch (err) {
-          console.error("Error fetching dashboard data:", err);
-          setError("Failed to load dashboard data. Please try again.");
-          setDashboardStats({
-            totalSales: "$0",
-            orders: "0",
-            customers: "0",
-            products: "0",
-          });
-          setSalesOverviewData({ labels: [], datasets: [] });
-          setOrderStatusChartData({ labels: [], datasets: [] });
-          setRecentOrders([]);
-          if (err.response && err.response.status === 401) {
-            console.log("Admin token invalid or expired. Please log in again.");
-          }
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchDashboardData();
+    // This check is already done at the top of the component, but can be a safeguard
+    if (!user || user.role !== 'admin') {
+        console.log(`AdminPanel: fetchData skipped - user not authorized.`);
+        setError("You are not authorized to view this panel.");
+        setLoading(false);
+        return;
     }
-  }, [activeTab, adminToken, API_BASE_URL, getAuthHeaders]);
 
-  useEffect(() => {
-    if (activeTab === "products" && adminToken) {
-      const fetchProducts = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-          const { data } = await axios.get(
-            `${API_BASE_URL}/api/products/admin`,
-            getAuthHeaders()
-          );
-          setProducts(data.products);
-        } catch (err) {
-          console.error("Error fetching products:", err);
-          setError("Failed to load product data. Please try again.");
-          setProducts([]);
-        } finally {
-          setLoading(false);
+    try {
+      let res;
+      if (tab === "dashboard") {
+        res = await axios.get(`${API_BASE_URL}/api/admin/dashboard/stats`, getAuthHeaders());
+        const data = res.data.data;
+        setDashboardStats({
+          totalSales: `$${data.totalSales ? data.totalSales.toFixed(2) : "0.00"}`,
+          orders: data.totalOrders?.toLocaleString() || "0",
+          customers: data.totalCustomers?.toLocaleString() || "0",
+          products: data.totalProducts?.toLocaleString() || "0",
+          salesChange: data.salesChange || "+0%",
+          salesTrend: data.salesTrend || "up",
+          ordersChange: data.ordersChange || "+0%",
+          ordersTrend: data.ordersTrend || "up",
+          customersChange: data.customersChange || "+0%",
+          customersTrend: data.customersTrend || "up",
+          productsChange: data.productsChange || "+0%",
+          totalProductsTrend: data.productsTrend || "down",
+        });
+        setSalesOverviewData({
+          labels: data.salesOverview?.labels || [],
+          datasets: [{
+            label: "Sales ($)",
+            data: data.salesOverview?.sales || [],
+            backgroundColor: "#10B981",
+            borderColor: "#059669",
+            borderWidth: 2,
+            borderRadius: 8,
+          }],
+        });
+        setOrderStatusChartData({
+          labels: data.orderStatus?.labels || [],
+          datasets: [{
+            data: data.orderStatus?.counts || [],
+            backgroundColor: ["#10B981", "#F59E0B", "#EF4444", "#3B82F6", "#6366F1", "#A855F7", "#EC4899"],
+            borderWidth: 0,
+          }],
+        });
+        setRecentOrders(data.recentOrders || []);
+      } else if (tab === "products") {
+        res = await axios.get(`${API_BASE_URL}/api/products/admin`, getAuthHeaders());
+        setProducts(res.data.products);
+      } else if (tab === "vendors") {
+        res = await axios.get(`${API_BASE_URL}/api/admin/vendors`, getAuthHeaders());
+        setVendorRequests(res.data.vendors);
+      }
+    } catch (err) {
+      console.error(`Error fetching ${tab} data:`, err);
+      let errorMessage = `Failed to load ${tab} data. Please try again.`;
+      if (err.response) {
+        if (err.response.status === 401) {
+          errorMessage = "Your session has expired or you are not authorized. Please log in again.";
+          logout(); // Force logout if token is invalid/expired
+        } else if (err.response.data && err.response.data.message) {
+            errorMessage = err.response.data.message;
         }
-      };
-      fetchProducts();
+      }
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
-  }, [activeTab, adminToken, API_BASE_URL, getAuthHeaders]);
+  }, [getAuthHeaders, user, logout]); // Depend on getAuthHeaders and user (for role check), and logout
 
+  // UseEffects to trigger data fetching based on activeTab
   useEffect(() => {
-    if (activeTab === "vendors" && adminToken) {
-      const fetchVendorRequests = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-          const { data } = await axios.get(
-            `${API_BASE_URL}/api/admin/vendors`,
-            getAuthHeaders()
-          );
-          setVendorRequests(data.vendors);
-        } catch (err) {
-          console.error("Error fetching vendor requests:", err);
-          setError("Failed to load vendor requests. Please try again.");
-          setVendorRequests([]);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchVendorRequests();
-    }
-  }, [activeTab, adminToken, API_BASE_URL, getAuthHeaders]);
+    // fetchData is a stable useCallback, so it's safe to include
+    fetchData(activeTab);
+  }, [activeTab, fetchData]);
+
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
@@ -252,19 +245,80 @@ const AdminPanel = () => {
           getAuthHeaders()
         );
         setProducts(products.filter((product) => product._id !== id));
+        toast.success("Product deleted successfully!");
       } catch (err) {
         console.error("Error deleting product:", err);
         setError("Failed to delete product.");
+        toast.error("Failed to delete product.");
       } finally {
         setLoading(false);
       }
     }
   };
 
-  // Base sales chart options
+  const handleApproveVendor = async (vendorId) => {
+    if (!window.confirm("Are you sure you want to approve this vendor?")) {
+        return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+        await axios.put(
+            `${API_BASE_URL}/api/admin/vendors/${vendorId}/approve`,
+            {},
+            getAuthHeaders()
+        );
+        toast.success("Vendor approved successfully!");
+        fetchData("vendors"); // Re-fetch to update the list
+    } catch (err) {
+        console.error("Error approving vendor:", err);
+        setError("Failed to approve vendor.");
+        toast.error("Failed to approve vendor.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleRejectVendor = async (vendorId) => {
+      if (!window.confirm("Are you sure you want to reject this vendor?")) {
+          return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+          await axios.put(
+              `${API_BASE_URL}/api/admin/vendors/${vendorId}/reject`,
+              {},
+              getAuthHeaders()
+          );
+          toast.success("Vendor rejected successfully!");
+          fetchData("vendors"); // Re-fetch to update the list
+      } catch (err) {
+          console.error("Error rejecting vendor:", err);
+          setError("Failed to reject vendor.");
+          toast.error("Failed to reject vendor.");
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const handleEditProduct = (productId) => {
+    // Implement navigation to edit product page or open a modal
+    console.log("Edit product:", productId);
+    navigate(`/admin/products/edit/${productId}`); 
+  };
+
+  const handleEditOrder = (orderId) => {
+    // Implement navigation to edit order page or open a modal
+    console.log("Edit order:", orderId);
+    navigate(`/admin/orders/edit/${orderId}`);
+  };
+
+
+  // Base sales chart options (no changes needed here)
   const baseSalesChartOptions = {
     responsive: true,
-    maintainAspectRatio: false, // Critical for responsive height
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: "top",
@@ -314,7 +368,7 @@ const AdminPanel = () => {
     },
   };
 
-  // Dynamically adjust sales chart options based on screen width
+  // Dynamically adjust sales chart options based on screen width (no changes needed here)
   const salesChartOptions = {
     ...baseSalesChartOptions,
     scales: {
@@ -323,12 +377,10 @@ const AdminPanel = () => {
         ...baseSalesChartOptions.scales.x,
         ticks: {
           ...baseSalesChartOptions.scales.x.ticks,
-          autoSkip: true, // Always enable auto-skipping
-          maxRotation: screenWidth < 768 ? 45 : 0, // Rotate labels on small screens
+          autoSkip: true,
+          maxRotation: screenWidth < 768 ? 45 : 0,
           minRotation: screenWidth < 768 ? 45 : 0,
-          maxTicksLimit: screenWidth < 768 ? 5 : 10, // Adjust number of ticks
-          // You can also reduce font size for very small screens if needed:
-          // fontSize: screenWidth < 640 ? 8 : 12,
+          maxTicksLimit: screenWidth < 768 ? 5 : 10,
         },
       },
     },
@@ -365,21 +417,22 @@ const AdminPanel = () => {
     },
   };
 
-  
-if (loading) {
+  // Conditional rendering for loading and error states for data fetching
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-700">Loading your analytics...</p>
+          <p className="text-lg text-gray-700">Loading {activeTab} data...</p>
           <p className="text-sm text-gray-500">
-            LocalCart is crunching the numbers
+            Fetching latest information
           </p>
         </div>
       </div>
     );
   }
 
+  // If there's an error and not loading, display the error message
   if (error) {
     return (
       <div className="p-6 text-center text-red-600">
@@ -387,6 +440,7 @@ if (loading) {
         <button
           onClick={() => {
             setError(null);
+            fetchData(activeTab); // Retry fetching data for the current tab
           }}
           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
@@ -396,11 +450,50 @@ if (loading) {
     );
   }
 
+  // Main Admin Panel UI
   return (
     <div className="min-h-screen bg-gray-100 max-w-screen text-gray-900 duration-300">
-      {/* Main content container with max-width and overflow-x-hidden */}
+      {/* Sidebar / Top Nav for tabs could go here */}
+      {/* For simplicity, let's assume direct content rendering based on activeTab */}
       <div className="p-2 lg:p-6 mx-auto w-full max-w-screen overflow-x-hidden duration-200">
         <div className="flex-1 flex flex-col">
+          {/* Tab Navigation (add this to switch between views) */}
+          <div className="mb-6 border-b border-gray-200">
+            <ul className="flex flex-wrap -mb-px text-sm font-medium text-center" role="tablist">
+              <li className="mr-2" role="presentation">
+                <button
+                  className={`inline-block p-4 border-b-2 rounded-t-lg ${activeTab === "dashboard" ? "text-green-600 border-green-600" : "text-gray-500 border-transparent hover:text-gray-600 hover:border-gray-300"}`}
+                  onClick={() => setActiveTab("dashboard")}
+                  role="tab"
+                  aria-selected={activeTab === "dashboard"}
+                >
+                  Dashboard
+                </button>
+              </li>
+              <li className="mr-2" role="presentation">
+                <button
+                  className={`inline-block p-4 border-b-2 rounded-t-lg ${activeTab === "products" ? "text-green-600 border-green-600" : "text-gray-500 border-transparent hover:text-gray-600 hover:border-gray-300"}`}
+                  onClick={() => setActiveTab("products")}
+                  role="tab"
+                  aria-selected={activeTab === "products"}
+                >
+                  Products
+                </button>
+              </li>
+              <li className="mr-2" role="presentation">
+                <button
+                  className={`inline-block p-4 border-b-2 rounded-t-lg ${activeTab === "vendors" ? "text-green-600 border-green-600" : "text-gray-500 border-transparent hover:text-gray-600 hover:border-gray-300"}`}
+                  onClick={() => setActiveTab("vendors")}
+                  role="tab"
+                  aria-selected={activeTab === "vendors"}
+                >
+                  Vendors
+                </button>
+              </li>
+              {/* Add more tabs as needed, e.g., Customers, Orders, Settings */}
+            </ul>
+          </div>
+
           {/* Dashboard Content */}
           {activeTab === "dashboard" && (
             <div className="space-y-6">
@@ -437,7 +530,7 @@ if (loading) {
                     title: "Total Products",
                     value: dashboardStats.products,
                     change: dashboardStats.productsChange,
-                    trend: dashboardStats.productsTrend,
+                    trend: dashboardStats.totalProductsTrend,
                   },
                 ].map((stat, index) => (
                   <div
@@ -481,8 +574,6 @@ if (loading) {
                   </h3>
                   {salesOverviewData.labels.length > 0 ? (
                     <div className="h-48 sm:h-64 relative">
-                      {" "}
-                      {/* Added relative for potential absolute positioning of chart */}
                       <Bar
                         data={salesOverviewData}
                         options={salesChartOptions}
@@ -591,11 +682,15 @@ if (loading) {
                                 ? format(
                                     new Date(order.createdAt),
                                     "MMM dd, yyyy HH:mm"
-                                  ) // Adjusted format string here
+                                  )
                                 : "N/A"}
                             </td>
                             <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
-                              <button className="text-blue-600 hover:text-blue-700 mr-2">
+                              <button
+                                onClick={() => handleEditOrder(order._id)}
+                                className="text-blue-600 hover:text-blue-700 mr-2"
+                                title="Edit Order"
+                              >
                                 <Edit size={16} />
                               </button>
                             </td>
@@ -688,12 +783,17 @@ if (loading) {
                             ${product.price?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
-                            <button className="text-blue-600 hover:text-blue-700 mr-2">
-                              <Edit size={16} />
+                            <button
+                                onClick={() => handleEditProduct(product._id)}
+                                className="text-blue-600 hover:text-blue-700 mr-2"
+                                title="Edit Product"
+                            >
+                                <Edit size={16} />
                             </button>
                             <button
                               onClick={() => handleDelete(product._id)}
                               className="text-red-600 hover:text-red-700"
+                              title="Delete Product"
                             >
                               <Trash size={16} />
                             </button>
@@ -780,7 +880,7 @@ if (loading) {
                                   ? "bg-green-100 text-green-800"
                                   : vendor.status === "Pending"
                                   ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
+                                  : "bg-red-100 text-red-800" // Assuming 'Rejected' or other
                               }`}
                             >
                               {vendor.status}
@@ -789,10 +889,18 @@ if (loading) {
                           <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
                             {vendor.status === "Pending" && (
                               <>
-                                <button className="text-green-600 hover:text-green-700 mr-2">
+                                <button
+                                  onClick={() => handleApproveVendor(vendor._id)}
+                                  className="text-green-600 hover:text-green-700 mr-2"
+                                  title="Approve Vendor"
+                                >
                                   <Check size={16} />
                                 </button>
-                                <button className="text-red-600 hover:text-red-700">
+                                <button
+                                  onClick={() => handleRejectVendor(vendor._id)}
+                                  className="text-red-600 hover:text-red-700"
+                                  title="Reject Vendor"
+                                >
                                   <X size={16} />
                                 </button>
                               </>

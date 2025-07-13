@@ -39,16 +39,17 @@ const Orders = () => {
       setError(null);
       setRefreshing(true);
 
-      const token = localStorage.getItem("token");
-      if (!token) {
+      // --- FIX: Change 'token' to 'jwtToken' when retrieving from localStorage ---
+      const jwtToken = localStorage.getItem("jwtToken"); // Corrected key
+      if (!jwtToken) { // Check for jwtToken
         throw new Error("Session expired. Please login again.");
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/orders`,
+        `${import.meta.env.VITE_API_URL}/api/orders/my-orders`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${jwtToken}`, // Use jwtToken here
           },
         }
       );

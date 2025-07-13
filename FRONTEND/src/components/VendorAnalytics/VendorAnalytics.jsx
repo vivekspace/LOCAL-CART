@@ -1,16 +1,6 @@
-import { useState, useEffect } from "react";
-import {
-  FiDollarSign,
-  FiShoppingCart,
-  FiUsers,
-  FiTrendingUp,
-  FiCalendar,
-  FiDownload,
-  FiRefreshCw,
-  FiPieChart,
-  FiBarChart2,
-  FiPackage
-} from "react-icons/fi";
+import { useState, useEffect, useCallback } from "react";
+// Removed FiDollarSign, FiShoppingCart, FiUsers, FiTrendingUp, FiCalendar, FiDownload, FiRefreshCw, FiPieChart, FiBarChart2, FiPackage
+// as they are now imported from lucide-react directly or used as is.
 import {
   LineChart,
   Line,
@@ -25,11 +15,28 @@ import {
   AreaChart,
   Area
 } from "recharts";
-
+import {
+  DollarSign,
+  ShoppingCart,
+  Users,
+  TrendingUp,
+  Calendar,
+  Download,
+  RefreshCw,
+  PieChart,
+  BarChart2,
+  Package,
+  Loader2, // For spin animations
+  AlertTriangle // For error icon
+} from "lucide-react"; // Importing Lucide icons
+import { useAuth } from "../../Context/Context";
 const VendorAnalytics = () => {
-  const [loading, setLoading] = useState(true);
+  // Destructure authAxios, jwtToken, and isAuthLoading from AuthContext
+  const { authAxios, jwtToken, isAuthLoading } = useAuth();
+
+  const [loading, setLoading] = useState(true); // For analytics data fetching
   const [error, setError] = useState(null);
-  const [dateRange, setDateRange] = useState("30");
+  const [dateRange, setDateRange] = useState("30"); // This state is not currently used in fetchAnalytics
   const [refreshing, setRefreshing] = useState(false);
 
   const [analyticsData, setAnalyticsData] = useState({
@@ -41,55 +48,29 @@ const VendorAnalytics = () => {
     recentOrders: [],
   });
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
+    // If auth is still loading or no token, don't proceed with fetching analytics
+    if (isAuthLoading) {
+      setLoading(true); // Keep loading state true while auth is pending
+      return;
+    }
+    if (!jwtToken) {
+      setError("Authentication token not found. Please log in as a vendor.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setRefreshing(true); // Set refreshing true when starting fetch
+
     try {
-      const vendorToken = localStorage.getItem("vendorToken");
+      // Use authAxios for authenticated requests. It handles the base URL and Authorization header.
+      // Assuming your backend expects /api/vendor/analytics
+      const response = await authAxios.get(`/api/vendor/analytics?range=${dateRange}`); // Pass dateRange as a query param
 
-      if (!vendorToken) {
-        throw new Error("Authentication token not found. Please log in.");
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/vendor/analytics`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${vendorToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: Unknown error`;
-        try {
-          const errorJson = await response.json();
-          errorMessage = `HTTP ${response.status}: ${
-            errorJson.message || JSON.stringify(errorJson)
-          }`;
-        } catch (e) {
-          console.log("error displaying data in analytics " , e)
-          const errorText = await response.text(); 
-          errorMessage = `HTTP ${response.status}: ${errorText.substring(
-            0,
-            200
-          )}...`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const responseText = await response.text();
-        throw new Error(
-          `Expected JSON but got ${contentType}. Response: ${responseText.substring(
-            0,
-            100
-          )}...`
-        );
-      }
-
-      const data = await response.json();
+      // Axios automatically throws for non-2xx responses, so no need for response.ok check
+      const data = response.data;
 
       setAnalyticsData({
         totalRevenue: data.totalRevenue || 0,
@@ -107,20 +88,28 @@ const VendorAnalytics = () => {
         })),
       });
     } catch (err) {
-      setError(err.message || "Failed to fetch analytics");
       console.error("Analytics fetch error:", err);
+      // authAxios interceptor should handle 401, so we just display the error message
+      setError(err.response?.data?.message || "Failed to fetch analytics. Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [authAxios, jwtToken, isAuthLoading, dateRange]); // Add dateRange to dependencies
 
   useEffect(() => {
-    fetchAnalytics();
-  }, []);
+    // Fetch analytics only when authentication is resolved and a token is present
+    if (!isAuthLoading && jwtToken) {
+      fetchAnalytics();
+    }
+    // If auth is done loading and no token, set error immediately
+    if (!isAuthLoading && !jwtToken) {
+      setError("You must be logged in as a vendor to view analytics.");
+      setLoading(false);
+    }
+  }, [fetchAnalytics, isAuthLoading, jwtToken]); // Dependencies for useEffect
 
   const handleRefresh = () => {
-    setRefreshing(true);
     fetchAnalytics();
   };
 
@@ -135,7 +124,7 @@ const VendorAnalytics = () => {
     textPrimary: "#1e293b", // Dark slate
     textSecondary: "#64748b", // Slate
     success: "#10b981", // Emerald
-    warning: "#f59e0b", // Amber
+    s_warning: "#f59e0b", // Amber (renamed to avoid conflict with theme.warning)
     error: "#ef4444", // Red
     info: "#3b82f6", // Blue
   };
@@ -148,7 +137,10 @@ const VendorAnalytics = () => {
     "#ec4899", // Pink
   ];
 
-  if (loading) {
+  // Combined loading state for initial authentication check and analytics fetching
+  const overallLoading = loading || isAuthLoading;
+
+  if (overallLoading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
@@ -168,19 +160,7 @@ const VendorAnalytics = () => {
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-6">
           <div className="text-center py-12">
             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
-              <svg
-                className="h-8 w-8 text-red-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
+              <AlertTriangle className="h-8 w-8 text-red-600" /> {/* Using Lucide icon */}
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               Error loading analytics
@@ -190,7 +170,7 @@ const VendorAnalytics = () => {
               onClick={handleRefresh}
               className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
             >
-              <FiRefreshCw className={`mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw className={`mr-2 ${refreshing ? "animate-spin" : ""}`} /> {/* Using Lucide icon */}
               Try Again
             </button>
           </div>
@@ -206,7 +186,7 @@ const VendorAnalytics = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center space-x-3">
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md">
-              <FiPieChart size={28} />
+              <PieChart size={28} /> {/* Using Lucide icon */}
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
@@ -222,9 +202,9 @@ const VendorAnalytics = () => {
               onClick={handleRefresh}
               className="flex items-center px-4 py-2.5 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all duration-200"
             >
-              <FiRefreshCw
+              <RefreshCw
                 className={`mr-2 ${refreshing ? "animate-spin" : ""}`}
-              />
+              /> {/* Using Lucide icon */}
               Refresh Data
             </button>
           </div>
@@ -234,7 +214,7 @@ const VendorAnalytics = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-gray-50 text-gray-600">
-              <FiCalendar size={18} />
+              <Calendar size={18} /> {/* Using Lucide icon */}
             </div>
             <select
               className="bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 text-sm md:text-base shadow-sm"
@@ -248,7 +228,7 @@ const VendorAnalytics = () => {
             </select>
           </div>
           <button className="flex items-center px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg hover:from-indigo-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-md transition-all duration-200">
-            <FiDownload className="mr-2" />
+            <Download className="mr-2" /> {/* Using Lucide icon */}
             Export Report
           </button>
         </div>
@@ -259,16 +239,16 @@ const VendorAnalytics = () => {
           <div className="bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 hover:shadow-md transition-all duration-200 group">
             <div className="flex items-start">
               <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 mr-4 group-hover:bg-indigo-100 transition-colors duration-200">
-                <FiDollarSign size={22} />
+                <DollarSign size={22} /> {/* Using Lucide icon */}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Revenue</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
-                  ${analyticsData.totalRevenue.toLocaleString()}
+                  ₹{analyticsData.totalRevenue.toLocaleString()}
                 </p>
                 <div className="flex items-center mt-2">
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                    <FiTrendingUp className="mr-1" /> 12.5%
+                    <TrendingUp className="mr-1" /> 12.5% {/* Using Lucide icon */}
                   </span>
                   <span className="text-xs text-gray-500 ml-2">vs last period</span>
                 </div>
@@ -280,7 +260,7 @@ const VendorAnalytics = () => {
           <div className="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 hover:shadow-md transition-all duration-200 group">
             <div className="flex items-start">
               <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600 mr-4 group-hover:bg-emerald-100 transition-colors duration-200">
-                <FiShoppingCart size={22} />
+                <ShoppingCart size={22} /> {/* Using Lucide icon */}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Orders</p>
@@ -289,7 +269,7 @@ const VendorAnalytics = () => {
                 </p>
                 <div className="flex items-center mt-2">
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                    <FiTrendingUp className="mr-1" /> 8.2%
+                    <TrendingUp className="mr-1" /> 8.2% {/* Using Lucide icon */}
                   </span>
                   <span className="text-xs text-gray-500 ml-2">vs last period</span>
                 </div>
@@ -301,7 +281,7 @@ const VendorAnalytics = () => {
           <div className="bg-white p-5 rounded-xl shadow-sm border-l-4 border-amber-500 hover:shadow-md transition-all duration-200 group">
             <div className="flex items-start">
               <div className="p-3 rounded-xl bg-amber-50 text-amber-600 mr-4 group-hover:bg-amber-100 transition-colors duration-200">
-                <FiUsers size={22} />
+                <Users size={22} /> {/* Using Lucide icon */}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">New Customers</p>
@@ -310,7 +290,7 @@ const VendorAnalytics = () => {
                 </p>
                 <div className="flex items-center mt-2">
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                    <FiTrendingUp className="mr-1" /> 5.7%
+                    <TrendingUp className="mr-1" /> 5.7% {/* Using Lucide icon */}
                   </span>
                   <span className="text-xs text-gray-500 ml-2">vs last period</span>
                 </div>
@@ -363,7 +343,7 @@ const VendorAnalytics = () => {
                 <YAxis
                   tick={{ fill: theme.textSecondary, fontSize: 12 }}
                   tickMargin={10}
-                  tickFormatter={(value) => `$${value}`}
+                  tickFormatter={(value) => `₹${value}`} 
                 />
                 <Tooltip
                   contentStyle={{
@@ -372,7 +352,7 @@ const VendorAnalytics = () => {
                     borderRadius: "0.5rem",
                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                   }}
-                  formatter={(value) => [`$${value}`, "Revenue"]}
+                  formatter={(value) => [`₹${value}`, "Revenue"]} 
                 />
                 <Area
                   type="monotone"
@@ -401,7 +381,7 @@ const VendorAnalytics = () => {
                 View All <span className="ml-1">→</span>
               </button>
             </div>
-            
+
             <div className="h-72 mb-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -410,8 +390,8 @@ const VendorAnalytics = () => {
                   margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={true} vertical={false} />
-                  <XAxis 
-                    type="number" 
+                  <XAxis
+                    type="number"
                     tick={{ fill: theme.textSecondary, fontSize: 12 }}
                     tickFormatter={(value) => `${value} orders`}
                   />
@@ -446,7 +426,7 @@ const VendorAnalytics = () => {
 
             <div className="mt-6">
               <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3 flex items-center">
-                <FiBarChart2 className="mr-2" /> Product Performance
+                <BarChart2 className="mr-2" /> Product Performance {/* Using Lucide icon */}
               </h3>
               <div className="space-y-3">
                 {(analyticsData.popularProducts || [])
@@ -469,7 +449,7 @@ const VendorAnalytics = () => {
                           {product.orders} orders
                         </span>
                         <span className="text-gray-500 text-sm bg-gray-50 px-2 py-1 rounded">
-                          ${(product.price || 0).toFixed(2)}
+                          ₹{(product.price || 0).toFixed(2)} {/* Changed to ₹ */}
                         </span>
                       </div>
                     </div>
@@ -498,7 +478,7 @@ const VendorAnalytics = () => {
                     className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-gray-100"
                   >
                     <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 mr-3 flex-shrink-0">
-                      <FiPackage size={18} />
+                      <Package size={18} /> {/* Using Lucide icon */}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
@@ -506,7 +486,7 @@ const VendorAnalytics = () => {
                           Order #{order.orderId}
                         </p>
                         <span className="text-sm font-medium text-gray-900 ml-2 whitespace-nowrap">
-                          ${order.amount.toFixed(2)}
+                          ₹{order.amount.toFixed(2)} {/* Changed to ₹ */}
                         </span>
                       </div>
                       <p className="text-sm text-gray-500 truncate">
@@ -543,10 +523,10 @@ const VendorAnalytics = () => {
             ) : (
               <div className="text-center py-12 text-gray-500">
                 <div className="mx-auto w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
-                  <FiShoppingCart
+                  <ShoppingCart
                     size={32}
                     className="text-indigo-300"
-                  />
+                  /> {/* Using Lucide icon */}
                 </div>
                 <h3 className="text-lg font-medium text-gray-600 mb-2">
                   No recent orders
@@ -558,7 +538,7 @@ const VendorAnalytics = () => {
                   onClick={handleRefresh}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
                 >
-                  <FiRefreshCw className="mr-2" />
+                  <RefreshCw className="mr-2" /> {/* Using Lucide icon */}
                   Refresh Orders
                 </button>
               </div>

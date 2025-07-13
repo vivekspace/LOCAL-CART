@@ -297,14 +297,14 @@ const ChatbotContent = memo(
 
 // Main VendorChatBot component
 const VendorChatBot = ({ isInToggle = false, isMobile = false }) => {
-  // Messages state with localStorage for persistence
+  // Messages state with sessionStorage for persistence
   const [messages, setMessages] = useState(() => {
     try {
-      // Use a different localStorage key for vendor messages
-      const storedMessages = localStorage.getItem('vendorChatMessages');
+      // Use a different sessionStorage key for vendor messages
+      const storedMessages = sessionStorage.getItem('vendorChatMessages'); // Changed to sessionStorage
       return storedMessages ? JSON.parse(storedMessages) : [];
     } catch (error) {
-      console.error("Failed to parse stored vendor messages from localStorage:", error);
+      console.error("Failed to parse stored vendor messages from sessionStorage:", error); // Changed to sessionStorage
       return [];
     }
   });
@@ -318,12 +318,12 @@ const VendorChatBot = ({ isInToggle = false, isMobile = false }) => {
   const [products, setProducts] = useState([]); // Placeholder, won't be used for product info queries
   const [isProductsLoaded, setIsProductsLoaded] = useState(false); // Renamed to isBackendLoaded for clarity later?
 
-  // Effect to save vendor messages to localStorage
+  // Effect to save vendor messages to sessionStorage
   useEffect(() => {
     try {
-      localStorage.setItem('vendorChatMessages', JSON.stringify(messages));
+      sessionStorage.setItem('vendorChatMessages', JSON.stringify(messages)); // Changed to sessionStorage
     } catch (error) {
-      console.error("Failed to save vendor messages to local storage:", error);
+      console.error("Failed to save vendor messages to session storage:", error); // Changed to sessionStorage
     }
   }, [messages]);
 

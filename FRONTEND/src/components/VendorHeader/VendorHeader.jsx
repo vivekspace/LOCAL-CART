@@ -78,7 +78,7 @@ const VendorNavbar = () => {
       description: "Manage inventory",
     },
     {
-      to: "/vendor/orders",
+      to: "vendor/order",
       label: "Orders",
       icon: ShoppingCart,
       notificationCount: orderCount,

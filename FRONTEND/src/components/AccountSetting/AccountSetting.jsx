@@ -27,7 +27,7 @@ export default function AccountSettings() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("jwtToken");
         const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -85,7 +85,7 @@ export default function AccountSettings() {
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("jwtToken");
       const updateData = {
         name: formData.name,
         email: formData.email,
@@ -133,7 +133,7 @@ export default function AccountSettings() {
     if (!file) return;
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("jwtToken");
       const formData = new FormData();
       formData.append("profilePicture", file);
 

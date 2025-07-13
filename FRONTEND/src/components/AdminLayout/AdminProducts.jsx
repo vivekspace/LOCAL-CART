@@ -1,74 +1,61 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Edit, Trash2, Eye } from 'lucide-react';
 import { toast } from 'react-toastify';
-
+import { useAuth } from '../../Context/Context';
+// API_BASE_URL is generally handled by authAxios configuration
+// so it's less critical to define it here explicitly for authenticated calls.
+// However, for image URLs, we might still need it if not served by authAxios.
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function AdminProducts() {
+    const { jwtToken, authAxios, isAuthLoading, adminSignOut } = useAuth(); // Destructure from AuthContext
+
     const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // Manages product fetching specific loading
     const [error, setError] = useState(null);
-    const [isTokenLoading, setIsTokenLoading] = useState(true);
-    const [adminToken, setAdminToken] = useState(null);
     const navigate = useNavigate();
 
+    // Initial check for authentication status and token presence
     useEffect(() => {
-        const token = localStorage.getItem("adminToken");
-        if (token) {
-            setAdminToken(token);
-            setError(null);
-        } else {
-            console.warn("AdminProducts: 'adminToken' not found. Redirecting to login.");
+        // If auth is no longer loading and there's no JWT token, it means the user is not authenticated
+        if (!isAuthLoading && !jwtToken) {
+            console.warn("AdminProducts: JWT token not found. Redirecting to login.");
             setError("Admin token required to view products. Please ensure you are logged in.");
+            // Rely on AuthContext's interceptor for actual logout, but navigate proactively
             navigate('/admin/login');
         }
-        setIsTokenLoading(false);
-    }, [navigate]);
-
-    const getAuthHeaders = useCallback(() => {
-        if (!adminToken) {
-            return {};
+        // When auth is done loading, set component's initial loading state
+        if (!isAuthLoading) {
+            setLoading(false); // Authentication state is settled
         }
-        return {
-            headers: {
-                Authorization: `Bearer ${adminToken}`,
-            },
-        };
-    }, [adminToken]);
+    }, [isAuthLoading, jwtToken, navigate]);
 
-    useEffect(() => {
-        if (!isTokenLoading && adminToken) {
-            const fetchProducts = async () => {
-                setLoading(true);
-                setError(null);
-                try {
-                    const response = await axios.get(`${API_BASE_URL}/api/admin/products`, getAuthHeaders());
-                    if (response.data.success) {
-                        setProducts(response.data.products);
-                    } else {
-                        throw new Error(response.data.message || 'Failed to fetch products data.');
-                    }
-                } catch (err) {
-                    console.error('Error fetching products:', err);
-                    if (err.response && err.response.status === 401) {
-                        setError("Your session has expired or is invalid. Please log in again.");
-                        localStorage.removeItem('adminToken');
-                        localStorage.removeItem('adminInfo');
-                        navigate('/admin/login');
-                    } else {
-                        setError(err.response?.data?.message || 'Failed to load products. Please try again.');
-                    }
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchProducts();
-        } else if (!isTokenLoading && !adminToken) {
+    // Fetch products function, now using authAxios
+    const fetchProducts = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            // Use authAxios which already has Authorization header set
+            const response = await authAxios.get('/api/admin/products');
+            
+            // Axios throws for non-2xx statuses, so no need for response.data.success check
+            setProducts(response.data.products);
+        } catch (err) {
+            console.error('Error fetching products:', err);
+            // AuthContext's interceptor should handle 401 and global logout
+            setError(err.response?.data?.message || 'Failed to load products. Please try again.');
+        } finally {
             setLoading(false);
         }
-    }, [isTokenLoading, adminToken, getAuthHeaders, navigate]);
+    }, [authAxios]); // Dependency is authAxios
+
+    // Effect to fetch products when authentication is ready and token is present
+    useEffect(() => {
+        if (!isAuthLoading && jwtToken) {
+            fetchProducts();
+        }
+    }, [isAuthLoading, jwtToken, fetchProducts]);
 
     const handleEditProduct = useCallback((productId) => {
         navigate(`/admin/products/edit/${productId}`);
@@ -82,19 +69,16 @@ export default function AdminProducts() {
         setProducts(prevProducts => prevProducts.filter(p => p._id !== productId));
         setError(null);
         try {
-            await axios.delete(`${API_BASE_URL}/api/admin/products/${productId}`, getAuthHeaders());
+            // Use authAxios for deletion
+            await authAxios.delete(`/api/admin/products/${productId}`);
             toast.success("Product deleted successfully!");
         } catch (err) {
             console.error('Error deleting product:', err);
             setError(err.response?.data?.message || 'Failed to delete product. Please try again.');
-            setProducts(originalProducts);
-            if (err.response && err.response.status === 401) {
-                localStorage.removeItem('adminToken');
-                localStorage.removeItem('adminInfo');
-                navigate('/admin/login');
-            }
+            setProducts(originalProducts); // Revert on error
+            // AuthContext's interceptor should handle 401 and global logout
         }
-    }, [products, getAuthHeaders, navigate]);
+    }, [products, authAxios]);
 
     const handleViewProduct = useCallback((productId) => {
         navigate(`/admin/products/view/${productId}`);
@@ -104,7 +88,8 @@ export default function AdminProducts() {
         navigate('/admin/products/new');
     }, [navigate]);
 
-    if (loading || isTokenLoading) {
+    // Combined loading state for initial authentication check and product fetching
+    if (loading || isAuthLoading) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-50">
                 <div className="text-center">
@@ -118,6 +103,7 @@ export default function AdminProducts() {
         );
     }
 
+    // Error display (including if token is missing after initial auth check)
     if (error) {
         return (
             <div className="p-6">
@@ -125,7 +111,7 @@ export default function AdminProducts() {
                     <p className="font-bold">Error:</p>
                     <p>{error}</p>
                 </div>
-                {!adminToken && (
+                {(!jwtToken && !isAuthLoading) && ( // Show login button if no token and auth check is complete
                     <div className="mt-4 text-center">
                         <button
                             onClick={() => navigate('/admin/login')}
@@ -151,9 +137,9 @@ export default function AdminProducts() {
                 </button>
             </div>
 
-            <div className="bg-white shadow-md rounded-lg overflow-hidden"> {/* Keep overflow-hidden here for the card itself, if rounded corners should clip scrollbar */}
-                <div className="overflow-x-auto"> {/* This div makes the table scrollable */}
-                    <table className="min-w-full divide-y divide-gray-200"> {/* min-w-full ensures it stretches to content width */}
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>

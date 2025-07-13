@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react'; // Added useRef
 import { ShoppingBag, DollarSign, Truck, CheckCircle, XCircle, Info, Edit, RefreshCw, Mail, Phone, MapPin, MessageSquare, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
+import { useAuth } from '../../Context/Context';
 const AdminOrdersPage = () => {
+  const { authAxios, jwtToken, user, isAuthLoading } = useAuth(); // Destructure authAxios and jwtToken from context
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,35 +15,34 @@ const AdminOrdersPage = () => {
   const [currentStatus, setCurrentStatus] = useState('');
   const [statusUpdateMessage, setStatusUpdateMessage] = useState('');
 
-  // Define your API base URL here
-  const API_BASE_URL = import.meta.env.VITE_API_URL; // Adjust this to your backend URL
+  // Refs for managing timeouts
+  const statusMessageTimeoutRef = useRef(null);
+  const statusErrorTimeoutRef = useRef(null);
 
-  
-  const getAdminToken = () => {
-    return localStorage.getItem('adminToken'); // Replace with actual logic to retrieve the admin's authentication token
-  };
+  // Define your API base URL here - it's already available via authAxios baseURL
+  // const API_BASE_URL = import.meta.env.VITE_API_URL; // No longer strictly needed for authAxios calls
+
+  // Removed getAdminToken as authAxios handles the token
+  // const getAdminToken = () => {
+  //   return localStorage.getItem('adminToken');
+  // };
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const token = getAdminToken(); // Get the token
+    // No need to manually get token here, authAxios handles it
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orders/admin`, {
-        headers: {
-          'Authorization': `Bearer ${token}` // Send the token in the Authorization header
-        }
-      });
-      if (!response.ok) {
-        const errorData = await response.json(); // Try to parse error message from backend
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      setOrders(data.orders);
-      console.log("Fetched orders:", data.orders); // Debugging log
+      // Use authAxios for authenticated requests
+      const response = await authAxios.get(`/api/orders/admin`);
+      
+      // authAxios automatically throws on !response.ok, so direct data access
+      setOrders(response.data.orders);
+      console.log("Fetched orders:", response.data.orders);
     } catch (err) {
       console.error("Failed to fetch orders:", err);
-      if (err.message.includes('401')) {
+      // Check if it's an AxiosError and handle specific statuses
+      if (err.response?.status === 401) {
         setError("Unauthorized: Please ensure you are logged in as an admin and have a valid token.");
       } else {
         setError(`Failed to load orders: ${err.message}. Please try again.`);
@@ -49,11 +50,19 @@ const AdminOrdersPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE_URL]); // Dependency for useCallback
+  }, [authAxios]); // Dependency for useCallback now includes authAxios
 
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]); // Dependency for useEffect
+    // Only fetch orders if authentication is not loading and a token exists
+    if (!isAuthLoading && jwtToken) {
+      fetchOrders();
+    }
+    // If no token and not loading, set error immediately
+    if (!isAuthLoading && !jwtToken) {
+        setError("You must be logged in to view orders. Please log in as an admin.");
+        setLoading(false);
+    }
+  }, [fetchOrders, isAuthLoading, jwtToken]); // Dependencies include auth loading and token
 
   const openOrderDetailsModal = (order) => {
     setSelectedOrder(order);
@@ -72,44 +81,43 @@ const AdminOrdersPage = () => {
     setCurrentStatus(e.target.value);
   };
 
-  const updateOrderStatus = async () => {
+  const updateOrderStatus = useCallback(async () => { // Made useCallback
     if (!selectedOrder) return;
 
     setUpdateStatusLoading(true);
     setUpdateStatusError(null);
     setStatusUpdateMessage('');
-    const token = getAdminToken(); // Get the token for updating status
+
+    // Clear any existing timeouts before setting new messages/errors
+    if (statusMessageTimeoutRef.current) {
+        clearTimeout(statusMessageTimeoutRef.current);
+    }
+    if (statusErrorTimeoutRef.current) {
+        clearTimeout(statusErrorTimeoutRef.current);
+    }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/orders/${selectedOrder._id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Send admin token
-        },
-        body: JSON.stringify({ status: currentStatus }),
-      });
+      // Use authAxios for authenticated requests
+      // Corrected API endpoint to include /api/
+      const response = await authAxios.put(`/api/orders/${selectedOrder._id}/status`, { status: currentStatus });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const updatedOrderData = await response.json();
+      // authAxios automatically throws on !response.ok
       setStatusUpdateMessage('Order status updated successfully!');
       setIsModalOpen(false); // Close modal on success
 
-      // Re-fetch orders to reflect the update immediately, or update state directly
+      // Re-fetch orders to reflect the update immediately
       fetchOrders();
     } catch (err) {
       console.error("Failed to update order status:", err);
-      setUpdateStatusError(`Failed to update status: ${err.message}`);
+      setUpdateStatusError(`Failed to update status: ${err.response?.data?.message || err.message}`);
     } finally {
       setUpdateStatusLoading(false);
-      setTimeout(() => setStatusUpdateMessage(''), 3000); // Clear message
-      setTimeout(() => setUpdateStatusError(null), 3000); // Clear error
+      // Set new timeouts
+      statusMessageTimeoutRef.current = setTimeout(() => setStatusUpdateMessage(''), 3000);
+      statusErrorTimeoutRef.current = setTimeout(() => setUpdateStatusError(null), 3000);
     }
-  };
+  }, [selectedOrder, currentStatus, authAxios, fetchOrders]); // Dependencies for useCallback
+
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -152,13 +160,13 @@ const AdminOrdersPage = () => {
         <button
           onClick={fetchOrders}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center"
-          disabled={loading}
+          disabled={loading || isAuthLoading || !jwtToken} // Disable if auth is loading or no token
         >
-          <RefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh Orders
+          <RefreshCw className={`mr-2 ${(loading || isAuthLoading) ? 'animate-spin' : ''}`} /> Refresh Orders
         </button>
       </div>
 
-      {loading && (
+      {(loading || isAuthLoading) && ( // Show loading if auth is still initializing
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500"></div>
           <p className="ml-4 text-gray-600 text-lg">Loading orders...</p>
@@ -172,13 +180,13 @@ const AdminOrdersPage = () => {
         </div>
       )}
 
-      {!loading && !error && orders.length === 0 && (
+      {!loading && !isAuthLoading && !error && orders.length === 0 && ( // Add isAuthLoading condition
         <div className="text-center py-10">
           <p className="text-gray-500 text-xl">No orders found.</p>
         </div>
       )}
 
-      {!loading && !error && orders.length > 0 && (
+      {!loading && !isAuthLoading && !error && orders.length > 0 && ( // Add isAuthLoading condition
         <div className="bg-white shadow-xl rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -207,6 +215,7 @@ const AdminOrdersPage = () => {
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {order.items.slice(0, 2).map((item, index) => (
                         <p key={index} className="flex items-center text-gray-600 mb-1">
+                          {/* Access API_BASE_URL via import.meta.env, as authAxios doesn't expose it directly */}
                           <img src={`${import.meta.env.VITE_API_URL}/uploads/${item.imageUrl}`} alt={item.name} className="w-6 h-auto rounded-full mr-2 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; }} />
                           {item.name} (x{item.quantity})
                         </p>

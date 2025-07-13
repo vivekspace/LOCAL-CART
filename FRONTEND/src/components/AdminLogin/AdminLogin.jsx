@@ -1,26 +1,21 @@
-import React, { useState } from "react"; // Removed useContext as useAuth handles it
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify";
-import { useAuth } from "../../Context/Context"; // Correct import for useAuth hook
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
+import { useAuth } from "../../Context/Context";
 import { LockClosedIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/solid';
-import { ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
+import { ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
-
-// Removed direct axios import as context will handle the API call
-// Removed API_BASE_URL constant as context will handle the API call
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(""); // Still useful for local form validation errors
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Get the adminLogin function from the AuthContext
-  const { adminLogin } = useAuth(); // Use the hook to get the function
+  const { adminLogin } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,30 +26,40 @@ const AdminLogin = () => {
     }
 
     setLoading(true);
-    setError(""); // Clear previous local errors
+    setError("");
 
     try {
-      // Call the adminLogin function from the AuthContext
-      // This function already handles API call, localStorage, and state updates (setAdmin, setAdminToken)
-      const result = await adminLogin({ // Use adminLogin from context
+      const result = await adminLogin({
         email: email.trim().toLowerCase(),
         password,
       });
 
-      if (result.success) { // adminLogin in context now returns { success: true, admin: data.admin }
-        toast.success("Login successful");
-        navigate("/admin-panel", { replace: true });
+      console.log("AdminLogin.jsx: adminLogin result received:", result); // Debug log
+
+      if (result.success && result.admin) {
+        const userRole = result.admin.role;
+        console.log("AdminLogin.jsx: User role for redirection:", userRole);
+
+        if (userRole === "admin") {
+          navigate("/admin/panel", { replace: true });
+          console.log("AdminLogin.jsx: Navigating to /admin-panel."); // ADD THIS
+        } else if (userRole === "seller") {
+          navigate("/vendor/dashboard", { replace: true });
+          console.log("AdminLogin.jsx: Navigating to /vendor/dashboard."); // ADD THIS
+        } else if (userRole === "customer") {
+          navigate("/user-dashboard", { replace: true });
+          console.log("AdminLogin.jsx: Navigating to /user-dashboard."); // ADD THIS
+        } else {
+          console.warn(
+            "AdminLogin.jsx: Unknown user role, navigating to home."
+          );
+          navigate("/", { replace: true });
+        }
       } else {
-        // If the context's adminLogin somehow returns success: false, handle it
         setError(result.message || "Admin login failed.");
-        toast.error(result.message || "Admin login failed.");
       }
     } catch (err) {
-      // The toast.error is already handled by the adminLogin in AuthContext for API errors.
-      // This catch block is for unexpected errors, or if you want custom error display here.
-      // For general API errors, the context's toast is usually sufficient.
       console.error("Admin Login component caught an error:", err);
-      // You can set a more generic error here if you wish, or just rely on the toast from context
       setError("An unexpected error occurred during login.");
     } finally {
       setLoading(false);
@@ -63,7 +68,6 @@ const AdminLogin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-gray-50 flex items-center justify-center p-4">
-      {/* Decorative elements */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
       <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
 
@@ -74,7 +78,6 @@ const AdminLogin = () => {
         className="w-full max-w-md"
       >
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Header section with gradient */}
           <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 text-center">
             <motion.div
               animate={{
@@ -87,7 +90,10 @@ const AdminLogin = () => {
               }}
               className="inline-block mb-4"
             >
-              <ShieldCheckIcon className="w-12 h-12 text-white" strokeWidth={1.5} />
+              <ShieldCheckIcon
+                className="w-12 h-12 text-white"
+                strokeWidth={1.5}
+              />
             </motion.div>
             <h2 className="text-2xl font-bold text-white">
               LocalCart Admin Panel
@@ -95,16 +101,13 @@ const AdminLogin = () => {
             <p className="text-green-100 mt-1">Administrator Access</p>
           </div>
 
-          {/* Form section */}
           <div className="p-8">
-            {/* Error display */}
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm">{error}</p>
               </div>
             )}
             <form onSubmit={handleSubmit}>
-              {/* Email field */}
               <div className="mb-6">
                 <label
                   htmlFor="email"
@@ -128,7 +131,6 @@ const AdminLogin = () => {
                 </div>
               </div>
 
-              {/* Password field */}
               <div className="mb-6">
                 <label
                   htmlFor="password"
@@ -150,7 +152,6 @@ const AdminLogin = () => {
                     required
                     minLength="6"
                   />
-                  {/* Toggle password visibility button */}
                   <button
                     type="button"
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
@@ -165,7 +166,6 @@ const AdminLogin = () => {
                 </div>
               </div>
 
-              {/* Remember me */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                   <input
@@ -183,7 +183,6 @@ const AdminLogin = () => {
                 </div>
               </div>
 
-              {/* Submit button */}
               <div>
                 <button
                   type="submit"
@@ -223,14 +222,15 @@ const AdminLogin = () => {
               </div>
             </form>
 
-            {/* "Need help?" section */}
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-200"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Need help?</span>
+                  <span className="px-2 bg-white text-gray-500">
+                    Need help?
+                  </span>
                 </div>
               </div>
 
@@ -249,7 +249,6 @@ const AdminLogin = () => {
           </div>
         </div>
       </motion.div>
-      <ToastContainer />
     </div>
   );
 };

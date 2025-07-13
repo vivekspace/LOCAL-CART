@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useAuth } from "../../Context/Context";
+    import axios from "axios"; // Keep axios for general errors if needed, but authAxios will be preferred for authenticated calls
 
 import {
   Search,
@@ -20,7 +21,7 @@ import {
   Clock,
 } from "lucide-react";
 
-const VendorsPage = () => {
+const AdminVendorsPage = () => {
   const [vendors, setVendors] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,6 +35,8 @@ const VendorsPage = () => {
   const [error, setError] = useState(null);
 
   const navigate = useNavigate();
+  // Destructure authAxios and isAdmin from useAuth hook
+  const { authAxios, isAdmin } = useAuth(); // Assuming useAuth provides these
 
   // IMPORTANT: Replace 'YOUR_API_BASE_URL_HERE' with your actual backend API URL.
   // Based on your previous error, it was 'http://localhost:808'.
@@ -44,18 +47,15 @@ const VendorsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const adminToken = localStorage.getItem("adminToken");
-      if (!adminToken) {
-        setError("Admin not authenticated. Please login.");
+      // Check if the user is an admin using the context
+      if (!isAdmin) {
+        setError("Admin not authenticated or authorized. Please login.");
         navigate("/admin/login");
         return;
       }
 
-      const response = await axios.get(`${API_URL}/api/admin/vendors`, {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      });
+      // Use authAxios for authenticated requests
+      const response = await authAxios.get(`${API_URL}/api/admin/vendors`);
       console.log(response);
 
       let apiVendors = [];
@@ -113,8 +113,10 @@ const VendorsPage = () => {
           console.error("Error response data:", err.response.data);
           console.error("Error response status:", err.response.status);
           console.error("Error response headers:", err.response.headers);
+          // If the authAxios failed due to auth error (e.g., 401, 403), useAuth handles token removal.
+          // Just set the error message.
           setError(
-            `Request failed with status code ${err.response.status}. Please check your backend endpoint.`
+            `Request failed with status code ${err.response.status}. Please check your backend endpoint or authentication.`
           );
         } else if (err.request) {
           console.error("Error request:", err.request);
@@ -142,8 +144,12 @@ const VendorsPage = () => {
   };
 
   useEffect(() => {
-    fetchVendors();
-  }, []);
+    // Only fetch vendors if isAdmin is true, otherwise, the check inside fetchVendors will handle navigation.
+    // This also ensures fetchVendors is called when isAdmin state changes (e.g., after a successful login).
+    if (isAdmin !== undefined) { // Check if isAdmin has been determined
+      fetchVendors();
+    }
+  }, [isAdmin, API_URL]); // Add isAdmin to dependency array
 
   const requestSort = (key) => {
     let direction = "asc";
@@ -231,13 +237,9 @@ const VendorsPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const adminToken = localStorage.getItem("adminToken");
-        await axios.delete(`${API_URL}/api/admin/vendors/${id}`, {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
-        });
-        fetchVendors();
+        // Use authAxios for authenticated delete request
+        await authAxios.delete(`${API_URL}/api/admin/vendors/${id}`);
+        fetchVendors(); // Re-fetch vendors after successful deletion
       } catch (err) {
         console.error("Error deleting vendor:", err);
         if (axios.isAxiosError(err)) {
@@ -586,4 +588,4 @@ const VendorsPage = () => {
   );
 };
 
-export default VendorsPage;
+export default AdminVendorsPage;

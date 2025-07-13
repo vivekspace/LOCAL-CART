@@ -1,63 +1,57 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { toast } from 'react-toastify';
-import ProductForm from './ProductFrom';
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import ProductForm from './ProductFrom'; // Ensure this path is correct
+import { useAuth } from '../../Context/Context';
+// API_BASE_URL is generally handled by authAxios configuration
+// so it's less critical to define it here explicitly.
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function EditProductPage() {
     const { id } = useParams(); // Get product ID from URL
+    const { jwtToken, authAxios, isAuthLoading, adminSignOut } = useAuth(); // Destructure from AuthContext
+
     const [product, setProduct] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); // For initial product data fetch
+    const [isSubmitting, setIsSubmitting] = useState(false); // For form submission
     const [error, setError] = useState(null);
-    const [adminToken, setAdminToken] = useState(null);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const token = localStorage.getItem("adminToken");
-        if (token) {
-            setAdminToken(token);
-        } else {
-            navigate('/admin/login');
-        }
-    }, [navigate]);
+    // Removed the local adminToken state and its useEffect,
+    // as authContext now provides jwtToken and handles initial loading.
 
-    const getAuthHeaders = useCallback(() => {
-        return {
-            headers: {
-                Authorization: `Bearer ${adminToken}`,
-                'Content-Type': 'multipart/form-data', // Important for file uploads
-            },
-        };
-    }, [adminToken]);
+    // Removed getAuthHeaders as authAxios handles the Authorization header.
+    // The 'multipart/form-data' header will be passed directly to the patch call.
 
-    // Fetch product details when component mounts or ID/token changes
+    // Fetch product details when component mounts or ID/jwtToken changes
     useEffect(() => {
         const fetchProduct = async () => {
-            if (!adminToken || !id) return; // Don't fetch if no token or no ID
+            // Only fetch if authentication is not loading and a token exists
+            if (isAuthLoading || !jwtToken || !id) {
+                // If auth is done loading and no token, set error and potentially navigate
+                if (!isAuthLoading && !jwtToken) {
+                    setError("Admin token required to edit products. Please ensure you are logged in.");
+                    navigate('/admin/login');
+                }
+                setIsLoading(false); // Authentication state isn't ready or token missing, so not actively loading product
+                return;
+            }
+
             setIsLoading(true);
             setError(null);
             try {
-                // Make sure your backend has a GET endpoint for /api/admin/products/:id
-                const response = await axios.get(`${API_BASE_URL}/api/admin/products/${id}`, {
-                    headers: { Authorization: `Bearer ${adminToken}` } // No multipart for GET
-                });
+                // Use authAxios which already has Authorization header set
+                const response = await authAxios.get(`/api/admin/products/${id}`);
 
-                if (response.data.success) {
-                    setProduct(response.data.product);
-                } else {
-                    throw new Error(response.data.message || 'Failed to fetch product details.');
-                }
+                // Axios throws for non-2xx statuses, so no need for response.data.success check
+                setProduct(response.data.product);
             } catch (err) {
                 console.error('Error fetching product for edit:', err);
-                setError(err.response?.data?.message || 'Failed to load product details. Please try again.');
-                if (err.response && err.response.status === 401) {
-                    localStorage.removeItem('adminToken');
-                    localStorage.removeItem('adminInfo');
-                    navigate('/admin/login');
-                } else if (err.response && err.response.status === 404) {
+                // AuthContext's interceptor should handle 401 and global logout
+                if (err.response && err.response.status === 404) {
                     setError('Product not found.');
+                } else {
+                    setError(err.response?.data?.message || 'Failed to load product details. Please try again.');
                 }
             } finally {
                 setIsLoading(false);
@@ -65,48 +59,51 @@ export default function EditProductPage() {
         };
 
         fetchProduct();
-    }, [id, adminToken, navigate]);
+    }, [id, jwtToken, authAxios, isAuthLoading, navigate]); // Add authAxios and isAuthLoading to dependencies
 
     const handleUpdateProduct = async (formData) => {
         setIsSubmitting(true);
         setError(null);
         try {
-            const response = await axios.patch(`${API_BASE_URL}/api/admin/products/${id}`, formData, getAuthHeaders());
+            // Use authAxios for patching. Explicitly set 'Content-Type' for FormData.
+            const response = await authAxios.patch(`/api/admin/products/${id}`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data', // Important for file uploads with FormData
+                },
+            });
 
             if (response.data.success) {
                 toast.success("Product updated successfully!");
                 navigate('/admin/products'); // Redirect back to product list
             } else {
+                // This branch might not be hit if authAxios auto-throws on non-success
                 throw new Error(response.data.message || 'Failed to update product.');
             }
         } catch (err) {
             console.error('Error updating product:', err);
+            // AuthContext's interceptor should handle 401 and global logout
             setError(err.response?.data?.message || 'Failed to update product. Please try again.');
-            if (err.response && err.response.status === 401) {
-                localStorage.removeItem('adminToken');
-                localStorage.removeItem('adminInfo');
-                navigate('/admin/login');
-            }
         } finally {
             setIsSubmitting(false);
         }
     };
 
-      if (isLoading || !adminToken) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-700">Loading your edit page...</p>
-          <p className="text-sm text-gray-500">
-            LocalCart is crunching the numbers
-          </p>
-        </div>
-      </div>
-    );
-  }
+    // Combined loading state for initial authentication check and product fetching
+    if (isLoading || isAuthLoading || (!jwtToken && !isAuthLoading)) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
+                    <p className="text-lg text-gray-700">Loading your edit page...</p>
+                    <p className="text-sm text-gray-500">
+                        LocalCart is crunching the numbers
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
-    if (error && !product) { // Only show error if no product data was loaded
+    if (error && !product) { // Only show error if no product data was loaded initially
         return (
             <div className="p-6">
                 <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
@@ -117,8 +114,8 @@ export default function EditProductPage() {
         );
     }
 
-    if (!product) { // Product might be null if not found or initial state
-        return <div className="flex justify-center items-center h-screen text-xl font-semibold text-gray-700">Product not found.</div>;
+    if (!product) { // Product might be null if not found or initial state after loading
+        return <div className="flex justify-center items-center h-screen text-xl font-semibold text-gray-700">Product not found or access denied.</div>;
     }
 
     return (
