@@ -1,144 +1,95 @@
-const Vendor = require('../models/Vendor');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+// controllers/vendorController.js
 
-const JWT_SECRET = process.env.JWT_SECRET || 'vendorSecret';
+// Removed: const Vendor = require('../models/Vendor'); // No longer needed if unified User model is used
+const bcrypt = require('bcryptjs'); // Keep if other bcrypt operations exist here, otherwise can be removed
+const jwt = require('jsonwebtoken'); // Keep if other JWT operations exist here, otherwise can be removed
+const User = require('../models/User'); // Essential for interacting with the unified User model
+const Product = require('../models/Product'); // Assuming Product model is used for vendor products
 
-exports.registerVendor = async (req, res) => {
-  try {
-    const { name, email, password, storeName, phone } = req.body;
+// Removed: const JWT_SECRET = process.env.JWT_SECRET || 'vendorSecret'; // Handled globally by authController
 
-    const existing = await Vendor.findOne({ email });
-    if (existing) return res.status(400).json({ message: 'Email already registered' });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const vendor = new Vendor({ name, email, password: hashedPassword, storeName, phone });
-    await vendor.save();
-
-    const token = jwt.sign({ id: vendor._id, role: 'vendor' }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-    res.status(201).json({
-      token,
-      user: {
-        id: vendor._id,
-        name: vendor.name,
-        email: vendor.email,
-        role: 'vendor',
-        storeName: vendor.storeName
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Registration failed', error: error.message });
-  }
-};
-
-exports.loginVendor = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
-
-    const vendor = await Vendor.findOne({ email: email.toLowerCase() });
-    if (!vendor) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const isMatch = await bcrypt.compare(password, vendor.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ id: vendor._id, role: 'vendor' }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-    res.status(200).json({
-      token,
-      user: {  // Changed from 'vendor' to 'user' for consistency
-        id: vendor._id,
-        name: vendor.name,
-        email: vendor.email,
-        role: 'vendor',  // Explicitly adding role
-        storeName: vendor.storeName  // Add other vendor-specific fields if needed
-      }
-    });
-  } catch (error) {
-    const isDev = process.env.NODE_ENV === 'development';
-    res.status(500).json({
-      message: 'Login failed. Please try again later.',
-      ...(isDev && { error: error.message })
-    });
-  }
-};
+// Removed: exports.registerVendor = async (req, res) => { ... }; // Moved to authController.js
+// Removed: exports.loginVendor = async (req, res) => { ... };    // Moved to authController.js
 
 exports.getVendorProfile = async (req, res) => {
-  try {
-    const vendor = req.vendor; // Comes from protectVendor middleware
-    res.json({
-      success: true,
-      vendor: {
-        id: vendor._id,
-        businessName: vendor.businessName,
-        email: vendor.email,
-        createdAt: vendor.createdAt,
-        // Add other fields as needed
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to fetch profile' });
-  }
+    try {
+        // req.user is populated by the protect middleware
+        const vendorProfile = req.user; 
+        
+        // Ensure vendorProfile has the necessary fields from the unified User model
+        // If 'storeName' and 'phone' are part of your User model for sellers, they will be here.
+        res.json({
+            success: true,
+            vendor: { // Renamed to 'vendor' for frontend compatibility if needed
+                id: vendorProfile._id,
+                name: vendorProfile.name, 
+                email: vendorProfile.email,
+                storeName: vendorProfile.storeName, // Assuming storeName is on User model
+                phone: vendorProfile.phone,
+                createdAt: vendorProfile.createdAt,
+                // Add other fields as needed from the unified User model
+            },
+        });
+    } catch (err) {
+        console.error('Failed to fetch vendor profile:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch profile' });
+    }
 };
-
-const Product = require('../models/Product');
 
 exports.addProduct = async (req, res) => {
-  try {
-    const { name, description, price } = req.body;
+    try {
+        const { name, description, price } = req.body;
 
-    console.log("req.vendor:", req.vendor); // Debug log
-    console.log("req.vendor._id:", req.vendor._id); // Debug log
+        // req.user will contain the authenticated seller's data
+        console.log("req.user (seller):", req.user); // Debug log
+        console.log("req.user._id (seller ID):", req.user._id); // Debug log
 
-    const product = new Product({
-      name,
-      description,
-      price,
-      seller: req.vendor._id // This should work now
-    });
+        const product = new Product({
+            name,
+            description,
+            price,
+            seller: req.user._id // Correctly uses req.user._id for seller
+        });
 
-    await product.save();
-    console.log("Saved product with vendor:", product.vendor); // Debug log
+        await product.save();
+        console.log("Saved product with seller:", product.seller); // Debug log
 
-    res.status(201).json({ message: 'Product added successfully', product });
-  } catch (err) {
-    console.error('Add Product Error:', err);
-    res.status(500).json({ message: 'Failed to add product' });
-  }
+        res.status(201).json({ message: 'Product added successfully', product });
+    } catch (err) {
+        console.error('Add Product Error:', err);
+        res.status(500).json({ message: 'Failed to add product' });
+    }
 };
+
 exports.getVendorProducts = async (req, res) => {
-  try {
-    // Change from 'vendor' to 'seller' to match your schema
-    const products = await Product.find({ seller: req.vendor._id });
+    try {
+        // Filter products by the authenticated seller's ID
+        const products = await Product.find({ seller: req.user._id }); // Correctly uses req.user._id for seller
 
-
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      error: 'Server Error'
-    });
-  }
+        res.status(200).json({
+            success: true,
+            count: products.length,
+            data: products
+        });
+    } catch (error) {
+        console.error('Error fetching vendor products:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Server Error'
+        });
+    }
 };
 
 exports.deleteProduct = async (req, res) => {
-  try {
-    const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.status(200).json({ message: 'Product deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    try {
+        // Add a check to ensure the seller can only delete their own products
+        const product = await Product.findOneAndDelete({ _id: req.params.id, seller: req.user._id }); // Correctly ensures seller owns product
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found or you do not have permission to delete this product.' });
+        }
+        res.status(200).json({ message: 'Product deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        res.status(500).json({ message: error.message });
+    }
 };
