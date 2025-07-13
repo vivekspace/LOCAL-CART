@@ -33,21 +33,20 @@ const addressSchema = new mongoose.Schema({
         trim: true,
         maxlength: [50, 'State name cannot exceed 50 characters']
     },
-    zipCode: {
+    zipCode: { // Assuming you want to stick with zipCode for now as per your original working code
         type: String,
         required: [true, 'ZIP Code is required'],
         trim: true,
         maxlength: [10, 'ZIP Code cannot exceed 10 characters'],
         minlength: [5, 'ZIP Code must be at least 5 characters']
     },
-    // ADDED: isDefault field
     isDefault: {
         type: Boolean,
         default: false
     }
 }, {
     timestamps: true,
-    _id: true // Good practice to explicitly set true, though often default
+    _id: true
 });
 
 const userSchema = new mongoose.Schema({
@@ -76,10 +75,9 @@ const userSchema = new mongoose.Schema({
         enum: ['customer', 'seller', 'admin'],
         default: 'customer'
     },
-    // *** MODIFICATION HERE ***
-    photo: { // Changed from 'avatar' to 'photo'
+    photo: {
         type: String,
-        default: 'default.jpg' // Changed default to a local filename, as we'll be serving locally
+        default: 'default.jpg'
     },
     bio: {
         type: String,
@@ -89,11 +87,11 @@ const userSchema = new mongoose.Schema({
     },
     lastLoginAt: {
         type: Date,
-        default: null // Or Date.now if you want it set on creation
+        default: null
     },
     addresses: {
         type: [addressSchema],
-        default: [] // <<< THIS IS THE KEY CHANGE for new users / when fetching existing users without the field
+        default: []
     },
 }, {
     timestamps: true
@@ -101,7 +99,16 @@ const userSchema = new mongoose.Schema({
 
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) return next();
+
+    // --- CRITICAL DEBUGGING LOG ---
+    console.log("\n--- User Model Pre-Save Hook Debugging ---");
+    console.log("   Password BEFORE hashing (in pre-save hook):", this.password);
+    console.log("   Length of password BEFORE hashing:", this.password ? this.password.length : 'N/A');
+    console.log("   Type of password BEFORE hashing:", typeof this.password);
+    // --- END CRITICAL DEBUGGING LOG ---
+
     this.password = await bcrypt.hash(this.password, 10);
+    console.log("   Password AFTER hashing (in pre-save hook):", this.password);
     next();
 });
 
