@@ -1,41 +1,34 @@
 const jwt = require("jsonwebtoken");
-const Admin = require("../models/Admin");
 const bcrypt = require("bcryptjs");
+const User = require("../models/User");
 
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const admin = await Admin.findOne({ email }).select("+password");
-        if (!admin) {
-            return res.status(401).json({ success: false, message: "Invalid credentials" });
+        const user = await User.findOne({ email }).select("+password");
+        if (!user || user.role !== 'admin') {
+            return res.status(401).json({ success: false, message: "Invalid credentials or not an admin" });
         }
-
-        const isMatch = await bcrypt.compare(password, admin.password);
+        const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({ success: false, message: "Invalid credentials" });
         }
-
         const token = jwt.sign(
-            { id: admin._id, role: admin.role || "admin" },
+            { id: user._id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: "1d" }
         );
-
-        // Remove password before sending user object
-        const adminData = {
-            id: admin._id,
-            name: admin.name,
-            email: admin.email,
-            role: admin.role || "admin",
-            isSuperAdmin: admin.isSuperAdmin,
-            permissions: admin.permissions
+        const userData = {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
         };
-
         res.status(200).json({
             success: true,
             token,
-            user: adminData,
+            user: userData,
         });
     } catch (error) {
         console.error("Admin login error:", error.message);

@@ -1,4 +1,3 @@
-// controllers/productController.js
 const Product = require('../models/Product');
 const mongoose = require('mongoose'); // Import mongoose for ObjectId validation
 const sharp = require('sharp'); // Import sharp
@@ -119,6 +118,8 @@ exports.getAllProducts = async (req, res) => {
 // Enhanced with input validation and duplicate checking
 exports.createProduct = async (req, res) => {
     try {
+              console.time('Product Creation Total'); // Start total timer
+
         // 1. Basic validation (required fields) - KEEP AS IS
         if (!req.body.name || !req.body.price || !req.body.description || !req.body.category || !req.body.city || !req.body.location) {
             return sendErrorResponse(res, 400, 'fail', 'Product name, price, description, category, city, and location are required');
@@ -138,21 +139,33 @@ exports.createProduct = async (req, res) => {
             return sendErrorResponse(res, 400, 'fail', 'Invalid location data. Must be a GeoJSON Point object with "type":"Point" and "coordinates":[longitude, latitude] as numbers.');
         }
 
-        // 3. Check for duplicate product (name + seller) - KEEP AS IS
-        if (!req.vendor || !req.vendor.id) {
-            return sendErrorResponse(res, 401, 'fail', 'Seller not authenticated or ID not provided.');
+        // --- MODIFIED: Use req.user instead of req.vendor for seller authentication ---
+                console.time('Auth & Duplicate Check');
+
+        if (!req.user || !req.user.id) { 
+            sendErrorResponse(res, 401, 'fail', 'Seller not authenticated or ID not provided.');
+                        console.timeEnd('Auth & Duplicate Check');
+                        return;
+
         }
+
+        // 3. Check for duplicate product (name + seller)
         const existingProduct = await Product.findOne({
             name: req.body.name,
-            seller: req.vendor.id
+            seller: req.user.id // Use req.user.id
         });
 
         if (existingProduct) {
-            return sendErrorResponse(res, 400, 'fail', 'You already have a product with this name');
+             sendErrorResponse(res, 400, 'fail', 'You already have a product with this name');
+            console.timeEnd('Auth & Duplicate Check');
+            return;
+
         }
 
         // --- NEW UNIQUE LOCATION LOGIC START ---
         // This ensures the city name associated with a new product is added to UniqueLocations
+                console.time('Unique Location Upsert');
+
         const cityToStore = String(req.body.city).trim().toLowerCase(); // Normalize the city name
 
         if (cityToStore) { // Ensure city is not empty after trim
@@ -176,10 +189,14 @@ exports.createProduct = async (req, res) => {
                 // even if adding to UniqueLocation fails for non-critical reasons.
             }
         }
+                console.timeEnd('Unique Location Upsert');
+
         // --- NEW UNIQUE LOCATION LOGIC END ---
 
         // --- NEW IMAGE PROCESSING LOGIC FOR createProduct - KEEP AS IS ---
-       const processedImageNames = [];
+                console.time('Image Processing');
+
+        const processedImageNames = [];
         if (req.files && req.files.length > 0) {
             await Promise.all(req.files.map(async (file, index) => {
                 const filename = `product-${Date.now()}-${index}.webp`;
@@ -196,11 +213,15 @@ exports.createProduct = async (req, res) => {
                 }
             }));
         }
+                console.timeEnd('Image Processing');
+
 
         // Create product with processed images
+                console.time('Product DB Create');
+
         const productData = {
             ...req.body,
-            seller: req.vendor.id,
+            seller: req.user.id, // MODIFIED: Use req.user.id here
             location: {
                 type: parsedLocation.type,
                 coordinates: parsedLocation.coordinates,
@@ -216,13 +237,18 @@ exports.createProduct = async (req, res) => {
         }
 
         const product = await Product.create(productData);
+                console.timeEnd('Product DB Create');
+
 
         res.status(201).json({
             status: 'success',
             data: { product }
         });
+                console.timeEnd('Product Creation Total'); // End total timer
+
 
     } catch (err) {
+       console.timeEnd('Product Creation Total');
         // Your existing error handling - KEEP AS IS
         if (err.code === 11000) {
             return sendErrorResponse(res, 400, 'fail', 'Product with this name already exists', err);
@@ -282,18 +308,26 @@ exports.updateProduct = async (req, res) => {
       req.body.location = parsedLocation; // Assign validated object back
     }
 
+    // MODIFIED: Add authorization check for updating product
+    const productToUpdate = await Product.findById(req.params.id);
+    if (!productToUpdate) {
+        return sendErrorResponse(res, 404, 'fail', 'Product not found for update');
+    }
+
+    // Ensure the user is either an admin or the actual seller of the product
+    if (req.user.role !== 'admin' && productToUpdate.seller.toString() !== req.user.id) {
+        return sendErrorResponse(res, 403, 'fail', 'You are not authorized to update this product.');
+    }
+
     // --- NEW IMAGE PROCESSING LOGIC FOR updateProduct ---
     let newImageNames = [];
     if (req.files && req.files.length > 0) {
       // Fetch the existing product to get current images (if replacing/appending)
-      const existingProduct = await Product.findById(req.params.id);
-      if (!existingProduct) {
-        return sendErrorResponse(res, 404, 'fail', 'Product not found for image update');
-      }
+      // This part is already covered by productToUpdate above.
 
       // Delete old images from disk if replacing
-      if (existingProduct.images && existingProduct.images.length > 0) {
-        await Promise.all(existingProduct.images.map(oldFilename => {
+      if (productToUpdate.images && productToUpdate.images.length > 0) {
+        await Promise.all(productToUpdate.images.map(oldFilename => {
           const oldImagePath = path.join(__dirname, '../uploads', oldFilename);
           return new Promise(resolve => {
             fs.unlink(oldImagePath, (err) => {
@@ -333,9 +367,6 @@ exports.updateProduct = async (req, res) => {
       runValidators: true // Run Mongoose validators on update
     }).lean();
 
-    if (!product) {
-      return sendErrorResponse(res, 404, 'fail', 'Product not found');
-    }
 
     res.status(200).json({
       status: 'success',
@@ -365,6 +396,12 @@ exports.deleteProduct = async (req, res) => {
     const productToDelete = await Product.findById(req.params.id);
     if (!productToDelete) {
       return sendErrorResponse(res, 404, 'fail', 'Product not found');
+    }
+
+    // MODIFIED: Add authorization check for deleting product
+    // Ensure the user is either an admin or the actual seller of the product
+    if (req.user.role !== 'admin' && productToDelete.seller.toString() !== req.user.id) {
+        return sendErrorResponse(res, 403, 'fail', 'You are not authorized to delete this product.');
     }
 
     // Delete associated images from disk

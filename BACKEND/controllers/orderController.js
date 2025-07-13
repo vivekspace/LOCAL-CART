@@ -1,9 +1,9 @@
 // controllers/orderController.js
 const Order = require('../models/Order');
-const Vendor = require('../models/Vendor');
+// Removed: const Vendor = require('../models/Vendor'); // No longer needed as User model is unified
 const Product = require('../models/Product'); // <-- ADD THIS LINE: Import Product model
 const nodemailer = require('nodemailer');
-const User = require('../models/User');
+const User = require('../models/User'); // Use the unified User model
 const mongoose = require('mongoose'); // Ensure mongoose is imported
 require('dotenv').config();
 
@@ -35,8 +35,8 @@ exports.getCustomerOrders = async (req, res) => {
         })
             .populate({
                 path: 'cartItems.productId', // Path to the product ID within each cart item
-                model: 'Product',            // The model to use for population
-                select: 'images',            // Select only the 'images' array from the Product document
+                model: 'Product',           // The model to use for population
+                select: 'images',           // Select only the 'images' array from the Product document
             })
             .sort({ createdAt: -1 })
             .lean(); // Use .lean() for faster query results if you don't need Mongoose document methods
@@ -46,7 +46,7 @@ exports.getCustomerOrders = async (req, res) => {
         const transformedOrders = orders.map(order => ({
             _id: order._id,
             orderNumber: order._id.toString().slice(-8).toUpperCase(),
-            firstProductName: order.cartItems.length > 0 ? order.cartItems[0].name : null, // <--- ADD THIS LINE
+            firstProductName: order.cartItems.length > 0 ? order.cartItems[0].name : null,
             status: order.status,
             createdAt: order.createdAt,
             totalAmount: order.totalAmount ||
@@ -142,7 +142,8 @@ exports.createOrder = async (req, res) => {
     }
 
     try {
-        if (!req.user) { // Redundant check, but harmless if middleware handles it
+        // Redundant check, but harmless if middleware handles it
+        if (!req.user) { 
             return res.status(401).json({
                 success: false,
                 message: "Not authorized - please login"
@@ -213,7 +214,7 @@ exports.createOrder = async (req, res) => {
             street: shipping.address.line1,
             city: shipping.address.city,
             state: shipping.address.state,
-            zip: shipping.address.pincode,
+            zip: shipping.address.zip,
             country: shipping.address.country || 'India',
         };
 
@@ -261,7 +262,10 @@ exports.createOrder = async (req, res) => {
         await Promise.all(
             Object.entries(vendorItemsMap).map(async ([sellerId, items]) => {
                 try {
-                    const vendor = await Vendor.findById(sellerId);
+                    // --- FIX START: Use User model for vendor lookup ---
+                    const vendor = await User.findById(sellerId); // Changed from Vendor.findById
+                    // --- FIX END ---
+
                     if (vendor && vendor.email) {
                         await sendVendorEmail(vendor.email, {
                             orderId: savedOrder._id,
@@ -278,7 +282,7 @@ exports.createOrder = async (req, res) => {
                             overallTotal: savedOrder.totalAmount
                         });
                     } else {
-                        console.warn(`Vendor with ID ${sellerId} not found or missing email.`);
+                        console.warn(`Vendor with ID ${sellerId} not found or missing email for email notification.`);
                     }
                 } catch (emailError) {
                     console.error(`Failed to send email to vendor ${sellerId}:`, emailError);
@@ -371,7 +375,9 @@ async function sendVendorEmail(to, { orderId, items, customer, paymentMethod, sh
 // controllers/orderController.js (Updated getVendorOrders function)
 exports.getVendorOrders = async (req, res) => {
     try {
-        const vendorId = req.vendor._id;
+        // --- FIX START: Use req.user._id for authenticated vendor ---
+        const vendorId = req.user._id; 
+        // --- FIX END ---
 
         const orders = await Order.find({ 'cartItems.seller': vendorId })
             .sort({ createdAt: -1 }) // Latest first
@@ -592,7 +598,9 @@ exports.updateOrderStatus = async (req, res) => {
     try {
         const { status } = req.body;
         const { orderId } = req.params;
-        const vendorId = req.vendor._id;
+        // --- FIX START: Use req.user._id for authenticated vendor ---
+        const vendorId = req.user._id; 
+        // --- FIX END ---
 
         const validStatuses = ['pending', 'processing', 'completed', 'failed', 'shipped', 'cancelled'];
         if (!validStatuses.includes(status)) {
@@ -740,16 +748,17 @@ exports.getAllOrders = async (req, res) => {
 };
 
 exports.sendOrderMessageToCustomer = async (req, res) => {
-    // This route should be protected by protectVendor middleware
-    if (!req.vendor) {
-        return res.status(401).json({
+    // --- FIX START: Use req.user for authentication and role check ---
+    if (!req.user || req.user.role !== 'seller') { // Assuming only 'seller' can send messages
+        return res.status(403).json({ // 403 Forbidden if not authorized role
             success: false,
-            message: "Not authorized - please login as a vendor"
+            message: "Not authorized - only sellers can send messages to customers."
         });
     }
 
     const { orderId, messageContent } = req.body;
-    const vendorId = req.vendor._id; // Get vendor ID from authenticated request
+    const vendorId = req.user._id; // Get vendor ID from authenticated req.user
+    // --- FIX END ---
 
     if (!orderId || !messageContent) {
         return res.status(400).json({ success: false, message: 'Order ID and message content are required.' });
@@ -773,9 +782,10 @@ exports.sendOrderMessageToCustomer = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Customer email not found for this order.' });
         }
 
-        // Get vendor details (e.g., shop name) for the email
-        const vendor = await Vendor.findById(vendorId);
-        const vendorShopName = vendor?.shopName || 'Your LocalCart Vendor';
+        // --- FIX START: Get vendor details from User model ---
+        const vendor = await User.findById(vendorId); // Changed from Vendor.findById
+        const vendorShopName = vendor?.storeName || 'Your LocalCart Vendor'; // Changed from shopName to storeName
+        // --- FIX END ---
 
         const mailOptions = {
             from: `"LocalCart - ${vendorShopName}" <${process.env.EMAIL_FROM}>`,

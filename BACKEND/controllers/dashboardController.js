@@ -277,7 +277,11 @@ exports.setAsDefaultAddress = async (req, res, next) => {
 // Existing Vendor Dashboard Controller
 exports.getVendorDashboard = async (req, res) => {
     try {
-        const vendorId = new mongoose.Types.ObjectId(req.vendor._id);
+        // --- FIX START ---
+        // Change req.vendor._id to req.user._id
+        const vendorId = new mongoose.Types.ObjectId(req.user._id); 
+        // --- FIX END ---
+
         console.log('Vendor ID:', vendorId);
 
         const totalProducts = await Product.countDocuments({ seller: vendorId });
@@ -426,7 +430,7 @@ exports.getAdminDashboardStats = async (req, res) => {
         const totalOrders = await Order.countDocuments();
         const totalCustomers = await User.countDocuments();
         const totalProducts = await Product.countDocuments();
-        const totalVendors = await Vendor.countDocuments();
+        const totalVendors = await Vendor.countDocuments(); // This might need to be User.countDocuments({ role: 'seller' })
 
         // --- 2. Sales Overview Data (for the chart) ---
         const salesOverviewLabels = [];
@@ -531,6 +535,9 @@ exports.getAllUsersForAdmin = async (req, res) => {
                     updatedAt: 1,
                     lastLoginAt: 1,
                     transactionsCount: 1,
+                    // REMOVED: orders: 0, // This was the cause of the error!
+                    addresses: 1,
+                    phone: 1
                 }
             }
         ]);
