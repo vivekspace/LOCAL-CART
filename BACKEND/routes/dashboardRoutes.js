@@ -1,10 +1,10 @@
-// routes/dashboardRoutes.js
 const express = require('express');
 const router = express.Router();
-const { protectAdmin } = require('../middleware/adminAuthMiddleware'); // Use protectAdmin
-const { getAdminDashboardStats } = require('../controllers/dashboardController'); // Define this in the controller
 
-router.get('/stats', protectAdmin, getAdminDashboardStats);
-// Add other admin dashboard routes here if needed (e.g., recent orders for admin view)
+const { protect, authorizeRoles } = require('../middleware/authMiddleware');
+
+const { getAdminDashboardStats } = require('../controllers/dashboardController');
+
+router.get('/stats', protect, authorizeRoles('admin'), getAdminDashboardStats);
 
 module.exports = router;

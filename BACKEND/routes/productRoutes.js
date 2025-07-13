@@ -1,9 +1,8 @@
-// routes/productRoutes.js
 const express = require('express');
 const router = express.Router();
 const Vendor = require('../models/Vendor.js');
-const Product = require('../models/Product.js'); // Make sure Product is imported here
-// Destructure all needed controller functions for clarity
+const Product = require('../models/Product.js');
+
 const {
     getAllProducts,
     createProduct,
@@ -12,8 +11,7 @@ const {
     deleteProduct,
 } = require('../controllers/productController');
 
-const { protectVendor } = require('../middleware/vendorAuth'); // For vendor-specific actions
-const { protectAdmin } = require('../middleware/adminAuthMiddleware'); // For admin-specific actions
+const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
 const multer = require('multer');
 
@@ -22,18 +20,15 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }
 });
 
+// FIXED: Changed 'vendor' to 'seller' to match the role stored in database
+router.post('/vendor', protect, authorizeRoles('seller'), upload.array('productImages', 10), createProduct);
+router.patch('/vendor/:id', protect, authorizeRoles('seller'), upload.array('productImages', 10), updateProduct);
+router.delete('/vendor/:id', protect, authorizeRoles('seller'), deleteProduct);
 
-router.post('/vendor', protectVendor, upload.array('productImages', 10), createProduct); 
-router.patch('/vendor/:id', protectVendor, upload.array('productImages', 10), updateProduct); 
-router.delete('/vendor/:id', protectVendor, deleteProduct); 
-
-// When this is used as part of /api/admin/products
-router.get('/admin', protectAdmin, getAllProducts); 
-router.get('/admin/:id', protectAdmin, getProductById); 
-router.patch('/admin/:id', protectAdmin, upload.array('productImages', 10), updateProduct); 
-router.delete('/admin/:id', protectAdmin, deleteProduct); 
-
-
+router.get('/admin', protect, authorizeRoles('admin'), getAllProducts);
+router.get('/admin/:id', protect, authorizeRoles('admin'), getProductById);
+router.patch('/admin/:id', protect, authorizeRoles('admin'), upload.array('productImages', 10), updateProduct);
+router.delete('/admin/:id', protect, authorizeRoles('admin'), deleteProduct);
 
 router.get('/nearby', async (req, res) => {
     console.log('--- HIT: /api/products/nearby route ---');
@@ -134,7 +129,6 @@ router.get('/nearby', async (req, res) => {
     }
 });
 
-// 2. Specific static path: /api/products/locations (for unique cities)
 router.get('/locations', async (req, res) => {
     console.log('--- HIT: /api/products/locations route ---');
 
@@ -183,8 +177,6 @@ router.get('/locations', async (req, res) => {
 });
 
 router.get('/:id', getProductById);
-
-
 router.get('/', getAllProducts);
 
 module.exports = router;

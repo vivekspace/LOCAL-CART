@@ -1,17 +1,22 @@
-// routes/adminProductRoutes.js
 const express = require('express');
 const router = express.Router();
-const productController = require('../controllers/productController'); // Or wherever your product functions are
-const { protectAdmin } = require('../middleware/adminAuthMiddleware');
-const {getAllProductsForAdmin , deleteProduct , updateProduct , createProduct , getProductByIdForAdmin} = require("../controllers/dashboardController")
 
-router.route('/') // This is the route for /api/admin/products
-    .get(protectAdmin,  getAllProductsForAdmin)
-    .post(protectAdmin, createProduct);
+const { protect, authorizeRoles } = require('../middleware/authMiddleware');
+const {
+    getAllProductsForAdmin,
+    deleteProduct,
+    updateProduct,
+    createProduct,
+    getProductByIdForAdmin
+} = require("../controllers/dashboardController");
 
-router.route('/:id') // This is the route for /api/admin/products/:id
-    .get(protectAdmin,  getProductByIdForAdmin)
-    .patch(protectAdmin,  updateProduct)
-    .delete(protectAdmin, deleteProduct);
+router.route('/')
+    .get(protect, authorizeRoles('admin'), getAllProductsForAdmin)
+    .post(protect, authorizeRoles('admin'), createProduct);
+
+router.route('/:id')
+    .get(protect, authorizeRoles('admin'), getProductByIdForAdmin)
+    .patch(protect, authorizeRoles('admin'), updateProduct)
+    .delete(protect, authorizeRoles('admin'), deleteProduct);
 
 module.exports = router;

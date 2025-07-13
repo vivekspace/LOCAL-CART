@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
+
 const {
-    getAllOrders,         
+    getAllOrders,
     createOrder,
     getOrderDetails,
     updateOrderStatus,
@@ -12,29 +13,19 @@ const {
     sendOrderMessageToCustomer
 } = require('../controllers/orderController');
 
-const { protectVendor } = require('../middleware/vendorAuth');
-const { protectAdmin } = require('../middleware/adminAuthMiddleware'); // Assuming this exists
-const { protect } = require('../middleware/authMiddleware'); // Assuming this exists
+const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
+router.get('/admin', protect, authorizeRoles('admin'), getAllOrders);
+router.get('/admin/by-email', protect, authorizeRoles('admin'), getOrdersByEmail);
 
-router.get('/admin', protectAdmin, getAllOrders); // Corrected: Using getAllOrders directly
+router.get('/vendor/orders', protect, authorizeRoles('seller'), getVendorOrders);
+router.post('/vendor/message-customer', protect, authorizeRoles('seller'), sendOrderMessageToCustomer);
+router.put('/vendor/:orderId/status', protect, authorizeRoles('seller'), updateOrderStatus);
 
-// Customer routes (protected)
-router.get('/', protect, getCustomerOrders);
-router.post('/', protect, createOrder);
-router.get('/track/:orderId', getPublicOrderDetails); // Public tracking, no auth needed here
+router.post('/', protect, authorizeRoles('customer'), createOrder);
+router.get('/my-orders', protect, authorizeRoles('customer'), getCustomerOrders);
+router.get('/:orderId', protect, authorizeRoles('customer', 'admin', 'vendor'), getOrderDetails);
 
-router.get('/:orderId', protect, getOrderDetails);
-
-router.get('/vendor/orders', protectVendor, getVendorOrders);
-
-router.post('/vendor/message-customer', protectVendor, sendOrderMessageToCustomer); 
-
-
-router.get('/by-email', protectAdmin, getOrdersByEmail);
-
-router.put('/:orderId/status', protectVendor, updateOrderStatus); // Assuming vendor updates status
-
-
+router.get('/track/:orderId', getPublicOrderDetails);
 
 module.exports = router;
