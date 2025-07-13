@@ -4,21 +4,24 @@ import { AuthContext } from "../../Context/Context";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MapComponent from "../MapComponent/MapComponent";
-import axios from "axios"; 
-import {Helmet} from "react-helmet-async"; // Import Helmet for SEO
+import axios from "axios";
+import { Helmet } from "react-helmet-async"; // Import Helmet for SEO
 
+// --- ProductImageGallery Component ---
 const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
   const productImages = useMemo(() => {
+    // Ensure product and product.images exist before mapping
     if (product?.images?.length > 0) {
       return product.images.map(
         (img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`
       );
     }
+    // Fallback to a default image if no images are available
     return [`${import.meta.env.VITE_API_URL}/uploads/default-product.png`];
   }, [product]);
 
-  const mainImageWidth = 600; 
-  const mainImageHeight = 450; 
+  const mainImageWidth = 600;
+  const mainImageHeight = 450;
   const thumbnailWidth = 80;
   const thumbnailHeight = 60;
 
@@ -26,33 +29,33 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
     <div className="md:w-1/2 p-6">
       <div className="relative h-96 w-full mb-4 rounded-xl overflow-hidden">
         <picture>
-          
           <img
-            src={productImages[selectedImage]}
-            alt={product.name}
+            // Use fallback for selectedImage index if it goes out of bounds (e.g., after image deletion)
+            src={productImages[selectedImage] || productImages[0]}
+            alt={product.name || "Product Image"} // Defensive check for product.name
             className="w-full h-full object-contain transition-opacity duration-300"
             loading="eager"
-            decoding="async" 
+            decoding="async"
             width={mainImageWidth}
             height={mainImageHeight}
             onError={(e) => {
               e.target.src = `${
                 import.meta.env.VITE_API_URL
               }/uploads/default-product.png`;
-              e.target.onerror = null; 
+              e.target.onerror = null;
               e.target.className =
-                "w-full h-full object-contain bg-gray-100 p-4"; 
+                "w-full h-full object-contain bg-gray-100 p-4";
             }}
           />
         </picture>
 
-        {product.isNew && ( // Assuming 'isNew' is a boolean field
+        {product.isNew && (
           <div className="absolute top-4 left-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
             NEW ARRIVAL
           </div>
         )}
         {product.discountPrice &&
-          product.price > product.discountPrice && ( // Use discountPrice from backend
+          product.price > product.discountPrice && (
             <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
               {Math.round(
                 ((product.price - product.discountPrice) / product.price) * 100
@@ -73,10 +76,11 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
                   ? "border-green-500"
                   : "border-transparent hover:border-gray-300"
               }`}
+              type="button" // Add type for semantic correctness
             >
               <img
                 src={img}
-                alt={`${product.name} thumbnail ${index + 1}`}
+                alt={`${product.name || "Product"} thumbnail ${index + 1}`} // Defensive check for product.name
                 className="w-full h-full object-contain"
                 loading="lazy"
                 decoding="async"
@@ -88,7 +92,7 @@ const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
                   }/uploads/default-product.png`;
                   e.target.onerror = null;
                   e.target.className =
-                    "w-full h-full object-contain bg-gray-100 p-2"; // Apply object-contain for fallback too
+                    "w-full h-full object-contain bg-gray-100 p-2";
                 }}
               />
             </button>
@@ -104,26 +108,27 @@ const ProductPrice = ({ product, quantity = 1 }) => {
   const safeQuantity = Math.max(1, quantity);
 
   // Use 'discountPrice' if available, otherwise just 'price'
-  const finalPrice = product.discountPrice || product.price;
+  // Ensure product and price/discountPrice exist before accessing
+  const finalPrice = product?.discountPrice || product?.price || 0;
+  const originalPrice = product?.price || 0;
 
   return (
     <div className="mb-6">
-      {product.discountPrice ? ( // If discountPrice exists, show both
+      {product?.discountPrice && originalPrice > finalPrice ? ( // If discountPrice exists and is lower
         <div className="flex items-center">
           <p className="text-3xl font-bold text-green-600 mr-3">
             ${(finalPrice * safeQuantity).toFixed(2)}
           </p>
           <p className="text-xl text-gray-400 line-through">
-            {(product.price * safeQuantity).toFixed(2)}{" "}
-            {/* Original price comes from 'price' */}
+            ${(originalPrice * safeQuantity).toFixed(2)}
           </p>
           <span className="ml-3 bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
-            Save {Math.round((1 - finalPrice / product.price) * 100)}%
+            Save {Math.round((1 - finalPrice / originalPrice) * 100)}%
           </span>
         </div>
       ) : (
         <p className="text-3xl font-bold text-green-600">
-          ${(product.price * safeQuantity).toFixed(2)}
+          ${(originalPrice * safeQuantity).toFixed(2)}
         </p>
       )}
     </div>
@@ -172,13 +177,10 @@ const ProductCardPage = () => {
   const {
     addToCart,
     updateCartItemQuantity,
-    products: cartProducts, // Renamed 'products' to 'cartProducts' to avoid confusion
-  } = useContext(AuthContext); 
+    products: cartProducts,
+  } = useContext(AuthContext);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [wishlist, setWishlist] = useState("transparent");
-
-  console.log("The found product is", foundProduct?.location.coordinates[0]);
-  console.log("The found product is", foundProduct?.location.coordinates[1]);
 
   // Get the current quantity from cart if product exists in cart
   const getInitialQuantity = useCallback(() => {
@@ -195,29 +197,29 @@ const ProductCardPage = () => {
     setQuantity(getInitialQuantity());
   }, [foundProduct, getInitialQuantity]);
 
-
   // --- Crucial Change: Fetch product details directly from the backend API ---
   useEffect(() => {
     const fetchProduct = async () => {
-      console.log("Product Id is :", productId);
       setLoading(true);
       try {
         const response = await axios.get(
           `${import.meta.env.VITE_API_URL}/api/products/${productId}`
         );
-        const fetchedProduct = response.data.data.product; 
+        const fetchedProduct = response.data.data.product;
         setFoundProduct(fetchedProduct);
         setSelectedImage(0); // Reset selected image when a new product is loaded
         setQuantity(getInitialQuantity()); // Set initial quantity based on cart for this specific product
 
+        // Fetch related products based on category
         const relatedRes = await axios.get(
           `${import.meta.env.VITE_API_URL}/api/products?category=${
             fetchedProduct.category
           }&limit=4&exclude=${productId}`
         );
+        // Filter out the current product from related products
         setRelatedProducts(
           relatedRes.data.data.products.filter((p) => p._id !== productId)
-        ); // Filter out the current product
+        );
       } catch (error) {
         console.error("Failed to fetch product:", error);
         setFoundProduct(null); // Explicitly set to null on error
@@ -237,7 +239,6 @@ const ProductCardPage = () => {
   const handleIncrease = useCallback(() => {
     if (!foundProduct) return;
     const newQuantity = (quantity || 1) + 1;
-    // Prevent increasing beyond stock
     if (foundProduct.stock !== undefined && newQuantity > foundProduct.stock) {
       toast.warn(
         `Cannot add more than ${foundProduct.stock} items to cart (stock limit).`,
@@ -282,7 +283,6 @@ const ProductCardPage = () => {
     if (!foundProduct) return;
 
     const qty = quantity || 1;
-    // Check if adding this quantity exceeds available stock
     if (foundProduct.stock !== undefined && qty > foundProduct.stock) {
       toast.error(
         `Cannot add ${qty} items. Only ${foundProduct.stock} available in stock.`,
@@ -295,12 +295,10 @@ const ProductCardPage = () => {
     }
 
     addToCart(foundProduct._id, qty);
-
   }, [foundProduct, quantity, addToCart]);
 
   const handleBuyNow = useCallback(() => {
     if (!foundProduct) return;
-    // Similar stock check for buy now
     if (foundProduct.stock !== undefined && quantity > foundProduct.stock) {
       toast.error(
         `Cannot proceed. Only ${foundProduct.stock} available in stock.`,
@@ -312,7 +310,9 @@ const ProductCardPage = () => {
       return;
     }
     addToCart(foundProduct._id, quantity);
-    // Redirect to payment page after adding to cart
+    // TODO: Implement actual redirect to payment page
+    // For now, it will just add to cart.
+    // navigate("/payment"); // Example if you have a navigate hook
   }, [foundProduct, quantity, addToCart]);
 
   if (loading) {
@@ -379,24 +379,63 @@ const ProductCardPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Helmet>
-        <title>{foundProduct.name} - Buy {foundProduct.category} | EcoHarvest</title>
+        <title>
+          {foundProduct.name} - Buy {foundProduct.category} | EcoHarvest
+        </title>
         <meta
           name="description"
-          content={`Discover ${foundProduct.name}, a fresh, organic ${foundProduct.category} from ${foundProduct.seller.name}. Price: $${foundProduct.price.toFixed(2)}. ${foundProduct.description ? foundProduct.description.substring(0, 150) + '...' : 'High-quality, locally sourced, and sustainably grown.'}`}
+          content={`Discover ${foundProduct.name}, a fresh, organic ${
+            foundProduct.category
+          } from ${
+            foundProduct.seller?.name || "an unknown seller" // Defensive check
+          }. Price: $${(foundProduct.price || 0).toFixed(2)}. ${
+            foundProduct.description
+              ? foundProduct.description.substring(0, 150) + "..."
+              : "High-quality, locally sourced, and sustainably grown."
+          }`}
         />
         {/* Open Graph / Social Media Meta Tags */}
-        <meta property="og:title" content={`${foundProduct.name} - EcoHarvest`} />
-        <meta property="og:description" content={`Fresh organic ${foundProduct.category} from ${foundProduct.seller.name}. Price: $${foundProduct.price.toFixed(2)}.`} />
-        <meta property="og:image" content={`${import.meta.env.VITE_API_URL}/uploads/${foundProduct.images[0] || 'default-product.png'}`} />
+        <meta
+          property="og:title"
+          content={`${foundProduct.name} - EcoHarvest`}
+        />
+        <meta
+          property="og:description"
+          content={`Fresh organic ${foundProduct.category} from ${
+            foundProduct.seller?.name || "an unknown seller" // Defensive check
+          }. Price: $${(foundProduct.price || 0).toFixed(2)}.`}
+        />
+        <meta
+          property="og:image"
+          content={`${import.meta.env.VITE_API_URL}/uploads/${
+            foundProduct.images?.[0] || "default-product.png" // Defensive check
+          }`}
+        />
         <meta property="og:url" content={window.location.href} />
         <meta property="og:type" content="product" />
-        <meta property="product:price:amount" content={foundProduct.price.toFixed(2)} />
+        <meta
+          property="product:price:amount"
+          content={(foundProduct.price || 0).toFixed(2)}
+        />
         <meta property="product:price:currency" content="USD" />
         {/* Twitter Card Meta Tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`${foundProduct.name} - EcoHarvest`} />
-        <meta name="twitter:description" content={`Fresh organic ${foundProduct.category} from ${foundProduct.seller.name}. Price: $${foundProduct.price.toFixed(2)}.`} />
-        <meta name="twitter:image" content={`${import.meta.env.VITE_API_URL}/uploads/${foundProduct.images[0] || 'default-product.png'}`} />
+        <meta
+          name="twitter:title"
+          content={`${foundProduct.name} - EcoHarvest`}
+        />
+        <meta
+          name="twitter:description"
+          content={`Fresh organic ${foundProduct.category} from ${
+            foundProduct.seller?.name || "an unknown seller" // Defensive check
+          }. Price: $${(foundProduct.price || 0).toFixed(2)}.`}
+        />
+        <meta
+          name="twitter:image"
+          content={`${import.meta.env.VITE_API_URL}/uploads/${
+            foundProduct.images?.[0] || "default-product.png" // Defensive check
+          }`}
+        />
       </Helmet>
       <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb Navigation */}
@@ -482,6 +521,7 @@ const ProductCardPage = () => {
                 <button
                   className="text-black hover:text-red-500 transition-colors"
                   onClick={handleWishlist}
+                  type="button" // Add type for semantic correctness
                 >
                   <svg
                     className="w-6 h-6"
@@ -517,8 +557,8 @@ const ProductCardPage = () => {
                   ))}
                 </div>
                 <span className="text-gray-500 text-sm ml-2">
-                  ({foundProduct.ratingsQuantity} customer reviews){" "}
-                  {/* Use actual ratingsQuantity */}
+                  ({foundProduct.ratingsQuantity || 0} customer reviews){" "}
+                  {/* Use 0 if ratingsQuantity is undefined */}
                 </span>
               </div>
 
@@ -543,14 +583,17 @@ const ProductCardPage = () => {
                   />
                 </svg>
                 Sold by:{" "}
-                <Link
-                  to={`/vendor/${foundProduct.seller._id}`}
-                  className="text-green-600 hover:underline ml-1"
-                >
-                  {foundProduct.seller.name}{" "}
-                  {/* Access seller.name from populated field */}
-                </Link>
-                {foundProduct.location.city && ( // Display city if available
+                {foundProduct.seller && foundProduct.seller.name ? ( // Defensive check for seller.name
+                  <Link
+                    to={`/vendor/${foundProduct.seller._id}`}
+                    className="text-green-600 hover:underline ml-1"
+                  >
+                    {foundProduct.seller.name}{" "}
+                  </Link>
+                ) : (
+                  <span className="ml-1 text-gray-600">Unknown Seller</span>
+                )}
+                {foundProduct.location?.city && ( // Defensive check for location.city
                   <span className="ml-2 text-gray-500">
                     ({foundProduct.location.city})
                   </span>
@@ -582,7 +625,7 @@ const ProductCardPage = () => {
                   quantity={quantity}
                   onIncrease={handleIncrease}
                   onDecrease={handleDecrease}
-                  maxStock={foundProduct.stock} // Pass max stock to quantity selector
+                  maxStock={foundProduct.stock}
                 />
 
                 <div className="space-y-3">
@@ -590,7 +633,7 @@ const ProductCardPage = () => {
                     onClick={handleAddToCart}
                     className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold py-3 px-6 rounded-lg shadow hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     type="button"
-                    disabled={foundProduct.stock === 0} // Disable if out of stock
+                    disabled={foundProduct.stock === 0}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -603,31 +646,28 @@ const ProductCardPage = () => {
                     Add to Cart
                   </button>
 
-                  <Link to="/payment">
-                    {" "}
-                    {/* Consider redirecting to payment page after buy now logic */}
-                    <button
-                      className="w-full bg-white border border-green-600 text-green-600 font-semibold py-3 px-6 rounded-lg shadow-sm hover:bg-green-50 transition-colors duration-300 flex items-center justify-center mt-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={handleBuyNow}
-                      type="button"
-                      disabled={foundProduct.stock === 0} // Disable if out of stock
+                  {/* Removed Link wrapping button, handle redirection in handleBuyNow */}
+                  <button
+                    className="w-full bg-white border border-green-600 text-green-600 font-semibold py-3 px-6 rounded-lg shadow-sm hover:bg-green-50 transition-colors duration-300 flex items-center justify-center mt-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleBuyNow}
+                    type="button"
+                    disabled={foundProduct.stock === 0}
+                  >
+                    <svg
+                      className="w-5 h-5 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="w-5 h-5 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                        />
-                      </svg>
-                      Buy Now
-                    </button>
-                  </Link>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                      />
+                    </svg>
+                    Buy Now
+                  </button>
                 </div>
               </div>
             </div>
@@ -661,8 +701,8 @@ const ProductCardPage = () => {
                 Description
               </button>
               <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                Reviews ({foundProduct.ratingsQuantity}){" "}
-                {/* Updated review count */}
+                Reviews ({foundProduct.ratingsQuantity || 0}){" "}
+                {/* Use 0 if ratingsQuantity is undefined */}
               </button>
               <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
                 Shipping & Returns
@@ -673,7 +713,6 @@ const ProductCardPage = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Product Details
             </h3>
-            {/* These list items are hardcoded; ideally, they would come from `foundProduct.description` or a separate `features` array if available */}
             <ul className="list-disc pl-5 space-y-2 text-gray-700">
               <li>100% organic and locally sourced</li>
               <li>Harvested at peak freshness</li>
@@ -685,6 +724,7 @@ const ProductCardPage = () => {
         </div>
 
         {/* Enhanced Map Section */}
+        {/* Render map only if coordinates are available */}
         {!loading && foundProduct?.location?.coordinates?.length === 2 && (
           <div className="mt-12 bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="p-6">
@@ -723,9 +763,11 @@ const ProductCardPage = () => {
 
               <div className="mb-4">
                 <p className="text-gray-600 text-sm">
-                  This product is sourced from {foundProduct.seller.name}{" "}
+                  This product is sourced from{" "}
+                  {foundProduct.seller?.name || "an unknown seller"}{" "}
+                  {/* Defensive check for seller.name */}
                   located in the area shown below.
-                  {foundProduct.location.address && (
+                  {foundProduct.location?.address && ( // Defensive check for location.address
                     <span className="block mt-1 text-gray-500">
                       Address: {foundProduct.location.address}
                     </span>
@@ -733,17 +775,15 @@ const ProductCardPage = () => {
                 </p>
               </div>
 
-              {/* Map Container with proper styling */}
               <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm">
                 <MapComponent
                   lat={foundProduct.location.coordinates[1]}
                   lng={foundProduct.location.coordinates[0]}
-                  zoom={12} // Add zoom prop if your MapComponent supports it
-                  height="400px" // Add height prop if your MapComponent supports it
+                  zoom={12}
+                  height="400px"
                 />
               </div>
 
-              {/* Optional: Distance or delivery info */}
               <div className="mt-4 p-3 bg-green-50 rounded-lg">
                 <div className="flex items-center text-sm text-green-700">
                   <svg
@@ -776,50 +816,62 @@ const ProductCardPage = () => {
               You may also like
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((product) => (
-                <div
-                  key={product._id} /* Use product._id for key */
-                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
-                >
-                  <Link to={`/product-info/${product._id}`} className="block">
-                    {" "}
-                    {/* Use product._id for Link */}
-                    <div className="relative pb-[75%] overflow-hidden">
-                      <img
-                        src={`${import.meta.env.VITE_API_URL}/uploads/${
-                          product.images[0]
-                        }`} /* Use product.images[0] */
-                        alt={product.name}
-                        // IMPORTANT: Changed object-cover to object-contain for related products
-                        className="absolute h-full w-full object-contain hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                        decoding="async"
-                        width="200" // Example width for related products
-                        height="150" // Example height for related products
-                        onError={(e) => {
-                          e.target.src = `${
-                            import.meta.env.VITE_API_URL
-                          }/uploads/default-product.png`;
-                          e.target.onerror = null;
-                        }}
-                      />
-                    </div>
-                    <div className="p-4">
-                      <h4 className="text-lg font-semibold text-gray-800 mb-1">
-                        {product.name}
-                      </h4>
-                      <p className="text-gray-500 text-sm mb-2">
-                        By: {product.seller.name}{" "}
-                        {/* Access seller name from populated field */}
-                      </p>
-                      <p className="text-gray-900 font-bold">
-                        ${product.discountPrice || product.price}{" "}
-                        {/* Display discount price if available */}
-                      </p>
-                    </div>
-                  </Link>
-                </div>
-              ))}
+              {relatedProducts.map((product) =>
+                // *** IMPORTANT FIX: Add null/undefined check for 'product' itself ***
+                product && (
+                  <div
+                    key={product._id}
+                    className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                  >
+                    <Link
+                      to={`/product-info/${product._id}`}
+                      className="block"
+                    >
+                      <div className="relative pb-[75%] overflow-hidden">
+                        <img
+                          // *** IMPORTANT FIX: Defensive check for product.images[0] ***
+                          src={`${import.meta.env.VITE_API_URL}/uploads/${
+                            product.images?.[0] || "default-product.png"
+                          }`}
+                          alt={product.name || "Product Image"} // *** IMPORTANT FIX: Defensive check for product.name ***
+                          className="absolute h-full w-full object-contain hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                          decoding="async"
+                          width="200"
+                          height="150"
+                          onError={(e) => {
+                            e.target.src = `${
+                              import.meta.env.VITE_API_URL
+                            }/uploads/default-product.png`;
+                            e.target.onerror = null;
+                          }}
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-1">
+                          {product.name || "Untitled Product"} {/* Defensive check */}
+                        </h4>
+                        <p className="text-gray-500 text-sm mb-2">
+                          By:{" "}
+                          {/* *** IMPORTANT FIX: Defensive check for product.seller.name *** */}
+                          {product.seller && product.seller.name
+                            ? product.seller.name
+                            : "Unknown Seller"}{" "}
+                        </p>
+                        <p className="text-gray-900 font-bold">
+                          $
+                          {(
+                            product.discountPrice ||
+                            product.price ||
+                            0
+                          ).toFixed(2)}{" "}
+                          {/* Defensive check for price */}
+                        </p>
+                      </div>
+                    </Link>
+                  </div>
+                )
+              )}
             </div>
           </div>
         )}
