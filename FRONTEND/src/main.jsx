@@ -34,7 +34,6 @@ import VendorAnalytics from "./components/VendorAnalytics/VendorAnalytics.jsx";
 import VendorProfile from "./components/VendorProfile/VendorProfile.jsx";
 import VendorMessagesPage from "./components/VendorMessage/VendorMessage.jsx";
 import AdminPanel from "./components/AdminPanel/AdminPanel.jsx";
-import VendorApplication from "./components/AdminLayout/VendorApplication.jsx";
 import UserManagement from "./components/AdminLayout/UserManagement.jsx";
 import AdminProducts from "./components/AdminLayout/AdminProducts.jsx";
 import AdminOrdersPage from "./components/AdminOrders/AdminOrders.jsx";
@@ -55,7 +54,7 @@ import RoleBasedRoute from "./components/RoleBasedRoute/RoleBasedRoute.jsx";
 import VendorOrderPage from "./components/VendorOrder/VendorOrder.jsx";
 import AdminVendorsPage from "./components/VendorListPage/VendorListPage.jsx";
 import Landing from "./components/Landing/Landing.jsx";
-import VendorApplicationPage from "./components/VendorApplicationPage/VendorApplicationPage.jsx";
+import VendorApplicationPage from './components/VendorApplicationPage/VendorApplicationPage.jsx'
 
 // Define your router object
 // Your routes are already correctly defined here.
