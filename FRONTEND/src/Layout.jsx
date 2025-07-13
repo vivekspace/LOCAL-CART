@@ -6,7 +6,7 @@ import AdminTopbar from "./components/AdminHeader/AdminHeader";
 import VendorNavbar from "./components/VendorHeader/VendorHeader"; // Corrected component name if it was VendorHeader in your folder
 import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
-import ChatbotToggle from "./components/ChatBotToggle/ChatbotToggle";
+import ChatbotToggle from './components/ChatBotToggle/ChatBotToggle'
 import VendorChatbotToggle from "./components/VendorChatbotToggle/VendorChatbotToggle";
 import ScrollToTop from "./components/ScrollToTop/ScrollToTop";
 import { useEffect } from "react"; // Import useEffect
@@ -87,7 +87,8 @@ const Layout = () => {
 
   console.log("Layout.jsx: Rendering Public/Default Layout"); // Debug log
   return (
-    <>
+    
+  <>
       <ScrollToTop />
       <Header />
       <main className="lg:md:p-4">
@@ -96,7 +97,7 @@ const Layout = () => {
       <Footer />
       <ChatbotToggle />
     </>
-  );
+);
 };
 
 export default Layout;
