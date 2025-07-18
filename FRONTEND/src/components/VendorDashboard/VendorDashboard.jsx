@@ -59,9 +59,15 @@ const Dashboard = () => {
     recentOrders: [],
   });
 
+  console.log(dashboardData)
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeRange, setTimeRange] = useState("Last 7 days");
+
+  // New states for the Order Details Modal
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -107,6 +113,18 @@ const Dashboard = () => {
 
     fetchDashboard();
   }, []);
+
+  // Function to handle opening the order details modal
+  const handleViewDetailsClick = (order) => {
+    setSelectedOrder(order);
+    setShowOrderDetailsModal(true);
+  };
+
+  // Function to handle closing the order details modal
+  const closeOrderDetailsModal = () => {
+    setShowOrderDetailsModal(false);
+    setSelectedOrder(null);
+  };
 
   // Prepare data for the sales chart
   const salesChartConfig = {
@@ -556,16 +574,16 @@ const Dashboard = () => {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {order.customer || "Customer"}
+                              {order.customerId || "Customer Name Unavailable"} {/* Displays customer name or fallback */}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {order.email || "example@email.com"}
+                              {order.customerEmail || "Email Unavailable"} {/* Added email fallback */}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.date || "N/A"}
+                        {order.date ? new Date(order.date).toLocaleDateString() : "Date Unavailable"} {/* Formats date or displays fallback */}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         ₹{order.amount?.toLocaleString('en-IN') || "0"}
@@ -574,12 +592,13 @@ const Dashboard = () => {
                         <StatusBadge status={order.status} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Link
-                          to={`/vendor/orders/${order.id}`}
+                        {/* Changed Link to a button to trigger the modal */}
+                        <button
+                          onClick={() => handleViewDetailsClick(order)}
                           className="text-green-600 hover:text-green-900 transition-colors"
                         >
                           View Details
-                        </Link>
+                        </button>
                       </td>
                     </motion.tr>
                   ))}
@@ -597,6 +616,11 @@ const Dashboard = () => {
           </div>
         </motion.div>
       </main>
+
+      {/* Order Details Modal */}
+      {showOrderDetailsModal && selectedOrder && (
+        <OrderDetailsModal order={selectedOrder} onClose={closeOrderDetailsModal} />
+      )}
     </div>
   );
 };
@@ -711,6 +735,100 @@ const StatCard = ({ icon, title, value, change, changeType, color = "from-green-
         <span>{change}</span>
         <span className="ml-1 text-gray-500">vs last period</span>
       </div>
+    </motion.div>
+  );
+};
+
+// New Modal Component for Order Details
+const OrderDetailsModal = ({ order, onClose }) => {
+  if (!order) return null; // Ensure an order object is provided
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-50"
+      onClick={onClose} // Allows closing modal by clicking outside
+    >
+      <motion.div
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: -50, opacity: 0 }}
+        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md md:max-w-lg lg:max-w-2xl relative max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()} // Prevents closing modal when clicking inside
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl"
+          aria-label="Close"
+        >
+          &times;
+        </button>
+        <h2 className="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">Order Details - #{order.id}</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+          <div>
+            <p className="font-semibold">Customer Name:</p>
+            <p>{order.customer || "N/A"}</p>
+          </div>
+          <div>
+            <p className="font-semibold">Customer Email:</p>
+            <p>{order.email || "N/A"}</p>
+          </div>
+          <div>
+            <p className="font-semibold">Order Date:</p>
+            <p>{order.date ? new Date(order.date).toLocaleDateString(undefined, {
+                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+              }) : "N/A"}</p>
+          </div>
+          <div>
+            <p className="font-semibold">Order Status:</p>
+            <StatusBadge status={order.status} />
+          </div>
+          <div>
+            <p className="font-semibold">Total Amount:</p>
+            <p className="text-green-600 text-lg font-bold">₹{order.amount?.toLocaleString('en-IN') || "0"}</p>
+          </div>
+          {/* Display Shipping Address if available */}
+          {order.address && (
+            <div>
+              <p className="font-semibold">Shipping Address:</p>
+              <p>{order.address.street}, {order.address.city}, {order.address.state} - {order.address.zipCode}</p>
+              <p>{order.address.country}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Display Ordered Items if available */}
+        {order.items && order.items.length > 0 && (
+          <div className="mt-6 border-t pt-4">
+            <h3 className="text-xl font-semibold mb-3 text-gray-800">Items Ordered:</h3>
+            <ul className="space-y-3">
+              {order.items.map((item, index) => (
+                <li key={index} className="flex items-center space-x-4 bg-gray-50 p-3 rounded-lg">
+                  <img 
+                    src={item.image ? `${import.meta.env.VITE_API_URL}/uploads/${item.image}` : `/default-product.png`} 
+                    alt={item.name} 
+                    className="w-16 h-16 object-cover rounded-md" 
+                    onError={(e) => { e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; }}
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{item.name}</p>
+                    <p className="text-sm text-gray-600">Quantity: {item.quantity} | Price: ₹{item.price?.toLocaleString('en-IN') || "0"}</p>
+                  </div>
+                  <span className="font-semibold text-green-700">₹{(item.quantity * item.price)?.toLocaleString('en-IN') || "0"}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!order.items?.length && (
+          <p className="mt-4 text-gray-500">No items listed for this order.</p>
+        )}
+
+      </motion.div>
     </motion.div>
   );
 };

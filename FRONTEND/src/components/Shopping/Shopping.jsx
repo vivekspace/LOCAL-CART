@@ -1,7 +1,8 @@
-import React, { useContext, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { AuthContext } from "../../Context/Context";
-import { useNavigate } from "react-router-dom";
+// src/pages/ShoppingPage.jsx
+import React, { useEffect, useState, useContext, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { AuthContext } from "../../Context/Context"; // Ensure this path is correct
+import { useLocation } from "../../LocationContext/LocationContext"; // Import useLocation hook
 import { HeroSlider } from "../HeroSlider/HeroSlider";
 import { ToastContainer, toast } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
@@ -13,13 +14,14 @@ const ShoppingPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [activeResultIndex, setActiveResultIndex] = useState(-1);
 
-  const {
-    addToCart,
-    selectedLocation,
-    products,
-    productsLoading,
-    fetchAllProducts,
-  } = useContext(AuthContext);
+  // Products state and loading specific to this page
+  const [products, setProducts] = useState([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true); // Initial loading state
+  const [productError, setProductError] = useState(null);
+
+
+  const { addToCart, authAxios } = useContext(AuthContext); 
+  const { selectedLocation, locationsLoading } = useLocation(); 
 
   const navigate = useNavigate();
 
@@ -38,18 +40,99 @@ const ShoppingPage = () => {
   ];
 
   useEffect(() => {
+    // Simulate category loading
     const timer = setTimeout(() => {
       setCategories(mockCategories);
     }, 800);
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    if (selectedLocation) {
-      fetchAllProducts(selectedLocation);
-    }
-  }, [selectedLocation, fetchAllProducts]);
+  // Function to fetch products based on the current selected location
+  const fetchProducts = useCallback(async (locationData) => {
+    setIsLoadingProducts(true);
+    setProductError(null);
+    setProducts([]); // Clear previous products immediately
 
+    if (!locationData || !locationData.city) {
+      console.log("ShoppingPage: fetchProducts - Invalid locationData, skipping fetch.");
+      setIsLoadingProducts(false); // No products to fetch, so not loading
+      return;
+    }
+
+    console.log("ShoppingPage: fetchProducts - Attempting to fetch for city:", locationData.city);
+
+    try {
+      let locationParam = locationData.city;
+
+      // Determine which endpoint to hit based on location type
+      let apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
+      const params = {};
+
+      if (locationData.type === 'gps_location' && locationData.lat && locationData.lng) {
+        apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby`;
+        params.lat = locationData.lat;
+        params.lng = locationData.lng;
+        params.distance = 10; // Default 10km radius for nearby
+        console.log("ShoppingPage: fetchProducts - Using /api/products/nearby endpoint.");
+      } else {
+        params.location = locationParam; // Use 'location' as query param name for city filter
+        console.log("ShoppingPage: fetchProducts - Using /api/products endpoint with city filter.");
+      }
+      
+      console.log("ShoppingPage: fetchProducts - API URL:", apiUrl, "Params:", params);
+
+      const response = await authAxios.get(apiUrl, { params });
+      console.log("ShoppingPage: fetchProducts - API Response:", response.data);
+
+
+      // FIX: Ensure response.data is an array before setting it to products
+      // Now expecting { status: 'success', data: { products: [...] } }
+      if (response.data?.status === "success" && Array.isArray(response.data?.data?.products)) {
+        setProducts(response.data.data.products);
+        toast.success(`Products updated for ${locationData.name || locationData.city}`);
+        console.log("ShoppingPage: Products fetched successfully:", response.data.data.products.length);
+      } else {
+        console.warn("ShoppingPage: Unexpected product fetch response format or status:", response.data);
+        setProducts([]); // Clear products if format is unexpected
+        toast.info("No products found in this area or unexpected data format.");
+      }
+
+    } catch (error) {
+      console.error("ShoppingPage: Error fetching products:", error);
+      setProductError("Failed to load products for this location.");
+      toast.error("Failed to load products for selected location.");
+      setProducts([]); // Clear products on error
+    } finally {
+      setIsLoadingProducts(false);
+      console.log("ShoppingPage: fetchProducts finished. Setting isLoadingProducts to false.");
+    }
+  }, [authAxios]); // Dependency: authAxios, so it doesn't re-create unnecessarily
+
+
+  // Trigger product fetching when selectedLocation changes or when locationsLoading state changes
+  useEffect(() => {
+    console.log("ShoppingPage: Product fetch useEffect trigger check. selectedLocation:", selectedLocation, "locationsLoading:", locationsLoading);
+    // Only fetch if a selected location is available and the location context is NOT loading
+    // This prevents multiple fetches during initial location detection
+    if (selectedLocation && !locationsLoading) {
+      console.log("ShoppingPage: Calling fetchProducts due to location change/loading status.");
+      fetchProducts(selectedLocation);
+    } else if (locationsLoading) {
+      // If locations are loading, indicate product loading too
+      console.log("ShoppingPage: Locations are still loading, setting product loading state.");
+      setProducts([]); // Clear any old products
+      setIsLoadingProducts(true);
+      setProductError(null); // Clear any previous product errors
+    } else {
+        // If no selectedLocation and not loading, means no location found yet or explicitly "unknown"
+        console.log("ShoppingPage: Not calling fetchProducts. selectedLocation is", selectedLocation, "or locationsLoading is", locationsLoading);
+        setIsLoadingProducts(false); // Not loading products, but no location to show them for
+        setProductError("Please select a location to view products.");
+    }
+  }, [selectedLocation, locationsLoading, fetchProducts]);
+
+
+  // Line 104 in the original code was likely one of these filter calls:
   const filteredProducts =
     products?.filter((product) => {
       if (!product || !product.name) return false;
@@ -95,10 +178,13 @@ const ShoppingPage = () => {
         const selectedProduct = filteredSearch[activeResultIndex];
         setSearch(selectedProduct.name);
         setActiveResultIndex(-1);
-        addToCart(selectedProduct._id);
+        addToCart(selectedProduct._id, 1, products); // Pass products array for addToCart to find product details
         navigate(`/product-info/${selectedProduct._id}`);
       } else if (search && search.length >= 2) {
+        // If no active result, but search term is long enough, clear search and navigate to general shop
         setActiveResultIndex(-1);
+        // Optionally, you could navigate to a search results page here
+        // navigate(`/search?q=${search}`);
       }
     } else if (e.key === "Escape") {
       setSearch("");
@@ -114,14 +200,15 @@ const ShoppingPage = () => {
   const handleAddToCart = (e, productId) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart(productId);
+    addToCart(productId, 1, products); // Pass products array for addToCart to find product details
+    // Removed navigate("/cart") from here. User can navigate to cart manually.
   };
 
   const handleResetFiltersAndLocation = () => {
     setSearch("");
     setSelectedCategory("All");
     setActiveResultIndex(-1);
-    toast.info("Filters reset! You may need to adjust location separately.");
+    toast.info("Filters reset! Please use the location dropdown in the header to change your delivery area.");
   };
 
   return (
@@ -150,17 +237,17 @@ const ShoppingPage = () => {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Shop Fresh - LocalCart" />
         <meta
-          name="twitter:description"
+          property="og:description"
           content="Discover a wide variety of farm-fresh products, locally sourced groceries, and artisanal goods. Shop fruits, vegetables, dairy, bakery, and more at LocalCart."
         />
         <meta
-          name="twitter:image"
+          property="og:image"
           content="https://www.localcart.com/images/twitter-shop-image.jpg"
         />
       </Helmet>
 
       <HeroSlider />
-      <ToastContainer position="top-center" />
+      {/* ToastContainer is declared at the bottom, so removed from here */}
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
@@ -403,31 +490,87 @@ const ShoppingPage = () => {
             </div>
           </div>
         </div>
-        {productsLoading && !products.length ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, index) => (
-              <div
-                key={index}
-                className="bg-white/60 backdrop-blur-md rounded-xl overflow-hidden shadow-md border border-gray-100 animate-pulse"
-              >
-                <div className="pb-[75%] bg-gray-200/70"></div>
-                <div className="p-5 space-y-3">
-                  <div className="h-5 bg-gray-200/70 rounded-full w-3/4"></div>
-                  <div className="h-4 bg-gray-200/70 rounded-full w-1/2"></div>
-                  <div className="flex justify-between pt-2">
-                    <div className="h-6 bg-gray-200/70 rounded-full w-1/4"></div>
-                    <div className="h-8 w-8 rounded-lg bg-gray-200/70"></div>
+        {(isLoadingProducts || locationsLoading) && !products.length ? (
+          <div className="flex flex-col items-center justify-center min-h-[300px] text-gray-500">
+            
+            {/* Display skeleton loaders while loading */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-5xl mt-8">
+              {[...Array(8)].map((_, index) => (
+                <div
+                  key={index}
+                  className="bg-white/60 backdrop-blur-md rounded-xl overflow-hidden shadow-md border border-gray-100 animate-pulse"
+                >
+                  <div className="pb-[75%] bg-gray-200/70"></div>
+                  <div className="p-5 space-y-3">
+                    <div className="h-5 bg-gray-200/70 rounded-full w-3/4"></div>
+                    <div className="h-4 bg-gray-200/70 rounded-full w-1/2"></div>
+                    <div className="flex justify-between pt-2">
+                      <div className="h-6 bg-gray-200/70 rounded-full w-1/4"></div>
+                      <div className="h-8 w-8 rounded-lg bg-gray-200/70"></div>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        ) : productError ? (
+          <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-md border border-gray-100 overflow-hidden">
+            <div className="text-center py-16 px-6">
+              <div className="max-w-md mx-auto">
+                <div className="inline-flex items-center justify-center p-4 bg-gray-100/70 rounded-full mb-4">
+                  <svg
+                    className="h-16 w-16 text-red-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="mt-4 text-2xl font-semibold text-gray-900">
+                  Something went wrong!
+                </h3>
+                <p className="mt-3 text-red-500 text-lg">
+                  {productError}
+                </p>
+                <p className="mt-1 text-gray-500">
+                  Please try again or check your network connection.
+                </p>
+                <div className="mt-6">
+                  <button
+                    onClick={handleResetFiltersAndLocation}
+                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-md text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105"
+                  >
+                    Reset Filters & Location
+                    <svg
+                      className="ml-2 -mr-1 w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      ></path>
+                    </svg>
+                  </button>
+                </div>
               </div>
-            ))}
+            </div>
           </div>
         ) : filteredProducts.length > 0 ? (
           <>
             <p className="text-sm font-bold text-gray-500 mt-2 mb-4">
               Displaying products for:{" "}
               <span className="font-medium text-green-600">
-                {selectedLocation?.name || "Unknown Location"}
+                {selectedLocation?.name || selectedLocation?.city || "Unknown Location"}
               </span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -604,7 +747,6 @@ const ShoppingPage = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           handleAddToCart(e, product._id);
-                          navigate("/cart");
                         }}
                       >
                         <svg

@@ -1,77 +1,51 @@
 import React, { useEffect, useState, useCallback } from 'react';
-// axios is implicitly used by authAxios, but can be kept if direct axios calls are still made elsewhere.
-// Since UserManagement only uses authAxios, direct axios import can be removed if not used.
-// import axios from 'axios';
-import UserRow from './UserRow'; // Ensure this path is correct
+import { useNavigate } from 'react-router-dom';
+import { Users, Shield, Clock, Mail, Activity, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../../Context/Context';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate for redirection
-
-// API_BASE_URL is no longer needed here as authAxios manages the base URL
-// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import UserRow from './UserRow';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function UserManagement() {
     const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true); // For users data fetch
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
+    const [expandedUserId, setExpandedUserId] = useState(null);
 
-    // Destructure necessary values from AuthContext
-    const { jwtToken, authAxios, isAuthLoading, adminSignOut } = useAuth();
+    const { jwtToken, authAxios, isAuthLoading } = useAuth();
     const navigate = useNavigate();
-
-    // Removed the local adminToken and isTokenLoading states and their useEffect,
-    // as AuthContext now provides jwtToken and handles initial loading.
-
-    // Removed getAuthHeaders useCallback as authAxios automatically adds headers.
 
     useEffect(() => {
         const fetchUsers = async () => {
-            // Check if authentication is still loading or if no token is available after loading
-            if (isAuthLoading) {
-                setLoading(true); // Still loading auth, so user data is also pending
-                return;
-            }
-
-            if (!jwtToken) {
-                console.warn("UserManagement: JWT token not found. Redirecting to login.");
-                setError("Admin token required to fetch users. Please ensure you are logged in.");
-                setLoading(false); // No token, so not loading user data
-                // No need for explicit navigate here, the error state will render a login button.
-                // Or you could navigate directly if that's the desired UX for missing token
-                return;
-            }
-
-            setLoading(true); // Set loading state to true before API call
-            setError(null); // Clear any previous errors
-
-            try {
-                // Use authAxios for the API call. It's pre-configured with the base URL and JWT token.
-                const response = await authAxios.get(`/api/admin/users`);
-
-                // authAxios (configured via interceptors in AuthContext) will throw an error for non-2xx responses.
-                // Thus, a direct check for response.data.success might not be strictly necessary if interceptors handle it,
-                // but keeping it for explicit success check of the backend's data structure is fine.
-                if (response.data.success) {
-                    setUsers(response.data.users); // Update users state with data from backend
-                } else {
-                    // Handle cases where backend responds with success: false
-                    throw new Error(response.data.message || 'Failed to fetch users data.');
+            if (isAuthLoading || !jwtToken) {
+                if (!isAuthLoading && !jwtToken) {
+                    setError("Authentication required. Redirecting to login...");
+                    navigate('/admin/login');
                 }
+                setLoading(false);
+                return;
+            }
+
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await authAxios.get('/api/admin/users');
+                setUsers(response.data.users);
             } catch (err) {
                 console.error('Error fetching users:', err);
-                // AuthContext's interceptor should handle 401 (logout and redirection)
                 setError(err.response?.data?.message || 'Failed to load users. Please try again.');
             } finally {
-                setLoading(false); // Always set loading to false when done
+                setLoading(false);
             }
         };
 
         fetchUsers();
-    }, [jwtToken, authAxios, isAuthLoading, navigate]); // Add jwtToken, authAxios, isAuthLoading to dependencies
+    }, [jwtToken, authAxios, isAuthLoading, navigate]);
 
     const handleToggleBlock = useCallback((userId, newStatus) => {
-        // This function primarily updates the local state.
-        // The actual API call for blocking/unblocking is likely within UserRow.jsx,
-        // which would also need to use `authAxios`
         setUsers(prevUsers =>
             prevUsers.map(user =>
                 user._id === userId ? { ...user, status: newStatus } : user
@@ -79,16 +53,79 @@ export default function UserManagement() {
         );
     }, []);
 
-    // Conditional rendering for combined loading, error, or data display.
-    if (loading || isAuthLoading) { // Check both local loading and auth context loading
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const toggleExpandUser = (userId) => {
+        setExpandedUserId(expandedUserId === userId ? null : userId);
+    };
+
+    const filteredAndSortedUsers = React.useMemo(() => {
+        let filteredUsers = [...users];
+        
+        // Apply search filter
+        if (searchTerm) {
+            filteredUsers = filteredUsers.filter(user => 
+                user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                user.email.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+        
+        // Apply role filter
+        if (roleFilter !== 'all') {
+            filteredUsers = filteredUsers.filter(user => user.role === roleFilter);
+        }
+        
+        // Apply status filter
+        if (statusFilter !== 'all') {
+            filteredUsers = filteredUsers.filter(user => user.status === statusFilter);
+        }
+        
+        // Apply sorting
+        if (sortConfig.key) {
+            filteredUsers.sort((a, b) => {
+                if (a[sortConfig.key] < b[sortConfig.key]) {
+                    return sortConfig.direction === 'asc' ? -1 : 1;
+                }
+                if (a[sortConfig.key] > b[sortConfig.key]) {
+                    return sortConfig.direction === 'asc' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        
+        return filteredUsers;
+    }, [users, searchTerm, roleFilter, statusFilter, sortConfig]);
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'active': return 'bg-green-100 text-green-800';
+            case 'blocked': return 'bg-red-100 text-red-800';
+            case 'pending': return 'bg-yellow-100 text-yellow-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getRoleColor = (role) => {
+        switch (role) {
+            case 'admin': return 'bg-purple-100 text-purple-800';
+            case 'user': return 'bg-blue-100 text-blue-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    if (loading || isAuthLoading) {
         return (
-            <div className="flex justify-center items-center h-screen bg-gray-50">
+            <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-50 to-gray-100">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
-                    <p className="text-lg text-gray-700">Loading user data...</p>
-                    <p className="text-sm text-gray-500">
-                        LocalCart is crunching the numbers
-                    </p>
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-lg font-medium text-gray-700">Loading user data</p>
+                    <p className="text-sm text-gray-500 mt-1">Please wait while we fetch user information</p>
                 </div>
             </div>
         );
@@ -96,52 +133,199 @@ export default function UserManagement() {
 
     if (error) {
         return (
-            <div className="p-6">
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
-                    <p className="font-bold">Error:</p>
-                    <p>{error}</p>
-                </div>
-                {/* Show "Go to Login" button only if there's an error AND no token after auth loading is complete */}
-                {!jwtToken && !isAuthLoading && (
-                    <div className="mt-4 text-center">
-                        <button
-                            onClick={() => navigate('/admin/login')} // Use navigate for SPA routing
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
-                        >
-                            Go to Login
-                        </button>
+            <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className="max-w-md p-6 bg-white rounded-xl shadow-md">
+                    <div className="flex flex-col items-center text-center">
+                        <div className="bg-red-100 p-3 rounded-full mb-4">
+                            <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Error Loading Users</h2>
+                        <p className="text-gray-600 mb-6">{error}</p>
+                        {!jwtToken && !isAuthLoading ? (
+                            <button
+                                onClick={() => navigate("/admin/login")}
+                                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg shadow-md hover:from-blue-700 hover:to-blue-600 transition-all"
+                            >
+                                Go to Login
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="px-6 py-2 bg-gradient-to-r from-gray-600 to-gray-500 text-white rounded-lg shadow-md hover:from-gray-700 hover:to-gray-600 transition-all"
+                            >
+                                Try Again
+                            </button>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 p-6">
-            <h1 className="text-3xl font-bold text-gray-800 mb-6">User Management</h1>
-
-            <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                <div className="p-4 border-b border-gray-200 bg-gray-50 min-w-[900px]">
-                    <div className="grid grid-cols-12 font-semibold text-gray-600">
-                        <div className="col-span-3">User</div>
-                        <div className="col-span-3">Email</div>
-                        <div className="col-span-1">Role</div>
-                        <div className="col-span-2">Last Active</div>
-                        <div className="col-span-1 text-center">Transactions</div>
-                        <div className="col-span-2 pl-2">Status & Actions</div>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-8">
+            {/* Header Section */}
+            <div className="mb-8">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center">
+                            <Users className="mr-3 text-blue-600" /> 
+                            User Management
+                        </h1>
+                        <p className="text-gray-600 mt-1">Manage all registered users and their permissions</p>
                     </div>
                 </div>
-                <div className="min-w-[900px]">
-                    {users.length > 0 ? (
-                        users.map(user => (
-                            // Pass authAxios down if UserRow makes API calls that need authentication
-                            <UserRow key={user._id} user={user} onToggleBlock={handleToggleBlock} authAxios={authAxios} />
-                        ))
-                    ) : (
-                        <div className="p-6 text-center text-gray-600">No users found.</div>
-                    )}
+
+                {/* Filters and Search */}
+                <div className="bg-white p-4 rounded-xl shadow-sm mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search users..."
+                                className="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Shield className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <select
+                                className="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                                value={roleFilter}
+                                onChange={(e) => setRoleFilter(e.target.value)}
+                            >
+                                <option value="all">All Roles</option>
+                                <option value="admin">Admin</option>
+                                <option value="user">User</option>
+                            </select>
+                        </div>
+                        
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Activity className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <select
+                                className="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value="all">All Statuses</option>
+                                <option value="active">Active</option>
+                                <option value="blocked">Blocked</option>
+                                <option value="pending">Pending</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            {/* Users List */}
+            {filteredAndSortedUsers.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-xl shadow-sm">
+                    <Users className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-lg font-medium text-gray-900">No users found</h3>
+                    <p className="mt-1 text-gray-500">
+                        {searchTerm || roleFilter !== 'all' || statusFilter !== 'all' 
+                            ? "Try adjusting your search or filter criteria."
+                            : "There are currently no users in the system."}
+                    </p>
+                    <div className="mt-6">
+                        <button
+                            onClick={() => {
+                                setSearchTerm('');
+                                setRoleFilter('all');
+                                setStatusFilter('all');
+                            }}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                            Clear filters
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {filteredAndSortedUsers.map(user => (
+                        <div key={user._id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                            {/* User Summary */}
+                            <div 
+                                className="p-4 cursor-pointer hover:bg-gray-50 transition-colors grid grid-cols-2 md:grid-cols-5 gap-4 items-center"
+                                onClick={() => toggleExpandUser(user._id)}
+                            >
+                                <div className="col-span-2 md:col-span-1 flex items-center">
+                                    <div className="bg-blue-100 text-blue-800 rounded-full w-10 h-10 flex items-center justify-center mr-3">
+                                        {user.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-900">{user.name}</p>
+                                        <p className="text-xs text-gray-500">ID: {user._id.substring(0, 8)}</p>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <p className="text-sm text-gray-500">Email</p>
+                                    <p className="font-medium text-gray-900 truncate">{user.email}</p>
+                                </div>
+                                
+                                <div>
+                                    <p className="text-sm text-gray-500">Role</p>
+                                    <span className={`px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                                        {user.role}
+                                    </span>
+                                </div>
+                                
+                                <div>
+                                    <p className="text-sm text-gray-500">Last Active</p>
+                                    <p className="font-medium text-gray-900">
+                                        {user.lastActive ? new Date(user.lastActive).toLocaleDateString() : 'Never'}
+                                    </p>
+                                </div>
+                                
+                                <div className="flex items-center justify-between">
+                                    <span className={`px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${getStatusColor(user.status)}`}>
+                                        {user.status}
+                                    </span>
+                                    {expandedUserId === user._id ? (
+                                        <ChevronUp className="h-5 w-5 text-gray-400 ml-2" />
+                                    ) : (
+                                        <ChevronDown className="h-5 w-5 text-gray-400 ml-2" />
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {/* Expanded User Details */}
+                            <AnimatePresence>
+                                {expandedUserId === user._id && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="border-t border-gray-200 p-4">
+                                            <UserRow 
+                                                user={user} 
+                                                onToggleBlock={handleToggleBlock} 
+                                                authAxios={authAxios}
+                                                onClose={() => setExpandedUserId(null)}
+                                            />
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

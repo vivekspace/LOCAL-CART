@@ -32,6 +32,7 @@ const Orders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(8);
   const [refreshing, setRefreshing] = useState(false);
+  console.log(orders)
 
   const fetchOrders = async () => {
     try {

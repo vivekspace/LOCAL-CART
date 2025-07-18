@@ -2,32 +2,25 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ShoppingBag, Send, MessageSquare, RefreshCw, XCircle, ChevronDown, User, Calendar, Loader2, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../Context/Context';
-// API_BASE_URL is now managed by authAxios, so it's not strictly needed here for API calls.
-// const API_BASE_URL = 'http://localhost:5000/api';
 
 const VendorMessagesPage = () => {
-  // Destructure authAxios, jwtToken, and isAuthLoading from AuthContext
   const { authAxios, jwtToken, isAuthLoading } = useAuth();
 
   const [orders, setOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(true); // For order data fetching
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState(null);
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [messageStatus, setMessageStatus] = useState(null); // 'success' or 'error'
+  const [messageStatus, setMessageStatus] = useState(null);
   const [messageFeedback, setMessageFeedback] = useState('');
   const [isOrderDropdownOpen, setIsOrderDropdownOpen] = useState(false);
 
-  // Ref for managing message feedback timeout
   const messageFeedbackTimeoutRef = useRef(null);
 
-  // Removed getVendorToken as authAxios handles the token
-
   const fetchVendorOrders = useCallback(async () => {
-    // If auth is still loading or no token, don't proceed with fetching orders
     if (isAuthLoading) {
-      setLoadingOrders(true); // Keep loading state true while auth is pending
+      setLoadingOrders(true);
       return;
     }
     if (!jwtToken) {
@@ -40,27 +33,36 @@ const VendorMessagesPage = () => {
     setOrdersError(null);
 
     try {
-      // Use authAxios for authenticated requests. It handles the base URL and Authorization header.
-const response = await authAxios.get('/api/orders/vendor/orders');
+      const response = await authAxios.get('/api/orders/vendor/orders');
 
-      // authAxios automatically throws for non-2xx responses, so no need for response.ok check
-      setOrders(response.data.orders || []);
-      // If no orders are found, and no prior error, set a message
-      if (!response.data.orders || response.data.orders.length === 0) {
+      // Ensure that each order object has an 'orderNumber' property.
+      // Assuming your API response has an '_id' or 'id' field that can serve as an order number.
+      // If your API provides a different field for order number, adjust accordingly.
+      const fetchedOrders = (response.data.orders || []).map(order => ({
+        ...order,
+        // Use order._id as orderNumber, or generate a short ID if orderNumber is not directly available
+        orderNumber: order.orderId || order._id?.slice(-8).toUpperCase() || 'N/A', // Assuming order.orderId or order._id exists
+        customerName: order.customerName || `${order.customerDetails?.firstname || ''} ${order.customerDetails?.lastname || ''}`.trim() || 'Unknown Customer',
+        totalAmount: order.totalAmount || order.total || 0, // Ensure totalAmount is available
+        createdAt: order.createdAt || order.orderDate || new Date().toISOString(), // Ensure createdAt is available
+      }));
+
+      setOrders(fetchedOrders);
+
+      if (!fetchedOrders || fetchedOrders.length === 0) {
         setOrdersError("No orders found for your vendor account.");
       }
     } catch (err) {
       console.error("Error fetching orders:", err);
-      // authAxios interceptor should handle 401, so we just display the error message
       setOrdersError(err.response?.data?.message || "Failed to load orders. Please try again.");
     } finally {
       setLoadingOrders(false);
     }
-  }, [authAxios, isAuthLoading, jwtToken]); // Dependencies for useCallback
+  }, [authAxios, isAuthLoading, jwtToken]);
 
   useEffect(() => {
     fetchVendorOrders();
-  }, [fetchVendorOrders]); // Dependency for useEffect
+  }, [fetchVendorOrders]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -68,7 +70,6 @@ const response = await authAxios.get('/api/orders/vendor/orders');
     setMessageStatus(null);
     setMessageFeedback('');
 
-    // Clear any existing timeout for message feedback
     if (messageFeedbackTimeoutRef.current) {
       clearTimeout(messageFeedbackTimeoutRef.current);
     }
@@ -83,7 +84,6 @@ const response = await authAxios.get('/api/orders/vendor/orders');
       return;
     }
 
-    // Ensure authAxios is available
     if (!authAxios) {
       setMessageStatus('error');
       setMessageFeedback("Authentication client not available. Please log in.");
@@ -93,13 +93,11 @@ const response = await authAxios.get('/api/orders/vendor/orders');
     }
 
     try {
-      // Use authAxios for authenticated POST request
-const response = await authAxios.post('/api/orders/vendor/message-customer', {
+      const response = await authAxios.post('/api/orders/vendor/message-customer', {
         orderId: selectedOrderId,
         messageContent: messageContent.trim()
       });
 
-      // authAxios automatically throws for non-2xx responses
       setMessageStatus('success');
       setMessageFeedback("Message sent successfully!");
       setMessageContent('');
@@ -115,7 +113,6 @@ const response = await authAxios.post('/api/orders/vendor/message-customer', {
 
   const selectedOrder = orders.find(order => order._id === selectedOrderId);
 
-  // Determine overall loading state for the UI
   const overallLoading = loadingOrders || isAuthLoading;
 
   return (
@@ -148,7 +145,7 @@ const response = await authAxios.post('/api/orders/vendor/message-customer', {
         </div>
 
         {/* Error Message */}
-        {(ordersError || (!jwtToken && !isAuthLoading)) && ( // Show error if ordersError or if no token after auth loading
+        {(ordersError || (!jwtToken && !isAuthLoading)) && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -287,7 +284,7 @@ const response = await authAxios.post('/api/orders/vendor/message-customer', {
                   placeholder="Write your message to the customer..."
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
-                  disabled={!selectedOrderId || sendingMessage || overallLoading || !jwtToken} // Disable if not authenticated
+                  disabled={!selectedOrderId || sendingMessage || overallLoading || !jwtToken}
                 ></textarea>
               </div>
 
@@ -314,7 +311,7 @@ const response = await authAxios.post('/api/orders/vendor/message-customer', {
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  disabled={!selectedOrderId || !messageContent.trim() || sendingMessage || overallLoading || !jwtToken} // Disable if not authenticated
+                  disabled={!selectedOrderId || !messageContent.trim() || sendingMessage || overallLoading || !jwtToken}
                   className="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {sendingMessage ? (

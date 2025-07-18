@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,14 +18,9 @@ import axios from "axios";
 import {
   ShoppingBag,
   Users,
-  Package,
   TrendingUp,
-  Search,
-  Plus,
-  Trash,
   Edit,
-  Check,
-  X,
+  X, // For closing modal if needed, or other general use
 } from "lucide-react";
 import { useAuth } from "../../Context/Context"; // Correct import for useAuth hook
 import { toast } from "react-toastify";
@@ -55,31 +51,160 @@ ChartJS.register(
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+const OrderActionModal = ({ isOpen, onClose, order, onSave }) => {
+  const [status, setStatus] = useState(order?.status || "");
+  const [amount, setAmount] = useState(order?.amount || 0);
+  const [customer, setCustomer] = useState(order?.customer || "");
+
+  useEffect(() => {
+    if (order) {
+      setStatus(order.status || "");
+      setAmount(order.amount || 0);
+      setCustomer(order.customer || (order.customerId ? `${order.customerId.firstname} ${order.customerId.lastname}` : ""));
+    }
+  }, [order]);
+
+  const handleSave = () => {
+    onSave(order._id, { status, amount, customer });
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
+        </div>
+        {order ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Order ID:</label>
+              <p className="mt-1 text-lg font-semibold text-gray-900">{order.orderId || order._id}</p>
+            </div>
+            <div>
+              <label htmlFor="customer" className="block text-sm font-medium text-gray-700">Customer:</label>
+              <input
+                type="text"
+                id="customer"
+                value={customer}
+                onChange={(e) => setCustomer(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700">Amount:</label>
+              <input
+                type="number"
+                id="amount"
+                value={amount}
+                onChange={(e) => setAmount(parseFloat(e.target.value))}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status:</label>
+              <select
+                id="status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500"
+              >
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Order Date:</label>
+              <p className="mt-1 text-gray-900">
+                {order.createdAt && !isNaN(new Date(order.createdAt))
+                  ? format(new Date(order.createdAt), "MMM dd, yyyy HH:mm")
+                  : "N/A"}
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-600">No order details to display.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 const AdminPanel = () => {
-  // Destructure properties directly from useAuth
   const { user, jwtToken, isAuthLoading, logout } = useAuth();
-  const navigate = useNavigate(); // For redirection
+  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+
+  const [dashboardStats, setDashboardStats] = useState({
+    totalSales: "0.00",
+    orders: "0",
+    customers: "0",
+    products: "0", // Keeping products stat for dashboard view
+    salesChange: "+0%",
+    salesTrend: "up",
+    ordersChange: "+0%",
+    ordersTrend: "up",
+    customersChange: "+0%",
+    customersTrend: "+0%",
+    productsChange: "+0%", // Keeping products stat for dashboard view
+    totalProductsTrend: "down", // Keeping products stat for dashboard view
+  });
+
+  const [salesOverviewData, setSalesOverviewData] = useState({
+    labels: [],
+    datasets: [],
+  });
+  const [orderStatusChartData, setOrderStatusChartData] = useState({
+    labels: [],
+    datasets: [],
+  });
+  const [recentOrders, setRecentOrders] = useState([]);
+
+  // State for Order Action Modal
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   // Initial authentication and authorization check
   useEffect(() => {
     if (!isAuthLoading) {
       if (!user || user.role !== 'admin') {
         toast.error("You are not authorized to view the admin panel.");
-        // Redirect to a non-admin page, e.g., home or login
-        navigate("/"); 
-        // Or show a specific unauthorized message and prevent further rendering if you don't redirect
+        navigate("/");
       }
     }
-  }, [isAuthLoading, user, navigate]); // Add navigate to dependencies
+  }, [isAuthLoading, user, navigate]);
 
-  // Display loading spinner while auth is loading
   if (isAuthLoading) {
-    console.log("AdminPanel: AuthContext loading. Displaying loading state.");
     return <LoadingSpinner />;
   }
 
-  // If auth is loaded but user is not admin, show unauthorized message and stop rendering
-  // This handles the case where navigate() might not immediately reroute
   if (!user || user.role !== 'admin') {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
@@ -97,40 +222,6 @@ const AdminPanel = () => {
     );
   }
 
-  // State variables
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
-
-  const [dashboardStats, setDashboardStats] = useState({
-    totalSales: "0.00",
-    orders: "0",
-    customers: "0",
-    products: "0",
-    salesChange: "+0%",
-    salesTrend: "up",
-    ordersChange: "+0%",
-    ordersTrend: "up",
-    customersChange: "+0%",
-    customersTrend: "+0%",
-    productsChange: "+0%",
-    totalProductsTrend: "down",
-  });
-
-  const [salesOverviewData, setSalesOverviewData] = useState({
-    labels: [],
-    datasets: [],
-  });
-  const [orderStatusChartData, setOrderStatusChartData] = useState({
-    labels: [],
-    datasets: [],
-  });
-  const [recentOrders, setRecentOrders] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [vendorRequests, setVendorRequests] = useState([]);
-
-  // Effect to update screenWidth on resize
   useEffect(() => {
     const handleResize = () => {
       setScreenWidth(window.innerWidth);
@@ -139,7 +230,6 @@ const AdminPanel = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // getAuthHeaders now uses jwtToken directly from useAuth
   const getAuthHeaders = useCallback(() => {
     if (!jwtToken) {
       console.error("Authentication token not available in AdminPanel.");
@@ -150,14 +240,12 @@ const AdminPanel = () => {
         Authorization: `Bearer ${jwtToken}`,
       },
     };
-  }, [jwtToken]); // Dependency is jwtToken
+  }, [jwtToken]);
 
-  // Centralized data fetching logic for dashboard, products, and vendors
   const fetchData = useCallback(async (tab) => {
     setLoading(true);
     setError(null);
 
-    // This check is already done at the top of the component, but can be a safeguard
     if (!user || user.role !== 'admin') {
         console.log(`AdminPanel: fetchData skipped - user not authorized.`);
         setError("You are not authorized to view this panel.");
@@ -204,12 +292,6 @@ const AdminPanel = () => {
           }],
         });
         setRecentOrders(data.recentOrders || []);
-      } else if (tab === "products") {
-        res = await axios.get(`${API_BASE_URL}/api/products/admin`, getAuthHeaders());
-        setProducts(res.data.products);
-      } else if (tab === "vendors") {
-        res = await axios.get(`${API_BASE_URL}/api/admin/vendors`, getAuthHeaders());
-        setVendorRequests(res.data.vendors);
       }
     } catch (err) {
       console.error(`Error fetching ${tab} data:`, err);
@@ -217,7 +299,7 @@ const AdminPanel = () => {
       if (err.response) {
         if (err.response.status === 401) {
           errorMessage = "Your session has expired or you are not authorized. Please log in again.";
-          logout(); // Force logout if token is invalid/expired
+          logout();
         } else if (err.response.data && err.response.data.message) {
             errorMessage = err.response.data.message;
         }
@@ -226,96 +308,57 @@ const AdminPanel = () => {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders, user, logout]); // Depend on getAuthHeaders and user (for role check), and logout
+  }, [getAuthHeaders, user, logout]);
 
-  // UseEffects to trigger data fetching based on activeTab
   useEffect(() => {
-    // fetchData is a stable useCallback, so it's safe to include
     fetchData(activeTab);
   }, [activeTab, fetchData]);
 
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      setLoading(true);
-      setError(null);
-      try {
-        await axios.delete(
-          `${API_BASE_URL}/api/products/${id}`,
-          getAuthHeaders()
-        );
-        setProducts(products.filter((product) => product._id !== id));
-        toast.success("Product deleted successfully!");
-      } catch (err) {
-        console.error("Error deleting product:", err);
-        setError("Failed to delete product.");
-        toast.error("Failed to delete product.");
-      } finally {
-        setLoading(false);
-      }
-    }
+  const handleOpenOrderModal = (order) => {
+    setSelectedOrder(order);
+    setIsOrderModalOpen(true);
   };
 
-  const handleApproveVendor = async (vendorId) => {
-    if (!window.confirm("Are you sure you want to approve this vendor?")) {
-        return;
-    }
+  const handleCloseOrderModal = () => {
+    setIsOrderModalOpen(false);
+    setSelectedOrder(null);
+  };
+
+  const handleUpdateOrder = async (orderId, updatedData) => {
     setLoading(true);
     setError(null);
     try {
-        await axios.put(
-            `${API_BASE_URL}/api/admin/vendors/${vendorId}/approve`,
-            {},
-            getAuthHeaders()
+      const response = await axios.put(
+        `${API_BASE_URL}/api/admin/orders/${orderId}`, // Assuming an API endpoint for updating orders
+        updatedData,
+        getAuthHeaders()
+      );
+      if (response.status === 200) {
+        toast.success("Order updated successfully!");
+        // Optimistically update the recent orders list or re-fetch
+        setRecentOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order._id === orderId ? { ...order, ...updatedData } : order
+          )
         );
-        toast.success("Vendor approved successfully!");
-        fetchData("vendors"); // Re-fetch to update the list
+      } else {
+        toast.error("Failed to update order.");
+      }
     } catch (err) {
-        console.error("Error approving vendor:", err);
-        setError("Failed to approve vendor.");
-        toast.error("Failed to approve vendor.");
+      console.error("Error updating order:", err);
+      let errorMessage = "Failed to update order. Please try again.";
+      if (err.response && err.response.data && err.response.data.message) {
+        errorMessage = err.response.data.message;
+      }
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleRejectVendor = async (vendorId) => {
-      if (!window.confirm("Are you sure you want to reject this vendor?")) {
-          return;
-      }
-      setLoading(true);
-      setError(null);
-      try {
-          await axios.put(
-              `${API_BASE_URL}/api/admin/vendors/${vendorId}/reject`,
-              {},
-              getAuthHeaders()
-          );
-          toast.success("Vendor rejected successfully!");
-          fetchData("vendors"); // Re-fetch to update the list
-      } catch (err) {
-          console.error("Error rejecting vendor:", err);
-          setError("Failed to reject vendor.");
-          toast.error("Failed to reject vendor.");
-      } finally {
-          setLoading(false);
-      }
-  };
 
-  const handleEditProduct = (productId) => {
-    // Implement navigation to edit product page or open a modal
-    console.log("Edit product:", productId);
-    navigate(`/admin/products/edit/${productId}`); 
-  };
-
-  const handleEditOrder = (orderId) => {
-    // Implement navigation to edit order page or open a modal
-    console.log("Edit order:", orderId);
-    navigate(`/admin/orders/edit/${orderId}`);
-  };
-
-
-  // Base sales chart options (no changes needed here)
   const baseSalesChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -368,7 +411,6 @@ const AdminPanel = () => {
     },
   };
 
-  // Dynamically adjust sales chart options based on screen width (no changes needed here)
   const salesChartOptions = {
     ...baseSalesChartOptions,
     scales: {
@@ -417,7 +459,6 @@ const AdminPanel = () => {
     },
   };
 
-  // Conditional rendering for loading and error states for data fetching
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
@@ -432,7 +473,6 @@ const AdminPanel = () => {
     );
   }
 
-  // If there's an error and not loading, display the error message
   if (error) {
     return (
       <div className="p-6 text-center text-red-600">
@@ -440,7 +480,7 @@ const AdminPanel = () => {
         <button
           onClick={() => {
             setError(null);
-            fetchData(activeTab); // Retry fetching data for the current tab
+            fetchData(activeTab);
           }}
           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
@@ -450,14 +490,11 @@ const AdminPanel = () => {
     );
   }
 
-  // Main Admin Panel UI
   return (
     <div className="min-h-screen bg-gray-100 max-w-screen text-gray-900 duration-300">
-      {/* Sidebar / Top Nav for tabs could go here */}
-      {/* For simplicity, let's assume direct content rendering based on activeTab */}
       <div className="p-2 lg:p-6 mx-auto w-full max-w-screen overflow-x-hidden duration-200">
         <div className="flex-1 flex flex-col">
-          {/* Tab Navigation (add this to switch between views) */}
+          {/* Tab Navigation (only Dashboard tab) */}
           <div className="mb-6 border-b border-gray-200">
             <ul className="flex flex-wrap -mb-px text-sm font-medium text-center" role="tablist">
               <li className="mr-2" role="presentation">
@@ -470,27 +507,6 @@ const AdminPanel = () => {
                   Dashboard
                 </button>
               </li>
-              <li className="mr-2" role="presentation">
-                <button
-                  className={`inline-block p-4 border-b-2 rounded-t-lg ${activeTab === "products" ? "text-green-600 border-green-600" : "text-gray-500 border-transparent hover:text-gray-600 hover:border-gray-300"}`}
-                  onClick={() => setActiveTab("products")}
-                  role="tab"
-                  aria-selected={activeTab === "products"}
-                >
-                  Products
-                </button>
-              </li>
-              <li className="mr-2" role="presentation">
-                <button
-                  className={`inline-block p-4 border-b-2 rounded-t-lg ${activeTab === "vendors" ? "text-green-600 border-green-600" : "text-gray-500 border-transparent hover:text-gray-600 hover:border-gray-300"}`}
-                  onClick={() => setActiveTab("vendors")}
-                  role="tab"
-                  aria-selected={activeTab === "vendors"}
-                >
-                  Vendors
-                </button>
-              </li>
-              {/* Add more tabs as needed, e.g., Customers, Orders, Settings */}
             </ul>
           </div>
 
@@ -525,8 +541,9 @@ const AdminPanel = () => {
                     change: dashboardStats.customersChange,
                     trend: dashboardStats.customersTrend,
                   },
+                  // Keeping Products stat as it's part of general dashboard overview
                   {
-                    icon: <Package size={24} />,
+                    icon: <ShoppingBag size={24} />, // Changed to ShoppingBag since Package was likely for Products tab
                     title: "Total Products",
                     value: dashboardStats.products,
                     change: dashboardStats.productsChange,
@@ -610,9 +627,9 @@ const AdminPanel = () => {
                   <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-0">
                     Recent Orders
                   </h3>
-                  <button className="text-sm text-green-600 hover:text-green-700">
+                  <Link to={'/admin/orders'} className="text-sm text-green-600 hover:text-green-700">
                     View All
-                  </button>
+                  </Link>
                 </div>
                 {recentOrders.length > 0 ? (
                   <div className="overflow-x-auto">
@@ -687,7 +704,7 @@ const AdminPanel = () => {
                             </td>
                             <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
                               <button
-                                onClick={() => handleEditOrder(order._id)}
+                                onClick={() => handleOpenOrderModal(order)}
                                 className="text-blue-600 hover:text-blue-700 mr-2"
                                 title="Edit Order"
                               >
@@ -705,219 +722,16 @@ const AdminPanel = () => {
               </div>
             </div>
           )}
-
-          {/* Products Management */}
-          {activeTab === "products" && (
-            <div className="p-4 sm:p-6 rounded-xl shadow bg-white">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-0">
-                  Products
-                </h3>
-                <button className="flex items-center bg-green-500 hover:bg-green-600 text-white px-3 py-1 sm:px-4 sm:py-2 rounded-lg text-sm">
-                  <Plus size={16} className="mr-2" />
-                  Add Product
-                </button>
-              </div>
-              <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-3 md:space-y-0">
-                <div className="relative w-full md:w-auto">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search size={16} className="text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search products..."
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900"
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
-                  <select className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900 w-full sm:w-auto">
-                    <option>All Categories</option>
-                    <option>Fruits</option>
-                    <option>Vegetables</option>
-                    <option>Dairy</option>
-                    <option>Bakery</option>
-                  </select>
-                  <select className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white border-gray-300 text-gray-900 w-full sm:w-auto">
-                    <option>Sort By</option>
-                    <option>Newest</option>
-                    <option>Price: Low to High</option>
-                    <option>Price: High to Low</option>
-                  </select>
-                </div>
-              </div>
-              {products.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Product ID
-                        </th>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Name
-                        </th>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stock
-                        </th>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Price
-                        </th>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {products.map((product) => (
-                        <tr key={product._id} className="hover:bg-gray-50">
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {product._id}
-                          </td>
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.name}
-                          </td>
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.stock}
-                          </td>
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${product.price?.toFixed(2) || "0.00"}
-                          </td>
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
-                            <button
-                                onClick={() => handleEditProduct(product._id)}
-                                className="text-blue-600 hover:text-blue-700 mr-2"
-                                title="Edit Product"
-                            >
-                                <Edit size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(product._id)}
-                              className="text-red-600 hover:text-red-700"
-                              title="Delete Product"
-                            >
-                              <Trash size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-gray-500">No products found.</p>
-              )}
-              <div className="flex flex-col sm:flex-row justify-between items-center mt-4 space-y-3 sm:space-y-0">
-                <div className="text-sm text-gray-500">
-                  Showing 1 to {products.length} of {products.length} entries
-                </div>
-                <div className="flex space-x-1">
-                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
-                    Previous
-                  </button>
-                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded bg-green-500 text-white text-sm">
-                    1
-                  </button>
-                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
-                    2
-                  </button>
-                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
-                    3
-                  </button>
-                  <button className="px-2 py-1 sm:px-3 sm:py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm">
-                    Next
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Vendors Management */}
-          {activeTab === "vendors" && (
-            <div className="p-4 sm:p-6 rounded-xl shadow bg-white">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-                  Vendor Requests
-                </h3>
-              </div>
-              {vendorRequests.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Vendor ID
-                        </th>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Name
-                        </th>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Email
-                        </th>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {vendorRequests.map((vendor) => (
-                        <tr key={vendor._id} className="hover:bg-gray-50">
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {vendor._id}
-                          </td>
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
-                            {vendor.name}
-                          </td>
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
-                            {vendor.email}
-                          </td>
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
-                            <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                vendor.status === "Approved"
-                                  ? "bg-green-100 text-green-800"
-                                  : vendor.status === "Pending"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800" // Assuming 'Rejected' or other
-                              }`}
-                            >
-                              {vendor.status}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
-                            {vendor.status === "Pending" && (
-                              <>
-                                <button
-                                  onClick={() => handleApproveVendor(vendor._id)}
-                                  className="text-green-600 hover:text-green-700 mr-2"
-                                  title="Approve Vendor"
-                                >
-                                  <Check size={16} />
-                                </button>
-                                <button
-                                  onClick={() => handleRejectVendor(vendor._id)}
-                                  className="text-red-600 hover:text-red-700"
-                                  title="Reject Vendor"
-                                >
-                                  <X size={16} />
-                                </button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-gray-500">No vendor requests found.</p>
-              )}
-            </div>
-          )}
         </div>
       </div>
+      {selectedOrder && (
+        <OrderActionModal
+          isOpen={isOrderModalOpen}
+          onClose={handleCloseOrderModal}
+          order={selectedOrder}
+          onSave={handleUpdateOrder}
+        />
+      )}
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useAuth } from "../../Context/Context";
+import { useAuth } from "../../Context/Context"; // Ensure this path is correct
 import { Lock, Mail, Eye, EyeOff, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -13,7 +13,8 @@ const VendorLogin = () => {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
-  const { vendorLogin } = useAuth();
+  // Destructure 'login' instead of 'vendorLogin' from useAuth
+  const { login } = useAuth(); // Changed from vendorLogin to login
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,35 +30,41 @@ const VendorLogin = () => {
         return;
       }
 
-      const loginResult = await vendorLogin({
+      // Call the generic 'login' function
+      const loginResult = await login({ // Changed from vendorLogin to login
         email: email.trim().toLowerCase(),
         password,
       });
 
       console.log("VendorLogin.jsx: loginResult received:", loginResult); // Debug log
 
-      if (loginResult.success && loginResult.vendor) {
-        const userRole = loginResult.vendor.role;
+      // Check for loginResult.success and loginResult.user (not loginResult.vendor)
+      if (loginResult.success && loginResult.user) {
+        const userRole = loginResult.user.role; // Access role from loginResult.user
         console.log("VendorLogin.jsx: User role for redirection:", userRole);
 
         if (userRole === 'admin') {
           navigate("/admin-panel", { replace: true });
-        } else if (userRole === 'seller') { // This should now match the backend
-          navigate("/vendor/dashboard", { replace: true }); // Ensure replace: true
-          console.log("VendorLogin.jsx: Navigating to /vendor/dashboard."); // ADD THIS LOG
+        } else if (userRole === 'seller') {
+          navigate("/vendor/dashboard", { replace: true });
+          console.log("VendorLogin.jsx: Navigating to /vendor/dashboard.");
         } else if (userRole === 'customer') {
           navigate("/user-dashboard", { replace: true });
         } else {
           console.warn("VendorLogin.jsx: Unknown user role, navigating to home.");
           navigate("/", { replace: true });
         }
+        toast.success(loginResult.message || "Login successful!"); // Show success toast
       } else {
+        // If login was not successful, display the message from the result
         setError(loginResult.message || "Vendor login failed. Please try again.");
+        toast.error(loginResult.message || "Login failed!"); // Show error toast
       }
     } catch (err) {
       console.error("Vendor Login (VendorLogin.jsx) unexpected error:", err);
-      const errorMessage = err.message || "An unexpected error occurred during vendor login.";
+      const errorMessage = err.response?.data?.message || err.message || "An unexpected error occurred during vendor login.";
       setError(errorMessage);
+      toast.error(errorMessage); // Show unexpected error toast
     } finally {
       setIsLoading(false);
     }

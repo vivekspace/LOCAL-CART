@@ -11,14 +11,15 @@ import {
 import { useState, useContext, useRef, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import logo from "../../assets/logo.svg"; // Only need if you plan to put a logo here
-import { AuthContext } from "../../Context/Context";
+import { AuthContext } from "../../Context/Context"; // Correct import
 import { toast } from "react-toastify"; // Added toast for logout success message
 
 const AdminTopbar = () => {
   const navigate = useNavigate();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3); // Example state
-  const { isOpen, setIsOpen, adminSignOut, admin } = useContext(AuthContext); // Get 'admin' object
+  // Destructure 'logout' and 'user' from AuthContext
+  const { isOpen, setIsOpen, logout, user } = useContext(AuthContext); // Changed adminSignOut to logout, and admin to user
   const dropdownRef = useRef(null);
 
   // Close profile dropdown when clicking outside
@@ -50,34 +51,66 @@ const AdminTopbar = () => {
   }, [navigate]);
 
   const handleLogout = useCallback(() => {
-    adminSignOut();
+    logout(); // Call the generic logout function from AuthContext
     toast.success("Logged out successfully!"); // Show success toast
     setShowProfileDropdown(false); // Close dropdown
     navigate("/admin/login"); // Redirect to login
-  }, [adminSignOut, navigate]);
+  }, [logout, navigate]); // Dependency changed from adminSignOut to logout
 
-  // Render Avatar function (copied from your previous code)
-  const renderAvatar = useCallback((user, sizeClass = "w-8 h-8", textClass = "text-md") => {
-    if (user?.photo) {
+  // Helper function to safely get user display name
+  const getUserDisplayName = useCallback((currentUser) => {
+    if (!currentUser) return "Admin";
+    
+    // If currentUser is a string, return it directly
+    if (typeof currentUser === 'string') return currentUser;
+    
+    // If currentUser is an object, try to extract name or email
+    if (typeof currentUser === 'object') {
+      if (currentUser.name) return currentUser.name;
+      if (currentUser.email) return currentUser.email.split('@')[0];
+      if (currentUser.username) return currentUser.username;
+    }
+    
+    return "Admin";
+  }, []);
+
+  // Helper function to safely get user role
+  const getUserRole = useCallback((currentUser) => {
+    if (!currentUser) return "Administrator";
+    
+    // If currentUser is an object with role property
+    if (typeof currentUser === 'object' && currentUser.role) {
+      return currentUser.role;
+    }
+    
+    return "Administrator";
+  }, []);
+
+  // Render Avatar function (fixed to handle object properly)
+  const renderAvatar = useCallback((currentUser, sizeClass = "w-8 h-8", textClass = "text-md") => {
+    const displayName = getUserDisplayName(currentUser);
+    const initial = displayName ? displayName.charAt(0).toUpperCase() : "A";
+
+    // Check if currentUser has photo property
+    const hasPhoto = currentUser && typeof currentUser === 'object' && currentUser.photo;
+
+    if (hasPhoto) {
       return (
         <img
-          src={`${import.meta.env.VITE_API_URL}/uploads/users/${user.photo}`}
-          alt={`${user.name || "Admin"}'s profile`}
+          src={`${import.meta.env.VITE_API_URL}/uploads/users/${currentUser.photo}`}
+          alt={`${displayName}'s profile`}
           className={`${sizeClass} rounded-full object-cover border-2 border-emerald-300 shadow-sm`}
           onError={(e) => {
             e.target.onerror = null; // Prevent infinite loop if fallback also fails
-            e.target.replaceWith(
-              <div
-                className={`${sizeClass} rounded-full bg-gray-200 flex items-center justify-center font-semibold uppercase ${textClass}`}
-              >
-                {user.name ? user.name.charAt(0) : "A"}
-              </div>
-            );
+            // Create a new div element to replace the failed image
+            const fallbackDiv = document.createElement('div');
+            fallbackDiv.className = `${sizeClass} rounded-full bg-gray-200 flex items-center justify-center font-semibold uppercase ${textClass}`;
+            fallbackDiv.textContent = initial;
+            e.target.parentNode.replaceChild(fallbackDiv, e.target);
           }}
         />
       );
     } else {
-      const initial = user?.name ? user.name.charAt(0).toUpperCase() : "A";
       return (
         <div
           className={`${sizeClass} rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-semibold uppercase ${textClass} text-white`}
@@ -86,7 +119,9 @@ const AdminTopbar = () => {
         </div>
       );
     }
-  }, []);
+  }, [getUserDisplayName]);
+  // Debug: Log the user object to see its structure
+  console.log('User object:', user);
 
   return (
     <header className="flex items-center justify-between h-16 bg-white shadow-sm px-4 md:px-6 border-b border-gray-200">
@@ -102,12 +137,11 @@ const AdminTopbar = () => {
       </div>
 
       {/* Brand/Dashboard Link (Visible on desktop) */}
-      {/* /* Added flex-grow */ }
-        <Link to="/admin-panel" className="text-xl font-semibold text-gray-800 flex items-center space-x-2">
-          <img src={logo} alt="Logo" className="h-12 w-auto" />
-        </Link>
+      <Link to="/admin-panel" className="text-xl font-semibold text-gray-800 flex items-center space-x-2">
+        <img src={logo} alt="Logo" className="h-12 w-auto" />
+      </Link>
 
-            {/* Right-aligned items: Notifications and Profile Dropdown */}
+      {/* Right-aligned items: Notifications and Profile Dropdown */}
       <div className="flex items-center space-x-4">
         {/* Notifications */}
         <button
@@ -131,8 +165,10 @@ const AdminTopbar = () => {
             aria-haspopup="true"
             aria-expanded={showProfileDropdown ? "true" : "false"}
           >
-            {renderAvatar(admin, "w-8 h-8", "text-sm")}
-            <span className="hidden md:block text-sm font-medium">{admin?.name || "Admin"}</span>
+            {renderAvatar(user, "w-8 h-8", "text-sm")}
+            <span className="hidden md:block text-sm font-medium">
+              {getUserDisplayName(user)}
+            </span>
             <ChevronDown
               size={16}
               className={`transition-transform ${
@@ -145,32 +181,32 @@ const AdminTopbar = () => {
             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
               {/* User Info in Dropdown */}
               <div className="p-4 border-b border-gray-200 flex items-center space-x-3">
-                {renderAvatar(admin, "w-10 h-10", "text-lg")}
+                {renderAvatar(user, "w-10 h-10", "text-lg")}
                 <div>
                   <div className="font-medium text-gray-900">
-                    {admin?.name || "Admin"}
+                    {getUserDisplayName(user)}
                   </div>
                   <div className="text-xs text-blue-600 font-medium">
-                    {admin?.role || "Administrator"}
+                    {getUserRole(user)}
                   </div>
                 </div>
               </div>
               {/* Dropdown Menu Items */}
               <div className="py-1">
-                <Link
-                  to="/admin/settings"
+                <button
+                  onClick={handleProfileClick}
                   className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center"
                 >
                   <User className="w-4 h-4 mr-3" />
                   My Profile
-                </Link>
-                <Link
-                  to="/admin/settings"
+                </button>
+                <button
+                  onClick={handleSettingsClick}
                   className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center"
                 >
                   <Settings className="w-4 h-4 mr-3" />
                   Settings
-                </Link>
+                </button>
               </div>
               {/* Logout Button */}
               <div className="border-t border-gray-200 py-1">

@@ -3,7 +3,6 @@ import { AuthContext } from "../../Context/Context";
 import { toast } from "react-toastify";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
-  // ... (your existing Lucide React imports)
   ShoppingBag,
   Users,
   Package,
@@ -27,7 +26,7 @@ const menuItems = [
         icon: <TrendingUp size={18} />,
         name: "Dashboard",
         tab: "dashboard",
-        link: "/admin/panel", // <-- FIXED: Changed from /admin-panel
+        link: "/admin/panel",
     },
     {
         icon: <ShoppingCart size={18} />,
@@ -48,7 +47,7 @@ const menuItems = [
             {
                 name: "Admins",
                 tab: "admins",
-                link: "/admin/users/admins", // Consider if this route exists or needs filtering in UserManagement
+                link: "/admin/users/admins",
             },
         ],
     },
@@ -72,35 +71,31 @@ const menuItems = [
     },
 ];
 
-// Enhanced menu items with potential submenus
 const AdminSidebar = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { isOpen, setIsOpen, adminSignOut, admin } = useContext(AuthContext);
+    const { isOpen, setIsOpen, logout, user } = useContext(AuthContext);
 
     const [activeTab, setActiveTab] = useState(() => {
         const currentPath = location.pathname;
-        // Find the main menu item that matches the current path, either directly or via submenu
         const foundItem = menuItems.find(
             (item) =>
                 item.link === currentPath ||
                 (item.submenu && item.submenu.some((sub) => currentPath.startsWith(sub.link)))
         );
-        // If a direct match or a submenu match is found, return its main tab, otherwise default to dashboard
         if (foundItem) {
             return foundItem.tab;
         }
-        // Fallback for cases where a link might not be an exact match but a parent
         const parentFound = menuItems.find(item => item.link && currentPath.startsWith(item.link));
         if (parentFound) return parentFound.tab;
-        return "dashboard"; // Default
+        return "dashboard";
     });
 
     const [openSubmenus, setOpenSubmenus] = useState(() => {
         const initialOpen = {};
         menuItems.forEach(item => {
             if (item.submenu && item.submenu.some(sub => location.pathname.startsWith(sub.link))) {
-                initialOpen[item.tab] = true; // Open submenus if their child link is active
+                initialOpen[item.tab] = true;
             }
         });
         return initialOpen;
@@ -108,10 +103,32 @@ const AdminSidebar = () => {
 
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const dropdownRef = useRef(null);
-
     const [unreadNotifications, setUnreadNotifications] = useState(3);
 
-    // Close profile dropdown when clicking outside
+    // Helper function to extract display name from user object
+    const getUserDisplayName = useCallback((currentUser) => {
+        if (!currentUser) return "Admin";
+        
+        // Prioritize 'name' if it's a string
+        if (typeof currentUser.name === 'string' && currentUser.name.trim() !== '') {
+            return currentUser.name;
+        }
+        // Fallback to 'email' prefix if 'name' is not a string or empty
+        else if (typeof currentUser.email === 'string' && currentUser.email.trim() !== '') {
+            return currentUser.email.split('@')[0];
+        }
+        // Fallback to 'storeName' if it's a string (e.g., for vendors)
+        else if (typeof currentUser.storeName === 'string' && currentUser.storeName.trim() !== '') {
+            return currentUser.storeName;
+        }
+        // Fallback to 'username' if it exists
+        else if (typeof currentUser.username === 'string' && currentUser.username.trim() !== '') {
+            return currentUser.username;
+        }
+        // Default fallback
+        return "Admin";
+    }, []);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -124,32 +141,27 @@ const AdminSidebar = () => {
         };
     }, []);
 
-    // Update activeTab and openSubmenus when location changes
     useEffect(() => {
         const currentPath = location.pathname;
-        let foundMainTab = "dashboard"; // Default active tab
-
-        // Determine active main tab
+        let foundMainTab = "dashboard";
         const foundMainMenuItem = menuItems.find(
             (item) =>
                 item.link === currentPath ||
                 (item.submenu && item.submenu.some((sub) => currentPath.startsWith(sub.link))) ||
-                (item.link && currentPath.startsWith(item.link)) // Broader check for parent links
+                (item.link && currentPath.startsWith(item.link))
         );
-
         if (foundMainMenuItem) {
             foundMainTab = foundMainMenuItem.tab;
         }
         setActiveTab(foundMainTab);
 
-        // Update submenu open states based on current path
         const newOpenSubmenus = {};
         menuItems.forEach(item => {
             if (item.submenu && item.submenu.some(sub => currentPath.startsWith(sub.link))) {
                 newOpenSubmenus[item.tab] = true;
             }
         });
-        setOpenSubmenus(newOpenSubmenus); // Set entirely new state to ensure consistent behavior
+        setOpenSubmenus(newOpenSubmenus);
     }, [location.pathname]);
 
     const toggleSubmenu = useCallback((tab) => {
@@ -160,18 +172,17 @@ const AdminSidebar = () => {
     }, []);
 
     const handleLogout = useCallback(() => {
-        adminSignOut();
+        logout();
         toast.success("Logged out successfully!");
         navigate("/admin/login");
         setIsOpen(false);
         setShowProfileDropdown(false);
-    }, [adminSignOut, navigate, setIsOpen]);
+    }, [logout, navigate, setIsOpen]);
 
     const handleTabClick = useCallback(
         (tab, link, hasSubmenu = false) => {
             if (hasSubmenu) {
                 toggleSubmenu(tab);
-                // If the parent item also has a link and it's not the currently active parent link, navigate there
                 if (link && location.pathname !== link && !location.pathname.startsWith(link)) {
                     setActiveTab(tab);
                     navigate(link);
@@ -181,40 +192,34 @@ const AdminSidebar = () => {
                 navigate(link);
                 if (window.innerWidth < 768) {
                     setIsOpen(false);
-                    // When a direct link is clicked, also collapse any open submenus
-                    setOpenSubmenus({}); // Close all submenus
+                    setOpenSubmenus({});
                 }
             }
         },
         [navigate, toggleSubmenu, setIsOpen, location.pathname]
     );
 
-    // New handler for submenu item clicks
     const handleSubmenuItemClick = useCallback((subItemLink) => {
         navigate(subItemLink);
         if (window.innerWidth < 768) {
-            setIsOpen(false); // Close mobile sidebar
-            setOpenSubmenus({}); // Close all submenus when a submenu item is clicked
+            setIsOpen(false);
+            setOpenSubmenus({});
         }
-        // activeTab will be updated by the useEffect on location.pathname change
     }, [navigate, setIsOpen]);
-
 
     const isActive = useCallback(
         (itemLink, submenu) => {
             if (itemLink && location.pathname === itemLink) return true;
             if (submenu) {
-                // A submenu item is active if its link or any of its sub-links start with the current path
                 return submenu.some((sub) => location.pathname.startsWith(sub.link));
             }
-            // For top-level items, check if current path starts with the item's link
             return itemLink && location.pathname.startsWith(itemLink);
         },
         [location.pathname]
     );
 
     const handleProfileClick = useCallback(() => {
-        navigate("/admin/profile"); // Assuming /admin/profile is the route for admin's own profile
+        navigate("/admin/profile");
         setShowProfileDropdown(false);
         if (window.innerWidth < 768) setIsOpen(false);
     }, [navigate, setIsOpen]);
@@ -227,31 +232,31 @@ const AdminSidebar = () => {
 
     const handleNotificationClick = useCallback(() => {
         setUnreadNotifications(0);
-        navigate("/admin/notifications"); // Assuming /admin/notifications is the route for admin notifications
+        navigate("/admin/notifications");
         if (window.innerWidth < 768) setIsOpen(false);
     }, [navigate, setIsOpen]);
 
-    const renderAvatar = useCallback((user, sizeClass = "w-8 h-8", textClass = "text-md") => {
-        if (user?.photo) {
+    // Render Avatar function - FIXED VERSION
+    const renderAvatar = useCallback((currentUser, sizeClass = "w-8 h-8", textClass = "text-md") => {
+        const displayName = getUserDisplayName(currentUser);
+        const initial = displayName.charAt(0).toUpperCase();
+
+        if (currentUser?.photo) {
             return (
                 <img
-                    src={`${import.meta.env.VITE_API_URL}/uploads/users/${user.photo}`}
-                    alt={`${user.name || "Admin"}'s profile`}
+                    src={`${import.meta.env.VITE_API_URL}/uploads/users/${currentUser.photo}`}
+                    alt={`${displayName}'s profile`}
                     className={`${sizeClass} rounded-full object-cover border-2 border-emerald-300 shadow-sm`}
                     onError={(e) => {
                         e.target.onerror = null;
-                        e.target.replaceWith(
-                            <div
-                                className={`${sizeClass} rounded-full bg-gray-200 flex items-center justify-center font-semibold uppercase ${textClass}`}
-                            >
-                                {user.name ? user.name.charAt(0) : "A"}
-                            </div>
-                        );
+                        const fallbackDiv = document.createElement('div');
+                        fallbackDiv.className = `${sizeClass} rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-semibold uppercase ${textClass} text-white`;
+                        fallbackDiv.textContent = initial;
+                        e.target.parentNode.replaceChild(fallbackDiv, e.target);
                     }}
                 />
             );
         } else {
-            const initial = user?.name ? user.name.charAt(0).toUpperCase() : "A";
             return (
                 <div
                     className={`${sizeClass} rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-semibold uppercase ${textClass} text-white`}
@@ -260,7 +265,7 @@ const AdminSidebar = () => {
                 </div>
             );
         }
-    }, []);
+    }, [getUserDisplayName]);
 
     const sidebarClass = useMemo(() => {
         return `
@@ -272,12 +277,13 @@ const AdminSidebar = () => {
     }, [isOpen]);
 
     const menuItemTextClass = useMemo(() => {
-        // This class handles the hiding/showing of text based on sidebar state
         return `text-sm font-medium transition-all duration-300 whitespace-nowrap ${
             isOpen ? "opacity-100 ml-3" : "opacity-0 w-0 overflow-hidden md:opacity-0 md:hidden"
         }`;
     }, [isOpen]);
 
+    // Get user display name for use in JSX
+    const userDisplayName = getUserDisplayName(user);
 
     return (
         <>
@@ -297,15 +303,14 @@ const AdminSidebar = () => {
                         } `}
                     >
                         <Link
-                            to="/admin/panel" // Changed to match router definition
+                            to="/admin/panel"
                             className={`flex items-center text-xl font-bold text-green-600 hover:text-green-700 transition-colors ${
-                                isOpen ? "block" : "hidden " // Only show logo text when sidebar is open
+                                isOpen ? "block" : "hidden "
                             }`}
                         >
                             <img src={logo} alt="LocalCart Logo" className="h-12 w-auto" />
                         </Link>
 
-                        {/* Toggle button always visible */}
                         <button
                             onClick={() => setIsOpen(!isOpen)}
                             className={`text-black hover:text-green-500 focus:outline-none transition-transform duration-300
@@ -331,7 +336,6 @@ const AdminSidebar = () => {
                     </div>
                 </div>
 
-                {/* Navigation Menu */}
                 <nav className="p-4 space-y-1 flex-grow overflow-y-auto">
                     {menuItems.map((item) => (
                         <div key={item.tab}>
@@ -382,9 +386,7 @@ const AdminSidebar = () => {
                     ))}
                 </nav>
 
-                {/* Footer Section - Notifications, Profile, Logout */}
                 <div className="mt-auto p-4 border-t border-gray-200 bg-white">
-                    {/* Notifications */}
                     <button
                         onClick={handleNotificationClick}
                         className="relative flex items-center p-3 w-full rounded-lg text-gray-700 hover:bg-gray-100 hover:text-green-700 transition-colors"
@@ -400,19 +402,18 @@ const AdminSidebar = () => {
                         )}
                     </button>
 
-                    {/* Profile Dropdown */}
                     <div className="relative mt-2" ref={dropdownRef}>
                         <button
                             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                             className="flex items-center p-3 w-full rounded-lg text-gray-700 hover:bg-gray-100 hover:text-green-700 transition-colors"
                         >
-                            {renderAvatar(admin, "w-8 h-8", "text-sm")}
+                            {renderAvatar(user, "w-8 h-8", "text-sm")}
                             <div className={menuItemTextClass}>
                                 <div className="text-sm font-medium text-gray-900 truncate">
-                                    {admin?.name || "Admin"}
+                                    {userDisplayName}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                    {admin?.role || "Administrator"}
+                                    {user?.role || "Administrator"}
                                 </div>
                             </div>
                             {isOpen && (
@@ -428,13 +429,13 @@ const AdminSidebar = () => {
                         {showProfileDropdown && isOpen && (
                             <div className="absolute bottom-full left-0 mb-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
                                 <div className="p-4 border-b border-gray-200 flex items-center space-x-3">
-                                    {renderAvatar(admin, "w-10 h-10", "text-lg")}
+                                    {renderAvatar(user, "w-10 h-10", "text-lg")}
                                     <div>
                                         <div className="font-medium text-gray-900">
-                                            {admin?.name || "Admin"}
+                                            {userDisplayName}
                                         </div>
                                         <div className="text-xs text-blue-600 font-medium">
-                                            {admin?.role || "Administrator"}
+                                            {user?.role || "Administrator"}
                                         </div>
                                     </div>
                                 </div>
@@ -467,7 +468,6 @@ const AdminSidebar = () => {
                         )}
                     </div>
 
-                    {/* Logout Button (Always visible even if mini-sidebar for quick access) */}
                     <button
                         className={`flex items-center w-full p-3 rounded-lg text-gray-700 hover:bg-red-100 hover:text-red-700 transition-colors mt-2 ${isOpen ? '' : 'justify-center'}`}
                         onClick={handleLogout}

@@ -58,8 +58,9 @@ const VendorNavbar = () => {
   const profileRef = useRef(null);
   const notificationsRef = useRef(null);
 
-  // Use the useAuth hook to get the current user object and vendorSignOut function
-  const { user, vendorSignOut } = useAuth(); // Now user comes directly from context
+  // Use the useAuth hook to get the current user object and logout function
+  // Changed 'vendorSignOut' to 'logout' to match AuthContext
+  const { user, logout } = useAuth(); // Now user comes directly from context
 
   // Enhanced navigation links with more features
   const orderCount = 5; // This should ideally come from a state or context related to vendor orders
@@ -140,9 +141,9 @@ const VendorNavbar = () => {
 
   const unreadNotifications = notifications.filter((n) => n.unread).length;
 
-  // Handle sign out - now calls vendorSignOut from context
+  // Handle sign out - now calls logout from context
   const handleSignOut = () => {
-    vendorSignOut(); // Use the vendorSignOut function from AuthContext
+    logout(); // Changed from vendorSignOut() to logout()
     // The context function handles localStorage clearing and navigation
   };
 
@@ -358,8 +359,8 @@ const VendorNavbar = () => {
 
                   <div className="border-t border-gray-100 py-2">
                     <button
-                      onClick={handleSignOut} // Calls the vendorSignOut from context
-                      className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      onClick={handleSignOut} // Calls the logout from context
+                      className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Power className="h-4 w-4" />
                       <span>Sign Out</span>

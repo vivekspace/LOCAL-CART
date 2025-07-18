@@ -18,7 +18,7 @@ const OrderedItemsPage = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+console.log(order.items[0].image)
   const { authAxios } = useAuth(); // Use the authAxios instance from AuthContext
 
   useEffect(() => {
@@ -394,7 +394,7 @@ const OrderedItemsPage = () => {
                           src={
                             item.images && item.images.length > 0
                               ? `${import.meta.env.VITE_API_URL}/uploads/${
-                                  item.images[0]
+                                  item.image
                                 }`
                               : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
                           }

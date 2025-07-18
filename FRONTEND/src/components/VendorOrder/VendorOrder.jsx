@@ -208,6 +208,14 @@ const VendorOrderPage = () => {
     }
   };
 
+  const handleViewDetails = (order) => {
+  if (selectedOrder && selectedOrder._id === order._id) {
+    setSelectedOrder(null); // Hide details if already selected
+  } else {
+    setSelectedOrder(order); // Show details for the clicked order
+  }
+};
+
   // Print function (using useReactToPrint is commented out as it's not imported globally)
   // Reverted to basic window.print for simplicity, but useReactToPrint is better if available.
   const handlePrintOrder = () => {

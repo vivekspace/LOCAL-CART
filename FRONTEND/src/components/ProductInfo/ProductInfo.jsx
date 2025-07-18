@@ -1,130 +1,171 @@
 import { useContext, useEffect, useState, useMemo, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../Context/Context";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MapComponent from "../MapComponent/MapComponent";
-import axios from "axios";
-import { Helmet } from "react-helmet-async"; // Import Helmet for SEO
+import { Helmet } from "react-helmet-async";
+import { Heart, ShoppingCart, Loader2, Star, MapPin, Home, ChevronRight, Info, Truck, Check, Leaf, Shield, Clock, Package, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from "framer-motion";
+
+// Constants
+const DEFAULT_PRODUCT_IMAGE_PATH = "/uploads/default-product.png";
+
+// Image error handler
+const handleImageError = (e) => {
+  e.target.src = `${import.meta.env.VITE_API_URL}${DEFAULT_PRODUCT_IMAGE_PATH}`;
+  e.target.onerror = null;
+  e.target.className = "w-full h-full object-contain bg-gray-50 p-4";
+};
+
+// Star Rating Component
+const StarRating = ({ rating, setRating, interactive = false }) => {
+  return (
+    <div className="flex">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type={interactive ? "button" : "div"}
+          onClick={interactive ? () => setRating(star) : null}
+          className={interactive ? "cursor-pointer" : "cursor-default"}
+        >
+          <Star
+            size={interactive ? 28 : 18}
+            className={`transition-colors ${
+              star <= rating 
+                ? "text-yellow-400 fill-yellow-400" 
+                : "text-gray-300"
+            } ${interactive ? "hover:scale-110" : ""}`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+};
 
 // --- ProductImageGallery Component ---
 const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
   const productImages = useMemo(() => {
-    // Ensure product and product.images exist before mapping
     if (product?.images?.length > 0) {
       return product.images.map(
         (img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`
       );
     }
-    // Fallback to a default image if no images are available
-    return [`${import.meta.env.VITE_API_URL}/uploads/default-product.png`];
+    return [`${import.meta.env.VITE_API_URL}${DEFAULT_PRODUCT_IMAGE_PATH}`];
   }, [product]);
 
-  const mainImageWidth = 600;
-  const mainImageHeight = 450;
-  const thumbnailWidth = 80;
-  const thumbnailHeight = 60;
+  useEffect(() => {
+    if (productImages && productImages.length > 0 && selectedImage === null) {
+      setSelectedImage(0);
+    }
+  }, [productImages, selectedImage, setSelectedImage]);
 
   return (
-    <div className="md:w-1/2 p-6">
-      <div className="relative h-96 w-full mb-4 rounded-xl overflow-hidden">
+    <div className="md:w-1/2 p-4 md:p-6">
+      {/* Main Image */}
+      <div className="relative w-full aspect-square mb-4 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 shadow-sm">
         <picture>
-          <img
-            // Use fallback for selectedImage index if it goes out of bounds (e.g., after image deletion)
+          <motion.img
             src={productImages[selectedImage] || productImages[0]}
-            alt={product.name || "Product Image"} // Defensive check for product.name
-            className="w-full h-full object-contain transition-opacity duration-300"
+            alt={product.name || "Product Image"}
+            className="w-full h-full object-contain"
             loading="eager"
-            decoding="async"
-            width={mainImageWidth}
-            height={mainImageHeight}
-            onError={(e) => {
-              e.target.src = `${
-                import.meta.env.VITE_API_URL
-              }/uploads/default-product.png`;
-              e.target.onerror = null;
-              e.target.className =
-                "w-full h-full object-contain bg-gray-100 p-4";
-            }}
+            onError={handleImageError}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            key={selectedImage}
           />
         </picture>
 
-        {product.isNew && (
-          <div className="absolute top-4 left-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-            NEW ARRIVAL
-          </div>
-        )}
-        {product.discountPrice &&
-          product.price > product.discountPrice && (
-            <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-              {Math.round(
-                ((product.price - product.discountPrice) / product.price) * 100
-              )}
-              % OFF
-            </div>
+        {/* Badges */}
+        <div className="absolute top-3 left-3 flex flex-col space-y-2">
+          {product.isNew && (
+            <motion.div 
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md"
+            >
+              NEW
+            </motion.div>
           )}
+          {product.discountPrice && product.price > product.discountPrice && (
+            <motion.div 
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md"
+            >
+              {Math.round(
+                ((product.price - product.discountPrice) / product.price) * 100)
+              }% OFF
+            </motion.div>
+          )}
+        </div>
       </div>
 
-      {/* Thumbnail Gallery */}
-      <div className="grid grid-cols-4 gap-2">
+      {/* Thumbnails */}
+      <div className="grid grid-cols-4 gap-3">
         {productImages.map((img, index) => (
-          <div key={index} className="relative">
-            <button
-              onClick={() => setSelectedImage(index)}
-              className={`h-20 w-full rounded-lg overflow-hidden border-2 transition-all ${
-                selectedImage === index
-                  ? "border-green-500"
-                  : "border-transparent hover:border-gray-300"
-              }`}
-              type="button" // Add type for semantic correctness
-            >
-              <img
-                src={img}
-                alt={`${product.name || "Product"} thumbnail ${index + 1}`} // Defensive check for product.name
-                className="w-full h-full object-contain"
-                loading="lazy"
-                decoding="async"
-                width={thumbnailWidth}
-                height={thumbnailHeight}
-                onError={(e) => {
-                  e.target.src = `${
-                    import.meta.env.VITE_API_URL
-                  }/uploads/default-product.png`;
-                  e.target.onerror = null;
-                  e.target.className =
-                    "w-full h-full object-contain bg-gray-100 p-2";
-                }}
-              />
-            </button>
-          </div>
+          <motion.button
+            key={index}
+            onClick={() => setSelectedImage(index)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
+              selectedImage === index
+                ? "ring-2 ring-green-500 ring-offset-2"
+                : "hover:ring-1 hover:ring-gray-300"
+            }`}
+            type="button"
+          >
+            <img
+              src={img}
+              alt={`${product.name || "Product"} thumbnail ${index + 1}`}
+              className="w-full h-full object-cover bg-gray-50"
+              loading="lazy"
+              onError={handleImageError}
+            />
+          </motion.button>
         ))}
       </div>
     </div>
   );
 };
 
-// --- Extracted ProductPrice component ---
+// --- ProductPrice Component ---
 const ProductPrice = ({ product, quantity = 1 }) => {
   const safeQuantity = Math.max(1, quantity);
-
-  // Use 'discountPrice' if available, otherwise just 'price'
-  // Ensure product and price/discountPrice exist before accessing
   const finalPrice = product?.discountPrice || product?.price || 0;
   const originalPrice = product?.price || 0;
 
+  const discountPercentage = useMemo(() => {
+    if (product?.discountPrice && originalPrice > finalPrice && originalPrice > 0) {
+      return Math.round((1 - finalPrice / originalPrice) * 100);
+    }
+    return 0;
+  }, [product, originalPrice, finalPrice]);
+
   return (
-    <div className="mb-6">
-      {product?.discountPrice && originalPrice > finalPrice ? ( // If discountPrice exists and is lower
-        <div className="flex items-center">
-          <p className="text-3xl font-bold text-green-600 mr-3">
+    <div className="mb-4">
+      {discountPercentage > 0 ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <motion.p 
+            initial={{ y: -5, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="text-3xl font-bold text-green-600"
+          >
             ${(finalPrice * safeQuantity).toFixed(2)}
-          </p>
-          <p className="text-xl text-gray-400 line-through">
+          </motion.p>
+          <p className="text-lg text-gray-400 line-through">
             ${(originalPrice * safeQuantity).toFixed(2)}
           </p>
-          <span className="ml-3 bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
-            Save {Math.round((1 - finalPrice / originalPrice) * 100)}%
-          </span>
+          <motion.span 
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            className="bg-red-100 text-red-800 text-sm font-semibold px-3 py-1 rounded-full"
+          >
+            Save {discountPercentage}%
+          </motion.span>
         </div>
       ) : (
         <p className="text-3xl font-bold text-green-600">
@@ -135,34 +176,31 @@ const ProductPrice = ({ product, quantity = 1 }) => {
   );
 };
 
-// --- Extracted QuantitySelector component ---
+// --- QuantitySelector Component ---
 const QuantitySelector = ({ quantity, onIncrease, onDecrease, maxStock }) => {
-  const isIncreaseDisabled = quantity >= maxStock;
-  const isDecreaseDisabled = quantity <= 1;
-
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between mb-6">
       <span className="text-gray-700 font-medium">Quantity:</span>
-      <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-        <button
+      <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <motion.button
           onClick={onDecrease}
-          className="bg-gray-50 text-gray-600 hover:bg-gray-100 px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          type="button"
-          disabled={isDecreaseDisabled}
+          disabled={quantity <= 1}
+          whileTap={{ scale: 0.95 }}
+          className="bg-gray-50 text-gray-600 hover:bg-gray-100 px-4 py-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           −
-        </button>
-        <span className="w-12 text-center py-2 border-x border-gray-200">
+        </motion.button>
+        <span className="w-12 text-center py-2 border-x border-gray-200 font-medium">
           {quantity}
         </span>
-        <button
+        <motion.button
           onClick={onIncrease}
-          className="bg-gray-50 text-gray-600 hover:bg-gray-100 px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          type="button"
-          disabled={isIncreaseDisabled}
+          disabled={quantity >= maxStock}
+          whileTap={{ scale: 0.95 }}
+          className="bg-gray-50 text-gray-600 hover:bg-gray-100 px-4 py-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           +
-        </button>
+        </motion.button>
       </div>
     </div>
   );
@@ -171,163 +209,217 @@ const QuantitySelector = ({ quantity, onIncrease, onDecrease, maxStock }) => {
 // --- ProductCardPage Component ---
 const ProductCardPage = () => {
   const { productId } = useParams();
+  const navigate = useNavigate();
   const [foundProduct, setFoundProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
-  const {
-    addToCart,
-    updateCartItemQuantity,
-    products: cartProducts,
-  } = useContext(AuthContext);
+  const [quantity, setQuantity] = useState(1);
   const [relatedProducts, setRelatedProducts] = useState([]);
-  const [wishlist, setWishlist] = useState("transparent");
+  const [activeTab, setActiveTab] = useState('description');
 
-  // Get the current quantity from cart if product exists in cart
-  const getInitialQuantity = useCallback(() => {
-    const cartItem = cartProducts.find(
-      (item) => item._id === productId?.toString()
+  const {
+    upsertCartItem,
+    updateCartItemQuantity,
+    cartItems,
+    authAxios,
+    addToWishlist,
+    removeFromWishlist,
+    isProductInWishlist,
+    isLoggedIn,
+  } = useContext(AuthContext);
+
+  const isInWishlist = useMemo(() => {
+    return foundProduct ? isProductInWishlist(foundProduct._id) : false;
+  }, [foundProduct, isProductInWishlist]);
+
+  const getProductQuantityInCart = useCallback(() => {
+    if (!Array.isArray(cartItems) || !foundProduct?._id) return 0;
+    const cartItem = cartItems.find(
+      (item) => item._id?.toString() === foundProduct._id.toString()
     );
-    return cartItem?.quantity || 1; // Default to 1 if not found
-  }, [cartProducts, productId]);
+    return cartItem?.quantity || 0;
+  }, [cartItems, foundProduct]);
 
-  const [quantity, setQuantity] = useState(getInitialQuantity());
+  const fetchProductAndRelated = useCallback(async () => {
+    setLoading(true);
+    setFoundProduct(null);
+    setRelatedProducts([]);
 
-  useEffect(() => {
-    // This effect ensures quantity updates if foundProduct changes or initial cartProducts load
-    setQuantity(getInitialQuantity());
-  }, [foundProduct, getInitialQuantity]);
-
-  // --- Crucial Change: Fetch product details directly from the backend API ---
-  useEffect(() => {
-    const fetchProduct = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/products/${productId}`
-        );
-        const fetchedProduct = response.data.data.product;
-        setFoundProduct(fetchedProduct);
-        setSelectedImage(0); // Reset selected image when a new product is loaded
-        setQuantity(getInitialQuantity()); // Set initial quantity based on cart for this specific product
-
-        // Fetch related products based on category
-        const relatedRes = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/products?category=${
-            fetchedProduct.category
-          }&limit=4&exclude=${productId}`
-        );
-        // Filter out the current product from related products
-        setRelatedProducts(
-          relatedRes.data.data.products.filter((p) => p._id !== productId)
-        );
-      } catch (error) {
-        console.error("Failed to fetch product:", error);
-        setFoundProduct(null); // Explicitly set to null on error
-        toast.error("Failed to load product details.", {
-          position: "top-center",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (productId) {
-      fetchProduct();
-    }
-  }, [productId, getInitialQuantity]); // Depend on productId to refetch when route changes
-
-  const handleIncrease = useCallback(() => {
-    if (!foundProduct) return;
-    const newQuantity = (quantity || 1) + 1;
-    if (foundProduct.stock !== undefined && newQuantity > foundProduct.stock) {
-      toast.warn(
-        `Cannot add more than ${foundProduct.stock} items to cart (stock limit).`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-        }
-      );
+    if (!productId) {
+      setLoading(false);
       return;
     }
-    setQuantity(newQuantity);
-    updateCartItemQuantity(foundProduct._id, newQuantity);
-  }, [quantity, foundProduct, updateCartItemQuantity]);
 
-  const handleDecrease = useCallback(() => {
-    if (!foundProduct) return;
-    const newQuantity = Math.max(1, (quantity || 1) - 1);
-    setQuantity(newQuantity);
-    updateCartItemQuantity(foundProduct._id, newQuantity);
-  }, [quantity, foundProduct, updateCartItemQuantity]);
+    try {
+      const productApiUrl = `${import.meta.env.VITE_API_URL}/api/products/${productId}?populate=reviews`;
+      const productResponse = await authAxios.get(productApiUrl);
+      const fetchedProduct = productResponse.data?.data?.product;
 
-  const handleWishlist = useCallback(() => {
-    if (!foundProduct) return;
-    if (wishlist === "transparent") {
-      setWishlist("red");
-      toast.success(`${foundProduct.name} added to wishlist!`, {
-        position: "top-center",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-      });
-    } else {
-      setWishlist("transparent");
+      if (fetchedProduct) {
+        setFoundProduct(fetchedProduct);
+        setSelectedImage(0);
+
+        if (fetchedProduct.category) {
+          const relatedProductsApiUrl = `${import.meta.env.VITE_API_URL}/api/products?category=${
+            fetchedProduct.category
+          }&limit=4&exclude=${productId}`;
+          const relatedRes = await authAxios.get(relatedProductsApiUrl);
+          if (relatedRes.data?.status === "success") {
+            setRelatedProducts(
+              relatedRes.data.data.products.filter((p) => p._id !== productId)
+            );
+          }
+        }
+      }
+    } catch (error) {
+      toast.error("Failed to load product details.", { position: "top-center" });
+      console.error("Product fetch error:", error);
+    } finally {
+      setLoading(false);
     }
-  }, [wishlist, foundProduct]);
+  }, [productId, authAxios]);
+
+  useEffect(() => {
+    setQuantity(1);
+    setSelectedImage(0);
+    setActiveTab('description');
+  }, [productId]);
+
+  useEffect(() => {
+    fetchProductAndRelated();
+  }, [fetchProductAndRelated]);
+
+  const handleQuantityChange = useCallback((change) => {
+    if (!foundProduct) return;
+
+    const newQuantity = Math.max(1, quantity + change);
+    if (foundProduct.stock !== undefined && newQuantity > foundProduct.stock) {
+      toast.warn(`Cannot add more than ${foundProduct.stock} items.`, { position: "top-center" });
+      return;
+    }
+
+    setQuantity(newQuantity);
+    const currentCartQuantity = getProductQuantityInCart();
+    if (currentCartQuantity > 0) {
+      updateCartItemQuantity(foundProduct._id.toString(), newQuantity);
+    }
+  }, [quantity, foundProduct, updateCartItemQuantity, getProductQuantityInCart]);
+
+  const handleWishlistToggle = useCallback(async () => {
+    if (!foundProduct) return;
+    isInWishlist
+      ? await removeFromWishlist(foundProduct._id, foundProduct.name)
+      : await addToWishlist(foundProduct);
+    
+    // Heart animation effect
+    if (!isInWishlist) {
+      toast.success("Added to wishlist!", { position: "top-center" });
+    }
+  }, [foundProduct, isInWishlist, addToWishlist, removeFromWishlist]);
 
   const handleAddToCart = useCallback(() => {
-    if (!foundProduct) return;
-
-    const qty = quantity || 1;
-    if (foundProduct.stock !== undefined && qty > foundProduct.stock) {
-      toast.error(
-        `Cannot add ${qty} items. Only ${foundProduct.stock} available in stock.`,
-        {
-          position: "top-center",
-          autoClose: 3000,
-        }
-      );
+    if (!foundProduct) {
+      toast.error("Product information is missing.", { autoClose: 3000 });
       return;
     }
 
-    addToCart(foundProduct._id, qty);
-  }, [foundProduct, quantity, addToCart]);
+    if (foundProduct.stock !== undefined && quantity > foundProduct.stock) {
+      toast.error(`Only ${foundProduct.stock} available in stock.`, { autoClose: 3000 });
+      return;
+    }
+
+    upsertCartItem(foundProduct, quantity);
+    toast.success(
+      <div className="flex items-center">
+        <Check className="mr-2 text-green-500" size={18} />
+        Added {quantity} item(s) to cart!
+      </div>, 
+      { position: "top-center" }
+    );
+  }, [foundProduct, quantity, upsertCartItem]);
 
   const handleBuyNow = useCallback(() => {
-    if (!foundProduct) return;
-    if (foundProduct.stock !== undefined && quantity > foundProduct.stock) {
-      toast.error(
-        `Cannot proceed. Only ${foundProduct.stock} available in stock.`,
-        {
-          position: "top-center",
-          autoClose: 3000,
-        }
-      );
+    if (!foundProduct) {
+      toast.error("Product information is missing.", { autoClose: 3000 });
       return;
     }
-    addToCart(foundProduct._id, quantity);
-    // TODO: Implement actual redirect to payment page
-    // For now, it will just add to cart.
-    // navigate("/payment"); // Example if you have a navigate hook
-  }, [foundProduct, quantity, addToCart]);
+
+    if (foundProduct.stock !== undefined && quantity > foundProduct.stock) {
+      toast.error(`Only ${foundProduct.stock} available in stock.`, { autoClose: 3000 });
+      return;
+    }
+
+    upsertCartItem(foundProduct, quantity);
+    navigate("/cart");
+  }, [foundProduct, quantity, upsertCartItem, navigate]);
+
+  // Review Submission State & Handlers
+  const [newReviewRating, setNewReviewRating] = useState(0);
+  const [newReviewComment, setNewReviewComment] = useState('');
+
+  const handleReviewRatingChange = useCallback((rating) => {
+    setNewReviewRating(rating);
+  }, []);
+
+  const handleReviewCommentChange = useCallback((e) => {
+    setNewReviewComment(e.target.value);
+  }, []);
+
+  const handleReviewSubmit = useCallback(async () => {
+    if (!isLoggedIn) {
+      toast.error("Please login to submit a review!", { position: "top-center" });
+      navigate('/login');
+      return;
+    }
+    if (newReviewRating === 0) {
+      toast.error("Please provide a star rating!", { position: "top-center" });
+      return;
+    }
+
+    try {
+      const response = await authAxios.post(
+        `${import.meta.env.VITE_API_URL}/api/reviews`,
+        {
+          rating: newReviewRating,
+          comment: newReviewComment,
+          product: foundProduct._id,
+        }
+      );
+
+      if (response.data.status === 'success') {
+        toast.success("Review submitted successfully!", { position: "top-center" });
+        setNewReviewRating(0);
+        setNewReviewComment('');
+        fetchProductAndRelated();
+      } else {
+        toast.error(response.data.message || "Failed to submit review.", { position: "top-center" });
+      }
+    } catch (error) {
+      console.error("Review submission error:", error);
+      toast.error(error.response?.data?.message || "An error occurred during review submission.", { position: "top-center" });
+    }
+  }, [isLoggedIn, newReviewRating, newReviewComment, foundProduct, authAxios, navigate, fetchProductAndRelated]);
+
+  const stockStatus = useMemo(() => {
+    if (!foundProduct || foundProduct.stock === undefined) return "Loading stock...";
+    if (foundProduct.stock === 0) return "Out of Stock";
+    if (foundProduct.stock <= 5) return `Only ${foundProduct.stock} left!`;
+    return "In Stock";
+  }, [foundProduct]);
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto p-8 min-h-screen">
-        <div className="animate-pulse bg-white rounded-2xl shadow-xl overflow-hidden md:flex">
-          <div className="md:w-1/2 bg-gray-200 h-96"></div>
-          <div className="md:w-1/2 p-8 space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-6 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            <div className="h-12 bg-gray-200 rounded w-1/3 mt-8"></div>
+      <div className="max-w-7xl mx-auto p-4 md:p-8 min-h-screen flex items-center justify-center">
+        <div className="w-full max-w-4xl bg-white rounded-2xl shadow-lg overflow-hidden md:flex">
+          <div className="md:w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 h-96 animate-pulse"></div>
+          <div className="md:w-1/2 p-6 space-y-4">
+            <div className="h-8 bg-gray-100 rounded-full w-3/4"></div>
+            <div className="h-4 bg-gray-100 rounded-full w-1/2"></div>
+            <div className="h-6 bg-gray-100 rounded-full w-1/4"></div>
+            <div className="h-4 bg-gray-100 rounded-full w-full"></div>
+            <div className="h-4 bg-gray-100 rounded-full w-full"></div>
+            <div className="h-4 bg-gray-100 rounded-full w-2/3"></div>
+            <div className="h-12 bg-gray-100 rounded-xl w-1/3 mt-8"></div>
           </div>
         </div>
       </div>
@@ -337,141 +429,71 @@ const ProductCardPage = () => {
   if (!foundProduct) {
     return (
       <div className="container mx-auto py-8 min-h-screen flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <h3 className="mt-4 text-lg font-medium text-gray-900">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center bg-white p-8 rounded-2xl shadow-lg max-w-md w-full"
+        >
+          <div className="mx-auto h-16 w-16 text-gray-400 mb-4">
+            <Info className="w-full h-full" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
             Product not found
           </h3>
-          <p className="mt-2 text-gray-500">
+          <p className="text-gray-500 mb-6">
             The product you're looking for doesn't exist or has been removed.
           </p>
           <Link
             to="/"
-            className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 transition-all"
           >
             Continue Shopping
           </Link>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
-  // Determine stock status
-  const stockStatus =
-    foundProduct.stock > 0
-      ? foundProduct.stock <= 5
-        ? `Only ${foundProduct.stock} left in stock!`
-        : "In Stock"
-      : "Out of Stock";
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Helmet>
-        <title>
-          {foundProduct.name} - Buy {foundProduct.category} | EcoHarvest
-        </title>
+        <title>{foundProduct.name} | EcoHarvest</title>
         <meta
           name="description"
-          content={`Discover ${foundProduct.name}, a fresh, organic ${
-            foundProduct.category
-          } from ${
-            foundProduct.seller?.name || "an unknown seller" // Defensive check
-          }. Price: $${(foundProduct.price || 0).toFixed(2)}. ${
-            foundProduct.description
-              ? foundProduct.description.substring(0, 150) + "..."
-              : "High-quality, locally sourced, and sustainably grown."
-          }`}
+          content={`${foundProduct.name} - ${foundProduct.description?.substring(0, 150) || 'High-quality organic product'}`}
         />
-        {/* Open Graph / Social Media Meta Tags */}
-        <meta
-          property="og:title"
-          content={`${foundProduct.name} - EcoHarvest`}
-        />
-        <meta
-          property="og:description"
-          content={`Fresh organic ${foundProduct.category} from ${
-            foundProduct.seller?.name || "an unknown seller" // Defensive check
-          }. Price: $${(foundProduct.price || 0).toFixed(2)}.`}
-        />
-        <meta
-          property="og:image"
-          content={`${import.meta.env.VITE_API_URL}/uploads/${
-            foundProduct.images?.[0] || "default-product.png" // Defensive check
-          }`}
-        />
+        <meta property="og:title" content={`${foundProduct.name} - EcoHarvest`} />
+        <meta property="og:description" content={foundProduct.description?.substring(0, 150) || ''} />
+        <meta property="og:image" content={`${import.meta.env.VITE_API_URL}/uploads/${foundProduct.images?.[0] || "default-product.png"}`} />
         <meta property="og:url" content={window.location.href} />
         <meta property="og:type" content="product" />
-        <meta
-          property="product:price:amount"
-          content={(foundProduct.price || 0).toFixed(2)}
-        />
-        <meta property="product:price:currency" content="USD" />
-        {/* Twitter Card Meta Tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content={`${foundProduct.name} - EcoHarvest`}
-        />
-        <meta
-          name="twitter:description"
-          content={`Fresh organic ${foundProduct.category} from ${
-            foundProduct.seller?.name || "an unknown seller" // Defensive check
-          }. Price: $${(foundProduct.price || 0).toFixed(2)}.`}
-        />
-        <meta
-          name="twitter:image"
-          content={`${import.meta.env.VITE_API_URL}/uploads/${
-            foundProduct.images?.[0] || "default-product.png" // Defensive check
-          }`}
-        />
       </Helmet>
-      <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb Navigation */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="inline-flex items-center space-x-1 md:space-x-3">
+
+      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {/* Breadcrumb */}
+        <motion.nav 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex mb-6" 
+          aria-label="Breadcrumb"
+        >
+          <ol className="inline-flex items-center space-x-1 md:space-x-2">
             <li className="inline-flex items-center">
               <Link
                 to="/"
-                className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-green-600"
+                className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-green-600 transition-colors"
               >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                </svg>
+                <Home className="w-4 h-4 mr-2" />
                 Home
               </Link>
             </li>
             <li>
               <div className="flex items-center">
-                <svg
-                  className="w-6 h-6 text-gray-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
                 <Link
                   to="/shopping"
-                  className="ml-1 text-sm font-medium text-gray-700 hover:text-green-600 md:ml-2"
+                  className="ml-2 text-sm font-medium text-gray-700 hover:text-green-600 transition-colors"
                 >
                   Products
                 </Link>
@@ -479,27 +501,22 @@ const ProductCardPage = () => {
             </li>
             <li aria-current="page">
               <div className="flex items-center">
-                <svg
-                  className="w-6 h-6 text-gray-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+                <span className="ml-2 text-sm font-medium text-gray-500">
                   {foundProduct.name}
                 </span>
               </div>
             </li>
           </ol>
-        </nav>
+        </motion.nav>
 
-        {/* Main Product Section */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden md:flex transition-all duration-300 hover:shadow-2xl">
+        {/* Main Product Card */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white rounded-2xl shadow-lg overflow-hidden md:flex transition-all hover:shadow-xl"
+        >
           <ProductImageGallery
             product={foundProduct}
             selectedImage={selectedImage}
@@ -507,251 +524,381 @@ const ProductCardPage = () => {
           />
 
           {/* Product Details */}
-          <div className="md:w-1/2 p-8 flex flex-col">
+          <div className="md:w-1/2 p-4 md:p-6 flex flex-col">
             <div className="flex-1">
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-start mb-4">
                 <div>
-                  <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full mb-2">
-                    {foundProduct.category}
-                  </span>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                    {foundProduct.name}
-                  </h2>
-                </div>
-                <button
-                  className="text-black hover:text-red-500 transition-colors"
-                  onClick={handleWishlist}
-                  type="button" // Add type for semantic correctness
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill={`${wishlist}`}
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  <motion.span 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="inline-block bg-green-100 text-green-800 text-xs px-3 py-1 rounded-full mb-2"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="1"
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
-                </button>
+                    {foundProduct.category}
+                  </motion.span>
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                    {foundProduct.name}
+                  </h1>
+                </div>
+                <motion.button
+                  onClick={handleWishlistToggle}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.8 }}
+                  className="p-2 rounded-full transition-all"
+                  aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                >
+                  <Heart
+                    size={24}
+                    className={`transition-all ${
+                      isInWishlist 
+                        ? "text-red-500 fill-red-500" 
+                        : "text-gray-400 hover:text-red-500"
+                    }`}
+                  />
+                </motion.button>
               </div>
 
+              {/* Product Rating Display */}
               <div className="flex items-center mb-4">
                 <div className="flex">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <svg
-                      key={star}
-                      className={`w-5 h-5 ${
-                        star <= foundProduct.ratingsAverage
-                          ? "text-yellow-400"
-                          : "text-gray-300"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
+                  <StarRating rating={foundProduct.ratingsAverage} />
                 </div>
                 <span className="text-gray-500 text-sm ml-2">
-                  ({foundProduct.ratingsQuantity || 0} customer reviews){" "}
-                  {/* Use 0 if ratingsQuantity is undefined */}
+                  ({foundProduct.ratingsQuantity || 0} reviews)
                 </span>
               </div>
 
-              <p className="text-gray-500 mb-4 flex items-center">
-                <svg
-                  className="w-4 h-4 mr-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
+              {/* Seller Info */}
+              <div className="flex items-center text-gray-500 text-sm mb-4">
+                <MapPin size={16} className="mr-1" />
                 Sold by:{" "}
-                {foundProduct.seller && foundProduct.seller.name ? ( // Defensive check for seller.name
+                {foundProduct.seller?.name ? (
                   <Link
                     to={`/vendor/${foundProduct.seller._id}`}
                     className="text-green-600 hover:underline ml-1"
                   >
-                    {foundProduct.seller.name}{" "}
+                    {foundProduct.seller.name}
                   </Link>
                 ) : (
-                  <span className="ml-1 text-gray-600">Unknown Seller</span>
+                  <span className="ml-1">Unknown Seller</span>
                 )}
-                {foundProduct.location?.city && ( // Defensive check for location.city
-                  <span className="ml-2 text-gray-500">
-                    ({foundProduct.location.city})
-                  </span>
+                {foundProduct.location?.city && (
+                  <span className="ml-1">({foundProduct.location.city})</span>
                 )}
-              </p>
+              </div>
 
+              {/* Price */}
               <ProductPrice product={foundProduct} quantity={quantity} />
 
               {/* Stock Status */}
-              <p
-                className={`text-sm mb-4 font-semibold ${
-                  foundProduct.stock > 0
-                    ? foundProduct.stock <= 5
-                      ? "text-orange-500"
-                      : "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
+              <div className={`flex items-center text-sm mb-4 font-medium ${
+                foundProduct.stock === 0
+                  ? "text-red-600"
+                  : foundProduct.stock <= 5
+                  ? "text-amber-600"
+                  : "text-green-600"
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  foundProduct.stock === 0
+                    ? "bg-red-600"
+                    : foundProduct.stock <= 5
+                    ? "bg-amber-600"
+                    : "bg-green-600"
+                }`}></div>
                 {stockStatus}
-              </p>
+              </div>
 
+              {/* Description */}
               <p className="text-gray-700 mb-6 leading-relaxed">
                 {foundProduct.description ||
-                  "This premium product is carefully sourced from local farms and producers. Each item is hand-selected for quality and freshness to ensure you get the best possible experience."}
+                  "Premium organic product carefully sourced for quality and freshness."}
               </p>
 
-              <div className="mb-8">
+              {/* Product Highlights */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Leaf className="w-4 h-4 mr-2 text-green-500" />
+                  Organic
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <Shield className="w-4 h-4 mr-2 text-green-500" />
+                  Quality Guarantee
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <Clock className="w-4 h-4 mr-2 text-green-500" />
+                  Fresh Daily
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <Package className="w-4 h-4 mr-2 text-green-500" />
+                  Eco Packaging
+                </div>
+              </div>
+
+              {/* Quantity and Actions */}
+              <div className="mb-6">
                 <QuantitySelector
                   quantity={quantity}
-                  onIncrease={handleIncrease}
-                  onDecrease={handleDecrease}
+                  onIncrease={() => handleQuantityChange(1)}
+                  onDecrease={() => handleQuantityChange(-1)}
                   maxStock={foundProduct.stock}
                 />
 
                 <div className="space-y-3">
-                  <button
+                  <motion.button
                     onClick={handleAddToCart}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold py-3 px-6 rounded-lg shadow hover:shadow-lg transition-all duration-300 flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    type="button"
                     disabled={foundProduct.stock === 0}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium py-3 px-6 rounded-lg shadow-md transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-2"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                    </svg>
+                    <ShoppingCart size={18} className="mr-2" />
                     Add to Cart
-                  </button>
+                  </motion.button>
 
-                  {/* Removed Link wrapping button, handle redirection in handleBuyNow */}
-                  <button
-                    className="w-full bg-white border border-green-600 text-green-600 font-semibold py-3 px-6 rounded-lg shadow-sm hover:bg-green-50 transition-colors duration-300 flex items-center justify-center mt-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  <motion.button
                     onClick={handleBuyNow}
-                    type="button"
                     disabled={foundProduct.stock === 0}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-white border-2 border-green-600 text-green-600 hover:bg-green-50 font-medium py-3 px-6 rounded-lg shadow-sm transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                      />
-                    </svg>
-                    Buy Now
-                  </button>
+                    Buy Now <ArrowRight className="ml-2" size={18} />
+                  </motion.button>
                 </div>
               </div>
             </div>
 
+            {/* Delivery Info */}
             <div className="border-t border-gray-200 pt-4">
               <div className="flex items-center text-sm text-gray-500">
-                <svg
-                  className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
+                <Truck size={16} className="mr-2 text-gray-400" />
                 Delivery expected within 2-4 business days
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Product Details Tabs */}
-        <div className="mt-12 bg-white rounded-2xl shadow-xl overflow-hidden">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mt-8 bg-white rounded-2xl shadow-lg overflow-hidden"
+        >
           <div className="border-b border-gray-200">
             <nav className="flex -mb-px">
-              <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-green-500 text-green-600">
+              <motion.button
+                onClick={() => setActiveTab('description')}
+                whileHover={{ y: -2 }}
+                className={`py-4 px-6 text-center border-b-2 font-medium text-sm transition-all ${
+                  activeTab === 'description' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
                 Description
-              </button>
-              <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                Reviews ({foundProduct.ratingsQuantity || 0}){" "}
-                {/* Use 0 if ratingsQuantity is undefined */}
-              </button>
-              <button className="py-4 px-6 text-center border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+              </motion.button>
+              <motion.button
+                onClick={() => setActiveTab('reviews')}
+                whileHover={{ y: -2 }}
+                className={`py-4 px-6 text-center border-b-2 font-medium text-sm transition-all ${
+                  activeTab === 'reviews' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Reviews ({foundProduct.ratingsQuantity || 0})
+              </motion.button>
+              <motion.button
+                onClick={() => setActiveTab('shipping')}
+                whileHover={{ y: -2 }}
+                className={`py-4 px-6 text-center border-b-2 font-medium text-sm transition-all ${
+                  activeTab === 'shipping' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
                 Shipping & Returns
-              </button>
+              </motion.button>
             </nav>
           </div>
           <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Product Details
-            </h3>
-            <ul className="list-disc pl-5 space-y-2 text-gray-700">
-              <li>100% organic and locally sourced</li>
-              <li>Harvested at peak freshness</li>
-              <li>Packaged with care to preserve quality</li>
-              <li>Certified by local agricultural authorities</li>
-              <li>Sustainably grown and produced</li>
-            </ul>
-          </div>
-        </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {activeTab === 'description' && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      Product Details
+                    </h3>
+                    <ul className="space-y-3 text-gray-700">
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <span>100% organic and locally sourced ingredients</span>
+                      </li>
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <span>Harvested at peak freshness for maximum flavor and nutrition</span>
+                      </li>
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <span>Packaged with care using sustainable materials to preserve quality</span>
+                      </li>
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <span>Certified by local agricultural authorities for quality and safety</span>
+                      </li>
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <span>Sustainably grown and produced with minimal environmental impact</span>
+                      </li>
+                    </ul>
+                  </div>
+                )}
 
-        {/* Enhanced Map Section */}
-        {/* Render map only if coordinates are available */}
-        {!loading && foundProduct?.location?.coordinates?.length === 2 && (
-          <div className="mt-12 bg-white rounded-2xl shadow-xl overflow-hidden">
+                {activeTab === 'reviews' && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Reviews</h3>
+
+                    {/* Review Submission Form */}
+                    {isLoggedIn ? (
+                      <div className="bg-gradient-to-br from-gray-50 to-green-50 p-6 rounded-xl shadow-inner mb-8">
+                        <h4 className="text-xl font-semibold text-gray-800 mb-4">Write a Review</h4>
+                        <div className="mb-4">
+                          <label htmlFor="review-rating" className="block text-gray-700 text-sm font-bold mb-2">Your Rating</label>
+                          <StarRating 
+                            rating={newReviewRating} 
+                            setRating={handleReviewRatingChange} 
+                            interactive={true} 
+                          />
+                        </div>
+                        <div className="mb-4">
+                          <label htmlFor="review-comment" className="block text-gray-700 text-sm font-bold mb-2">Your Comment (Optional)</label>
+                          <textarea
+                            id="review-comment"
+                            rows="4"
+                            className="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="Share your thoughts about the product..."
+                            value={newReviewComment}
+                            onChange={handleReviewCommentChange}
+                          ></textarea>
+                        </div>
+                        <motion.button
+                          onClick={handleReviewSubmit}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-2 px-6 rounded-lg focus:outline-none focus:shadow-outline transition-all"
+                        >
+                          Submit Review
+                        </motion.button>
+                      </div>
+                    ) : (
+                      <p className="text-gray-600 mb-8">
+                        Please <Link to="/login" className="text-green-600 hover:underline font-medium">login</Link> to write a review.
+                      </p>
+                    )}
+
+                    {/* List of Existing Reviews */}
+                    <div className="space-y-6">
+                      {foundProduct.reviews && foundProduct.reviews.length > 0 ? (
+                        foundProduct.reviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((review) => (
+                          <motion.div 
+                            key={review._id} 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="border-b border-gray-200 pb-6 last:border-b-0"
+                          >
+                            <div className="flex items-center mb-2">
+                              <h4 className="font-semibold text-gray-800 mr-2">{review.user?.name || 'Anonymous User'}</h4>
+                              <span className="text-yellow-500 flex items-center">
+                                <Star size={16} fill="currentColor" stroke="none" />
+                                <span className="ml-1">{review.rating.toFixed(1)}</span>
+                              </span>
+                            </div>
+                            <p className="text-gray-600 mb-2">{review.comment}</p>
+                            <p className="text-gray-400 text-sm">Reviewed on {new Date(review.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                          </motion.div>
+                        ))
+                      ) : (
+                        <p className="text-gray-600 text-center py-8">No reviews yet. Be the first to review this product!</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'shipping' && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      Shipping & Returns
+                    </h3>
+                    <div className="space-y-6">
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
+                          <Truck className="mr-2" size={18} />
+                          Shipping Information
+                        </h4>
+                        <ul className="space-y-2 text-blue-700">
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>Free shipping on orders over 299₹</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>Standard delivery: 2-4 business days</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>30min delivery available in select areas</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-amber-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-amber-800 mb-2 flex items-center">
+                          <Package className="mr-2" size={18} />
+                          Return Policy
+                        </h4>
+                        <ul className="space-y-2 text-amber-700">
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>No return policy for fresh products</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>Items must be in original condition</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>Return shipping costs covered by us</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>Full refund processed within 3-5 business days</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </motion.div>
+
+        {/* Map Component */}
+        {foundProduct?.location?.coordinates?.length === 2 && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mt-8 bg-white rounded-2xl shadow-xl overflow-hidden"
+          >
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-2xl font-semibold text-gray-900">
                   Product Location
                 </h3>
                 <div className="flex items-center text-sm text-gray-500">
-                  <svg
-                    className="w-4 h-4 mr-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
+                  <MapPin className="w-4 h-4 mr-1" />
                   {foundProduct.location.city && (
                     <span>{foundProduct.location.city}</span>
                   )}
@@ -765,9 +912,8 @@ const ProductCardPage = () => {
                 <p className="text-gray-600 text-sm">
                   This product is sourced from{" "}
                   {foundProduct.seller?.name || "an unknown seller"}{" "}
-                  {/* Defensive check for seller.name */}
                   located in the area shown below.
-                  {foundProduct.location?.address && ( // Defensive check for location.address
+                  {foundProduct.location?.address && (
                     <span className="block mt-1 text-gray-500">
                       Address: {foundProduct.location.address}
                     </span>
@@ -775,7 +921,7 @@ const ProductCardPage = () => {
                 </p>
               </div>
 
-              <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
                 <MapComponent
                   lat={foundProduct.location.coordinates[1]}
                   lng={foundProduct.location.coordinates[0]}
@@ -784,21 +930,9 @@ const ProductCardPage = () => {
                 />
               </div>
 
-              <div className="mt-4 p-3 bg-green-50 rounded-lg">
+              <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
                 <div className="flex items-center text-sm text-green-700">
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <Info className="w-5 h-5 mr-2 text-green-600" />
                   <span>
                     Local delivery available within 10km radius. Contact seller
                     for delivery options and rates.
@@ -806,77 +940,93 @@ const ProductCardPage = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <div className="mt-12">
-            <h3 className="text-2xl font-semibold text-gray-900 mb-6">
-              You may also like
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((product) =>
-                // *** IMPORTANT FIX: Add null/undefined check for 'product' itself ***
-                product && (
-                  <div
-                    key={product._id}
-                    className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-8 bg-white rounded-2xl shadow-lg overflow-hidden"
+          >
+            <div className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">
+                You May Also Like
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {relatedProducts.map((product) => (
+                  <motion.div 
+                    key={product._id} 
+                    whileHover={{ y: -5 }}
+                    className="group relative"
                   >
-                    <Link
-                      to={`/product-info/${product._id}`}
-                      className="block"
-                    >
-                      <div className="relative pb-[75%] overflow-hidden">
-                        <img
-                          // *** IMPORTANT FIX: Defensive check for product.images[0] ***
-                          src={`${import.meta.env.VITE_API_URL}/uploads/${
-                            product.images?.[0] || "default-product.png"
-                          }`}
-                          alt={product.name || "Product Image"} // *** IMPORTANT FIX: Defensive check for product.name ***
-                          className="absolute h-full w-full object-contain hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                          decoding="async"
-                          width="200"
-                          height="150"
-                          onError={(e) => {
-                            e.target.src = `${
-                              import.meta.env.VITE_API_URL
-                            }/uploads/default-product.png`;
-                            e.target.onerror = null;
-                          }}
-                        />
-                      </div>
-                      <div className="p-4">
-                        <h4 className="text-lg font-semibold text-gray-800 mb-1">
-                          {product.name || "Untitled Product"} {/* Defensive check */}
+                    <div className="aspect-square w-full overflow-hidden rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 group-hover:opacity-90 transition-opacity">
+                      <img
+                        src={
+                          product.images?.[0]
+                            ? `${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`
+                            : `${import.meta.env.VITE_API_URL}${DEFAULT_PRODUCT_IMAGE_PATH}`
+                        }
+                        alt={product.name}
+                        className="h-full w-full object-cover object-center"
+                        onError={handleImageError}
+                      />
+                    </div>
+                    <div className="mt-4 flex justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900">
+                          <Link
+                            to={`/product/${product._id}`}
+                            className="hover:text-green-600 transition-colors"
+                          >
+                            {product.name}
+                          </Link>
                         </h4>
-                        <p className="text-gray-500 text-sm mb-2">
-                          By:{" "}
-                          {/* *** IMPORTANT FIX: Defensive check for product.seller.name *** */}
-                          {product.seller && product.seller.name
-                            ? product.seller.name
-                            : "Unknown Seller"}{" "}
-                        </p>
-                        <p className="text-gray-900 font-bold">
-                          $
-                          {(
-                            product.discountPrice ||
-                            product.price ||
-                            0
-                          ).toFixed(2)}{" "}
-                          {/* Defensive check for price */}
+                        <p className="mt-1 text-xs text-gray-500">
+                          {product.category}
                         </p>
                       </div>
-                    </Link>
-                  </div>
-                )
-              )}
+                      <div className="text-right">
+                        {product.discountPrice ? (
+                          <div>
+                            <p className="text-sm font-medium text-green-600">
+                              ${product.discountPrice.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-gray-400 line-through">
+                              ${product.price.toFixed(2)}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm font-medium text-green-600">
+                            ${product.price.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
-      <ToastContainer />
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        toastClassName="shadow-lg"
+        progressClassName="bg-gradient-to-r from-green-400 to-green-500"
+      />
     </div>
   );
 };

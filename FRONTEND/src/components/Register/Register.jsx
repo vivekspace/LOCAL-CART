@@ -1,20 +1,18 @@
 import { Link } from "react-router-dom";
 import { User, Mail, Lock, Eye, EyeOff, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { toast } from "react-toastify";
+import { useState, useContext } from "react"; // Added useContext
+import { toast, ToastContainer } from "react-toastify"; // Added ToastContainer import
 import { useNavigate } from "react-router-dom";
-import { useContext } from "react";
 import { AuthContext } from "../../Context/Context";
-import { ToastContainer } from "react-toastify";
-import { Helmet } from "react-helmet-async"; 
+import { Helmet } from "react-helmet-async";
 
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const { register } = useContext(AuthContext);
+  const { register } = useContext(AuthContext); // Ensure register is correctly destructured
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -22,38 +20,40 @@ export default function Register() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "customer", 
+    role: "customer",
     acceptTerms: false,
   });
-
 
   const validateForm = () => {
     const newErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
+      newErrors.name = "Full Name is required"; // Changed to Full Name for consistency
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
+      newErrors.email = "Email Address is required"; // Changed for consistency
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email";
+      newErrors.email = "Please enter a valid email address"; // Changed for consistency
     }
 
     if (!formData.password) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
+      newErrors.password = "Password must be at least 8 characters long"; // Changed for consistency
+    } else if (!/[0-9]/.test(formData.password) || !/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
+        newErrors.password = "Password must include a number and a symbol"; // Added stronger password validation
     }
 
-    if (formData.password !== formData.confirmPassword) {
+    if (!formData.confirmPassword) { // Added check for empty confirm password
+      newErrors.confirmPassword = "Confirm Password is required";
+    } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
     if (!formData.acceptTerms) {
-      newErrors.acceptTerms = "You must accept the terms";
+      newErrors.acceptTerms = "You must accept the terms to register"; // Changed for consistency
     }
-    
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -76,26 +76,28 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submitted:", validateForm());
+
     if (!validateForm()) {
+      toast.error("Please correct the errors in the form."); // Added toast for validation errors
       return;
     }
 
     setIsLoading(true);
+    setErrors({}); // Clear errors before submission attempt
 
     try {
       const response = await register(formData);
 
-      if (!response || !response.success) {
-        
-        throw new Error(response?.message || "Registration failed");
+      if (response && response.success) { // Check for response and success explicitly
+        toast.success("Account created successfully!");
+        navigate("/"); // Redirect to home on success
+      } else {
+        // If register returns success: false or no response, show error
+        toast.error(response?.message || "Registration failed. Please try again.");
       }
-
-      toast.success("Account created successfully!");
-      navigate("/");
     } catch (error) {
       console.error("Registration error:", error);
-      toast.error(error.message || "Registration failed");
+      toast.error(error.message || "An unexpected error occurred during registration."); // More specific error message
     } finally {
       setIsLoading(false);
     }
@@ -115,14 +117,12 @@ export default function Register() {
         <meta property="og:description" content="Create a free account on LocalCart to start shopping for fresh, local products and support community businesses. Fast and secure registration." />
         <meta property="og:url" content={window.location.href} />
         <meta property="og:type" content="website" />
-        
 
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:title" content="Register - Create Your Account | LocalCart" />
         <meta name="twitter:description" content="Create a free account on LocalCart to start shopping for fresh, local products and support community businesses. Fast and secure registration." />
-       
       </Helmet>
-      <ToastContainer/>
+      <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover /> {/* Added position and other props for consistency */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-100 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
       <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-200 rounded-full opacity-20 mix-blend-multiply filter blur-xl"></div>
 
