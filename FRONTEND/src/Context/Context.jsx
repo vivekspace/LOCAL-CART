@@ -1,8 +1,8 @@
+// AuthContext.js
 import React, {
   createContext,
   useState,
   useContext,
-  useRef,
   useCallback,
   useEffect,
   useMemo,
@@ -10,10 +10,8 @@ import React, {
 import { toast } from "react-toastify";
 import axios from "axios";
 
-// Export AuthContext at the top level
 export const AuthContext = createContext(null);
 
-// Export useAuth hook at the top level
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -22,28 +20,26 @@ export const useAuth = () => {
   return context;
 };
 
-// AuthProvider component definition
 const AuthProvider = ({ children }) => {
-  console.log("AuthContext: AuthProvider rendering...");
-
+  // Auth State (for JWT from your backend)
   const [auth, setAuth] = useState(() => {
     let storedUser = null;
-    let storedJwtToken = null; // Renamed to storedJwtToken for consistency
+    let storedJwtToken = null;
     let isAuthLoading = true;
 
     try {
       storedUser = JSON.parse(localStorage.getItem("currentUser"));
-      storedJwtToken = localStorage.getItem("jwtToken"); // Correctly reads from "jwtToken"
+      storedJwtToken = localStorage.getItem("jwtToken");
 
       if (storedJwtToken) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${storedJwtToken}`;
+        axios.defaults.headers.common["Authorization"] = `Bearer ${storedJwtToken}`;
       } else {
-        delete axios.defaults.headers.common['Authorization'];
+        delete axios.defaults.headers.common["Authorization"];
       }
 
       isAuthLoading = false;
     } catch (e) {
-      console.error("AuthContext: Error parsing auth data from localStorage on init:", e);
+      console.error("AuthContext: Error parsing auth data from localStorage:", e);
       localStorage.removeItem("currentUser");
       localStorage.removeItem("jwtToken");
       isAuthLoading = false;
@@ -51,910 +47,441 @@ const AuthProvider = ({ children }) => {
 
     return {
       user: storedUser,
-      jwtToken: storedJwtToken, // Stored as 'jwtToken' inside the 'auth' object
+      jwtToken: storedJwtToken,
       isAuthLoading: isAuthLoading,
       authError: null,
     };
   });
 
-  useEffect(() => {
-    console.log("AuthContext: Auth state updated:", auth);
-  }, [auth]);
+  // Wishlist State (now managed by your backend)
+  const [wishlistItems, setWishlistItems] = useState([]);
 
-  // These use 'auth.user' and 'auth.jwtToken' which are consistent with the new state structure
+
+  // Derived Auth State
   const currentRole = useMemo(() => auth.user?.role || null, [auth.user]);
-  const isLoggedIn = useMemo(() => !!auth.jwtToken && !!auth.user, [auth.jwtToken, auth.user]);
+  const isLoggedIn = useMemo(() => !!auth.jwtToken && !!auth.user, [
+    auth.jwtToken,
+    auth.user,
+  ]);
   const isAdmin = useMemo(() => auth.user?.role === "admin", [auth.user]);
   const isSeller = useMemo(() => auth.user?.role === "seller", [auth.user]);
 
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Location constants
-  const USER_LOCATION_KEY = "user_preferred_location_v3";
-  const LOCATIONS_CACHE_KEY = "available_locations_cache";
-  const IP_LOCATION_KEY = "ip_detected_location";
-  const CACHE_DURATION = 5 * 60 * 1000;
-  const GEOLOCATION_TIMEOUT = 10000;
-
-  const LOCATION_TYPE_IP = "ip_detected";
-  const LOCATION_TYPE_GPS = "gps_location";
-  const LOCATION_TYPE_MANUAL = "manual_selection";
-  const LOCATION_TYPE_DEFAULT = "default_fallback";
-
-  // Simplified location state management
-  const [selectedLocation, setSelectedLocation] = useState(null);
-  const [availableLocations, setAvailableLocations] = useState([]);
-  const [locationsLoading, setLocationsLoading] = useState(true);
-  const [ipLocation, setIpLocation] = useState(null);
-  const [gpsLocation, setGpsLocation] = useState(null);
-  const [userPreferredLocation, setUserPreferredLocation] = useState(null);
-
-  const [products, setProducts] = useState([]);
-  const [productsLoading, setProductsLoading] = useState(true);
-  const [productsError, setProductsError] = useState(null);
-
-  // Cart management (keeping existing cart logic)
+  // Cart State
   const CART_STORAGE_KEY = "user_cart_items";
   const [cartItems, setCartItems] = useState(() => {
     try {
       const storedCart = localStorage.getItem(CART_STORAGE_KEY);
       return storedCart ? JSON.parse(storedCart) : [];
     } catch (e) {
-      console.error("AuthContext: Error parsing cart items from localStorage on init:", e);
-      localStorage.removeItem(CART_STORAGE_KEY);
+      console.error("AuthContext: Cart parse error:", e);
       return [];
     }
   });
 
-  useEffect(() => {
+  // UI State (e.g., for mobile menu in Header, though often managed locally)
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Cart Methods
+  const saveCartToStorage = useCallback((items) => {
     try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
     } catch (e) {
-      console.error("AuthContext: Failed to save cart items to localStorage:", e);
+      console.error("AuthContext: Failed to save cart:", e);
     }
-  }, [cartItems]);
+  }, []);
 
-  // Cart functions (keeping existing implementation)
-  const addToCart = useCallback((productId, quantity = 1) => {
-    const product = products.find((p) => p._id === productId);
-    if (!product) {
-      toast.error("Product is currently unavailable or not found.");
-      return;
-    }
-    setCartItems((prevItems) => {
-      const existingItemIndex = prevItems.findIndex((item) => item._id === productId);
-      if (existingItemIndex !== -1) {
-        const updatedItems = [...prevItems];
-        const currentQuantity = updatedItems[existingItemIndex].quantity || 0;
-        updatedItems[existingItemIndex] = {
-          ...updatedItems[existingItemIndex],
-          quantity: currentQuantity + quantity,
-        };
-        toast.success(`${product.name} quantity updated in cart!`);
-        return updatedItems;
-      } else {
-        const newItem = { ...product, quantity };
-        toast.success(`${product.name} added to cart!`);
-        return [...prevItems, newItem];
+  const upsertCartItem = useCallback(
+    (productDetails, quantity) => {
+      if (!productDetails || !productDetails._id) {
+        toast.error("Invalid product details for cart operation.");
+        return;
       }
-    });
-  }, [products]);
 
-  const updateCartItemQuantity = useCallback((productId, newQuantity) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item._id === productId ? { ...item, quantity: newQuantity } : item
-      )
-    );
-    toast.info("Cart item quantity updated.");
-  }, []);
+      setCartItems((prev) => {
+        const existingItemIndex = prev.findIndex((item) => item._id === productDetails._id);
+        let newItems;
 
-  const removeFromCart = useCallback((productId) => {
-    setCartItems((prevItems) => prevItems.filter((item) => item._id !== productId));
-    toast.info("Item removed from cart.");
-  }, []);
+        if (existingItemIndex !== -1) {
+          newItems = [...prev];
+          newItems[existingItemIndex] = { ...newItems[existingItemIndex], quantity: quantity };
+          toast.success(`${productDetails.name} quantity updated in cart!`);
+        } else {
+          newItems = [...prev, { ...productDetails, quantity: quantity }];
+          toast.success(`${productDetails.name} added to cart!`);
+        }
+
+        saveCartToStorage(newItems);
+        return newItems;
+      });
+    },
+    [saveCartToStorage]
+  );
+
+  const addToCart = useCallback(
+    (productId, quantity = 1, products) => {
+      const product = products?.find((p) => p._id === productId);
+      if (!product) {
+        toast.error("Product not found for adding to cart.");
+        return;
+      }
+
+      setCartItems((prev) => {
+        const existing = prev.findIndex((item) => item._id === productId);
+        let newItems;
+
+        if (existing !== -1) {
+          newItems = [...prev];
+          newItems[existing].quantity += quantity;
+          toast.success(`${product.name} quantity incremented!`);
+        } else {
+          newItems = [...prev, { ...product, quantity }];
+          toast.success(`${product.name} added to cart!`);
+        }
+
+        saveCartToStorage(newItems);
+        return newItems;
+      });
+    },
+    [saveCartToStorage]
+  );
+
+  const updateCartItemQuantity = useCallback(
+    (productId, newQuantity) => {
+      setCartItems((prev) => {
+        const newItems = prev.map((item) =>
+          item._id === productId ? { ...item, quantity: newQuantity } : item
+        );
+        saveCartToStorage(newItems);
+        return newItems;
+      });
+    },
+    [saveCartToStorage]
+  );
+
+  const removeFromCart = useCallback(
+    (productId) => {
+      setCartItems((prev) => {
+        const newItems = prev.filter((item) => item._id !== productId);
+        saveCartToStorage(newItems);
+        return newItems;
+      });
+      toast.info("Item removed from cart");
+    },
+    [saveCartToStorage]
+  );
 
   const clearCart = useCallback(() => {
     setCartItems([]);
-    toast.info("Cart cleared.");
-  }, []);
+    saveCartToStorage([]);
+    toast.info("Cart cleared");
+  }, [saveCartToStorage]);
 
   const getCartTotal = useCallback(() => {
-    return cartItems.reduce((total, item) => {
-      const quantity = item.quantity || 1;
-      return total + item.price * quantity;
-    }, 0);
+    return cartItems.reduce(
+      (total, item) => total + (item.discountPrice || item.price) * (item.quantity || 1),
+      0
+    );
   }, [cartItems]);
 
-  // Improved IP-based location detection
-  const detectIpLocation = useCallback(async () => {
-    try {
-      // Check cache first
-      const cachedIpLocation = localStorage.getItem(IP_LOCATION_KEY);
-      if (cachedIpLocation) {
-        const { data, timestamp } = JSON.parse(cachedIpLocation);
-        if (Date.now() - timestamp < CACHE_DURATION) {
-          console.log("AuthContext: Using cached IP location");
-          return data;
-        }
-      }
-
-      // Multiple IP geolocation services for reliability
-      const ipServices = [
-        'https://ipapi.co/json/',
-        'https://api.ipgeolocation.io/ipgeo?apiKey=free',
-        'https://ipwhois.app/json/'
-      ];
-
-      for (const service of ipServices) {
-        try {
-          const response = await fetch(service, {
-            timeout: 3000,
-            headers: { 'Accept': 'application/json' }
-          });
-
-          if (!response.ok) continue;
-
-          const data = await response.json();
-          let locationData = null;
-
-          // Handle different API response formats
-          if (data.city && data.country_name) {
-            locationData = {
-              city: data.city.toLowerCase(),
-              region: data.region || data.state || '',
-              country: data.country_name,
-              name: `${data.city}, ${data.region || data.country_name}`,
-              lat: data.latitude || data.lat,
-              lng: data.longitude || data.lng || data.lon,
-              type: LOCATION_TYPE_IP
-            };
-          }
-
-          if (locationData) {
-            // Cache the result
-            localStorage.setItem(IP_LOCATION_KEY, JSON.stringify({
-              data: locationData,
-              timestamp: Date.now()
-            }));
-            console.log("AuthContext: IP location detected:", locationData.name);
-            return locationData;
-          }
-        } catch (error) {
-          console.warn("AuthContext: IP service failed:", service, error);
-          continue;
-        }
-      }
-
-      return null;
-    } catch (error) {
-      console.error("AuthContext: IP location detection failed:", error);
-      return null;
-    }
-  }, [CACHE_DURATION, IP_LOCATION_KEY, LOCATION_TYPE_IP]);
-
-  // Improved GPS location detection
-  const detectGpsLocation = useCallback(async () => {
-    if (!navigator.geolocation) {
-      throw new Error("Geolocation is not supported by this browser.");
-    }
-
-    return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            const { latitude, longitude } = position.coords;
-
-            // Reverse geocode to get city name
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`
-            );
-
-            if (!response.ok) throw new Error('Reverse geocoding failed');
-
-            const data = await response.json();
-            const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || 'Unknown Location';
-            const region = data.address?.state || data.address?.region || '';
-            const country = data.address?.country || '';
-
-            const locationData = {
-              city: city.toLowerCase(),
-              region,
-              country,
-              name: `${city}${region ? ', ' + region : ''}`,
-              lat: latitude,
-              lng: longitude,
-              type: LOCATION_TYPE_GPS
-            };
-
-            resolve(locationData);
-          } catch (error) {
-            resolve({
-              city: 'current_location',
-              name: 'Current Location',
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              type: LOCATION_TYPE_GPS
-            });
-          }
-        },
-        (error) => {
-          let errorMessage = "Failed to get current location.";
-          if (error.code === error.PERMISSION_DENIED) {
-            errorMessage = "Location access denied. Please enable location in your browser settings.";
-          } else if (error.code === error.POSITION_UNAVAILABLE) {
-            errorMessage = "Location information is unavailable.";
-          } else if (error.code === error.TIMEOUT) {
-            errorMessage = "Location request timed out.";
-          }
-          reject(new Error(errorMessage));
-        },
-        {
-          enableHighAccuracy: false, // Faster, less battery drain
-          timeout: GEOLOCATION_TIMEOUT,
-          maximumAge: 5 * 60 * 1000, // 5 minutes cache
-        }
-      );
-    });
-  }, [GEOLOCATION_TIMEOUT, LOCATION_TYPE_GPS]);
-
-  // Fetch available locations (vendor locations)
-  const fetchAvailableLocations = useCallback(async () => {
-    try {
-      // Check cache first
-      const cached = localStorage.getItem(LOCATIONS_CACHE_KEY);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Array.isArray(data) && Date.now() - timestamp < CACHE_DURATION) {
-          console.log("AuthContext: Using cached available locations");
-          return data;
-        }
-      }
-
-      console.log("AuthContext: Fetching available locations from API");
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/locations`);
-
-      if (response.data?.status === "success" && Array.isArray(response.data?.data?.locations)) {
-        const formattedLocations = response.data.data.locations
-          .filter(loc => loc && typeof loc.name === 'string' && loc.name.trim() !== '')
-          .map(loc => ({
-            name: loc.name.charAt(0).toUpperCase() + loc.name.slice(1),
-            city: loc.city ? loc.city.toLowerCase() : loc.name.toLowerCase(),
-            lat: loc.lat,
-            lng: loc.lng,
-            type: LOCATION_TYPE_MANUAL
-          }));
-
-        // Cache the result
-        localStorage.setItem(LOCATIONS_CACHE_KEY, JSON.stringify({
-          data: formattedLocations,
-          timestamp: Date.now()
-        }));
-
-        console.log("AuthContext: Available locations fetched:", formattedLocations.length);
-        return formattedLocations;
-      }
-
-      return [];
-    } catch (error) {
-      console.error("AuthContext: Failed to fetch available locations:", error);
-      return [];
-    }
-  }, [CACHE_DURATION, LOCATIONS_CACHE_KEY, LOCATION_TYPE_MANUAL]);
-
-  // Main location initialization
-  const initializeLocation = useCallback(async () => {
-    setLocationsLoading(true);
-
-    try {
-      // 1. Always fetch available vendor locations first
-      const vendorLocations = await fetchAvailableLocations();
-      setAvailableLocations(vendorLocations);
-
-      // 2. Check if user has a saved preference
-      const savedLocation = localStorage.getItem(USER_LOCATION_KEY);
-      if (savedLocation) {
-        try {
-          const parsed = JSON.parse(savedLocation);
-          if (parsed && parsed.city && parsed.name) {
-            console.log("AuthContext: Using saved user location:", parsed.name);
-            setUserPreferredLocation(parsed);
-            setSelectedLocation(parsed);
-            setLocationsLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.error("AuthContext: Error parsing saved location:", e);
-          localStorage.removeItem(USER_LOCATION_KEY);
-        }
-      }
-
-      // 3. Try IP-based detection (silent, fast)
-      const ipLoc = await detectIpLocation();
-      if (ipLoc) {
-        setIpLocation(ipLoc);
-
-        // Check if IP location matches any vendor location
-        const matchingVendorLocation = vendorLocations.find(
-          loc => loc.city === ipLoc.city ||
-                    loc.name.toLowerCase().includes(ipLoc.city) ||
-                    ipLoc.name.toLowerCase().includes(loc.city)
-        );
-
-        if (matchingVendorLocation) {
-          console.log("AuthContext: IP location matches vendor location:", matchingVendorLocation.name);
-          setSelectedLocation(matchingVendorLocation);
-        } else {
-          console.log("AuthContext: IP location detected but no vendor match, using IP location");
-          setSelectedLocation(ipLoc);
-        }
-      } else {
-        // 4. Fallback to first available location or default
-        const fallbackLocation = vendorLocations.length > 0
-          ? vendorLocations[0]
-          : {
-              name: "Mumbai, Maharashtra",
-              city: "mumbai",
-              lat: 19.076,
-              lng: 72.8777,
-              type: LOCATION_TYPE_DEFAULT
-            };
-
-        console.log("AuthContext: Using fallback location:", fallbackLocation.name);
-        setSelectedLocation(fallbackLocation);
-      }
-
-    } catch (error) {
-      console.error("AuthContext: Location initialization failed:", error);
-      // Final fallback
-      setSelectedLocation({
-        name: "Mumbai, Maharashtra",
-        city: "mumbai",
-        lat: 19.076,
-        lng: 72.8777,
-        type: LOCATION_TYPE_DEFAULT
-      });
-    } finally {
-      setLocationsLoading(false);
-    }
-  }, [fetchAvailableLocations, detectIpLocation, USER_LOCATION_KEY, LOCATION_TYPE_DEFAULT]);
-
-  // User location selection handler
-  const updateUserLocation = useCallback(async (locationObj) => {
-    if (!locationObj) return;
-
-    try {
-      let finalLocation = { ...locationObj };
-
-      // Handle "Use Current Location" selection
-      if (locationObj.city === 'current_location' || locationObj.type === LOCATION_TYPE_GPS) {
-        console.log("AuthContext: User requested GPS location");
-
-        // Show loading state
-        setSelectedLocation({
-          name: "Getting your location...",
-          city: "detecting",
-          type: LOCATION_TYPE_GPS
-        });
-
-        try {
-          const gpsLoc = await detectGpsLocation();
-          setGpsLocation(gpsLoc);
-          finalLocation = gpsLoc;
-          toast.success("Location updated to your current position!");
-        } catch (error) {
-          console.error("AuthContext: GPS location failed:", error);
-          toast.error(error.message);
-
-          // Fallback to IP location if available
-          if (ipLocation) {
-            finalLocation = ipLocation;
-            toast.info("Using approximate location instead.");
-          } else {
-            // Keep current selection
-            return;
-          }
-        }
-      } else {
-        // Manual location selection
-        toast.success(`Location set to ${locationObj.name}!`);
-      }
-
-      // Save user preference
-      localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(finalLocation));
-      setUserPreferredLocation(finalLocation);
-      setSelectedLocation(finalLocation);
-
-      console.log("AuthContext: Location updated to:", finalLocation.name);
-    } catch (error) {
-      console.error("AuthContext: Failed to update location:", error);
-      toast.error("Failed to update location. Please try again.");
-    }
-  }, [detectGpsLocation, ipLocation, USER_LOCATION_KEY, LOCATION_TYPE_GPS]);
-
-  // Improved product fetching
-  const fetchAllProducts = useCallback(async (location) => {
-    if (!location || !location.city) {
-      console.log("AuthContext: Invalid location for product fetch");
-      setProducts([]);
-      setProductsLoading(false);
-      return;
-    }
-
-    setProductsLoading(true);
-    setProductsError(null);
-
-    try {
-      let apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
-      const params = {};
-
-      // Use coordinates for GPS locations
-      if (location.type === LOCATION_TYPE_GPS && location.lat && location.lng) {
-        apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby`;
-        params.lat = location.lat;
-        params.lng = location.lng;
-        params.distance = 10; // 10km radius
-        console.log("AuthContext: Fetching nearby products");
-      } else {
-        // Use city-based search
-        params.city = location.city;
-        console.log("AuthContext: Fetching products for city:", location.city);
-      }
-
-      const response = await axios.get(apiUrl, { params });
-
-      if (response.data?.status === "success" && Array.isArray(response.data?.data?.products)) {
-        setProducts(response.data.data.products);
-        console.log("AuthContext: Products fetched:", response.data.data.products.length);
-
-        if (response.data.data.products.length === 0) {
-          toast.info("No products found in this area. Try selecting a different location.");
-        }
-      } else {
-        setProducts([]);
-        toast.info("No products found in this area.");
-      }
-    } catch (error) {
-      console.error("AuthContext: Error fetching products:", error);
-      setProductsError(error.message);
-      toast.error("Failed to load products. Please try again.");
-      setProducts([]);
-    } finally {
-      setProductsLoading(false);
-    }
-  }, [LOCATION_TYPE_GPS]);
-
-  // Auth functions (keeping existing implementation)
-  // Renamed 'token' parameter to 'jwtToken' for consistency
-  const updateAuthLocalStorageAndState = useCallback((jwtToken, user, role) => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminInfo");
-    localStorage.removeItem("vendorToken");
-    localStorage.removeItem("vendorInfo");
+  // Auth Methods
+  const updateAuthLocalStorageAndState = useCallback((jwtToken, user) => {
+    localStorage.removeItem("jwtToken");
+    localStorage.removeItem("currentUser");
 
     if (jwtToken && user) {
-      localStorage.setItem("jwtToken", jwtToken); // Saves to "jwtToken"
+      localStorage.setItem("jwtToken", jwtToken);
       localStorage.setItem("currentUser", JSON.stringify(user));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${jwtToken}`;
-      setAuth({ user, jwtToken, isAuthLoading: false, authError: null }); // Updates state with 'jwtToken'
+      axios.defaults.headers.common["Authorization"] = `Bearer ${jwtToken}`;
+      setAuth({ user, jwtToken, isAuthLoading: false, authError: null });
     } else {
-      localStorage.removeItem("jwtToken");
-      localStorage.removeItem("currentUser");
-      delete axios.defaults.headers.common['Authorization'];
+      delete axios.defaults.headers.common["Authorization"];
       setAuth({ user: null, jwtToken: null, isAuthLoading: false, authError: null });
     }
   }, []);
 
-  const logoutRef = useRef(null);
-
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    setAuth((prev) => ({ ...prev, isAuthLoading: true }));
     try {
-      updateAuthLocalStorageAndState(null, null, null);
-      localStorage.removeItem(USER_LOCATION_KEY);
-      localStorage.removeItem(CART_STORAGE_KEY);
-
-      setSelectedLocation(null);
-      setProducts([]);
-      setCartItems([]);
-      setUserPreferredLocation(null);
-      setGpsLocation(null);
-
-      toast.info("Logged out successfully!");
-      // Do NOT navigate here — do it where this function is called
-    } catch (e) {
-      console.error("AuthContext: Error during logout:", e);
-      toast.error("An error occurred during logout.");
+      updateAuthLocalStorageAndState(null, null);
+      clearCart();
+      setWishlistItems([]); // Clear wishlist on logout (frontend state)
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to log out. Please try again.");
+    } finally {
+      setAuth((prev) => ({ ...prev, isAuthLoading: false }));
     }
-  }, [USER_LOCATION_KEY, CART_STORAGE_KEY, updateAuthLocalStorageAndState]);
+  }, [updateAuthLocalStorageAndState, clearCart]);
 
-
-  useEffect(() => {
-    logoutRef.current = logout;
-  }, [logout]);
-
-  // Auth axios instance (keeping existing implementation)
+  // Axios Instance with Interceptors
   const authAxios = useMemo(() => {
     const instance = axios.create({
       baseURL: import.meta.env.VITE_API_URL,
       withCredentials: true,
     });
 
-    instance.interceptors.request.use(
-      (config) => {
-        const activeJwtToken = localStorage.getItem("jwtToken"); // Uses 'jwtToken'
-        if (activeJwtToken) {
-          config.headers.Authorization = `Bearer ${activeJwtToken}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
+    instance.interceptors.request.use((config) => {
+      const token = localStorage.getItem("jwtToken");
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+      return config;
+    });
 
     instance.interceptors.response.use(
       (response) => response,
-      async (error) => {
+      (error) => {
         if (error.response?.status === 401) {
-          if (
-            !window.location.pathname.includes("/login") &&
-            !window.location.pathname.includes("/register") &&
-            !window.location.pathname.includes("/admin/login") &&
-            !window.location.pathname.includes("/vendor/login")
-          ) {
-            logoutRef.current();
-            toast.error("Your session has expired. Please log in again.");
-          }
+          logout(); // Auto-logout on 401
         }
         return Promise.reject(error);
       }
     );
+
     return instance;
-  }, []);
-
-  // Auth methods (keeping existing implementation)
-  const register = useCallback(async (userData) => {
-    setAuth((prev) => ({ ...prev, isAuthLoading: true, authError: null }));
-    try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register`, userData);
-      const { token, user, message } = response.data;
-      if (token && user) {
-        updateAuthLocalStorageAndState(token, user, user.role); // Passes 'token' to the update function
-        toast.success("Registration successful!");
-        return { success: true, message: "Registration successful!", user: user, jwtToken: token }; // Returns 'jwtToken'
-      } else {
-        const errorMessage = message || "Registration failed: Missing token or user data in response.";
-        setAuth((prev) => ({ ...prev, authError: errorMessage }));
-        toast.error(errorMessage);
-        return { success: false, message: errorMessage };
-      }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || "Registration failed.";
-      setAuth((prev) => ({ ...prev, authError: errorMessage }));
-      toast.error(errorMessage);
-      return { success: false, message: errorMessage };
-    } finally {
-      setAuth((prev) => ({ ...prev, isAuthLoading: false }));
-    }
-  }, [updateAuthLocalStorageAndState]);
-
-  const login = useCallback(async (credentials) => {
-    setAuth((prev) => ({ ...prev, isAuthLoading: true, authError: null }));
-    try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, credentials, {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      });
-      const { success, token, user, message } = response.data;
-      if (success && token && user) {
-        updateAuthLocalStorageAndState(token, user, user.role); // Passes 'token' to the update function
-        toast.success("Login successful!");
-        return { success: true, user };
-      } else {
-        const errorMessage = message || "Login failed.";
-        setAuth((prev) => ({ ...prev, authError: errorMessage }));
-        toast.error(errorMessage);
-        return { success: false, message: errorMessage };
-      }
-    } catch (err) {
-      let errorMessage = "Login failed. Please try again.";
-      if (err.response) {
-        errorMessage = err.response.data.message || `Server error: ${err.response.status}`;
-      } else if (err.request) {
-        errorMessage = "Network error. Please check your connection.";
-      }
-      setAuth((prev) => ({ ...prev, authError: errorMessage }));
-      toast.error(errorMessage);
-      return { success: false, message: errorMessage };
-    } finally {
-      setAuth((prev) => ({ ...prev, isAuthLoading: false }));
-    }
-  }, [updateAuthLocalStorageAndState]);
-
-  const adminLogin = useCallback(async (credentials) => {
-    setAuth((prev) => ({ ...prev, isAuthLoading: true, authError: null }));
-    try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/login`, credentials, {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      });
-      const { success, token, user, message } = response.data;
-      if (success && token && user) {
-        updateAuthLocalStorageAndState(token, user, user.role); // Passes 'token' to the update function
-        toast.success("Admin Login successful!");
-        return { success: true, admin: user };
-      } else {
-        const errorMessage = message || "Admin login failed.";
-        setAuth((prev) => ({ ...prev, authError: errorMessage }));
-        toast.error(errorMessage);
-        return { success: false, message: errorMessage };
-      }
-    } catch (err) {
-      let errorMessage = "Admin login failed. Please try again.";
-      if (err.response) {
-        errorMessage = err.response.data.message || `Server error: ${err.response.status}`;
-      } else if (err.request) {
-        errorMessage = "Network error. Please check your connection.";
-      }
-      setAuth((prev) => ({ ...prev, authError: errorMessage }));
-      toast.error(errorMessage);
-      return { success: false, message: errorMessage };
-    } finally {
-      setAuth((prev) => ({ ...prev, isAuthLoading: false }));
-    }
-  }, [updateAuthLocalStorageAndState]);
-
-  const vendorLogin = useCallback(async (credentials) => {
-    setAuth((prev) => ({ ...prev, isAuthLoading: true, authError: null }));
-    try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/vendor/login`, credentials, {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      });
-      const { token, user, message } = response.data;
-      if (token && user) {
-        updateAuthLocalStorageAndState(token, user, user.role); // Passes 'token' to the update function
-        toast.success("Vendor Login successful!");
-        return { success: true, vendor: user, message: message || "Vendor Login successful!" };
-      } else {
-        const errorMessage = message || "Vendor login failed: Missing token or user data in response.";
-        setAuth((prev) => ({ ...prev, authError: errorMessage }));
-        toast.error(errorMessage);
-        return { success: false, message: errorMessage };
-      }
-    } catch (err) {
-      let errorMessage = "Vendor login failed. Please try again.";
-      if (err.response) {
-        errorMessage = err.response.data.message || `Server error: ${err.response.status}`;
-      } else if (err.request) {
-        errorMessage = "Network error. Please check your connection.";
-      }
-      setAuth((prev) => ({ ...prev, authError: errorMessage }));
-      toast.error(errorMessage);
-      return { success: false, message: errorMessage };
-    } finally {
-      setAuth((prev) => ({ ...prev, isAuthLoading: false }));
-    }
-  }, [updateAuthLocalStorageAndState]);
-
-  const vendorRegister = useCallback(async (userData) => {
-    setAuth((prev) => ({ ...prev, isAuthLoading: true, authError: null }));
-    try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/vendor/register`, userData);
-      const { token, user, message } = response.data;
-      if (token && user) {
-        updateAuthLocalStorageAndState(token, user, user.role); // Passes 'token' to the update function
-        return { success: true, message: message || "Vendor account created successfully!", user: user, jwtToken: token }; // Returns 'jwtToken'
-      } else {
-        const errorMessage = message || "Vendor registration failed: Missing token or user data in response.";
-        setAuth((prev) => ({ ...prev, authError: errorMessage }));
-        toast.error(errorMessage);
-        return { success: false, message: errorMessage };
-      }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || "Vendor registration failed.";
-      setAuth((prev) => ({ ...prev, authError: errorMessage }));
-      toast.error(errorMessage);
-      return { success: false, message: errorMessage };
-    } finally {
-      setAuth((prev) => ({ ...prev, isAuthLoading: false }));
-    }
-  }, [updateAuthLocalStorageAndState]);
-
-  const adminSignOut = useCallback(() => {
-    logout();
-    toast.info("Admin logged out.");
   }, [logout]);
 
-  const vendorSignOut = useCallback(() => {
-    logout();
-    toast.info("Vendor logged out.");
-  }, [logout]);
-
-  // Initialize auth from storage
-  // This useEffect with an empty dependency array is crucial for initial load
-  useEffect(() => {
-    const initializeAuthFromStorage = () => {
-      let storedUser = null;
-      let storedJwtToken = null;
+  // Auth Operations
+  const register = useCallback(
+    async (userData) => {
+      setAuth((prev) => ({ ...prev, isAuthLoading: true }));
       try {
-        const rawCurrentUser = localStorage.getItem("currentUser");
-        const rawJwtToken = localStorage.getItem("jwtToken");
+        const res = await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/auth/register`,
+          userData
+        );
+        const { token, user, message } = res.data;
 
-        if (rawCurrentUser) {
-          storedUser = JSON.parse(rawCurrentUser);
+        if (token && user) {
+          updateAuthLocalStorageAndState(token, user);
+          toast.success(message || "Registration successful");
+          return { success: true, message: message || "Registration successful" };
         }
-        storedJwtToken = rawJwtToken;
-
-        if (storedJwtToken) {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${storedJwtToken}`;
-        } else {
-          delete axios.defaults.headers.common['Authorization'];
-        }
-      } catch (e) {
-        console.error("AuthContext: Error parsing auth data from localStorage:", e);
-        localStorage.removeItem("currentUser");
-        localStorage.removeItem("jwtToken");
-        storedUser = null; storedJwtToken = null;
+        throw new Error(message || "Registration failed");
+      } catch (err) {
+        const message = err.response?.data?.message || err.message;
+        setAuth((prev) => ({ ...prev, authError: message }));
+        toast.error(message);
+        return { success: false, message };
+      } finally {
+        setAuth((prev) => ({ ...prev, isAuthLoading: false }));
       }
-
-      setAuth({
-        user: storedUser,
-        jwtToken: storedJwtToken,
-        isAuthLoading: false, // Mark as not loading after initial check
-        authError: null,
-      });
-    };
-
-    initializeAuthFromStorage();
-  }, []); // Run only once on mount
-
-  // Initialize location on mount
-  useEffect(() => {
-    initializeLocation();
-  }, [initializeLocation]);
-
-  // Fetch products when location changes
-  useEffect(() => {
-    if (selectedLocation && !locationsLoading) {
-      fetchAllProducts(selectedLocation);
-    }
-  }, [selectedLocation, locationsLoading, fetchAllProducts]);
-
-  // Context value object
-  const contextValue = useMemo(() => ({
-    // Auth state - Directly expose properties for easier consumption
-    user: auth.user,
-    jwtToken: auth.jwtToken,
-    isAuthLoading: auth.isAuthLoading,
-    authError: auth.authError,
-    currentRole,
-    isLoggedIn,
-    isAdmin,
-    isSeller,
-
-    // Auth methods
-    register,
-    login,
-    adminLogin,
-    vendorLogin,
-    vendorRegister,
-    logout,
-    adminSignOut,
-    vendorSignOut,
-    authAxios,
-
-    // Location state
-    selectedLocation,
-    availableLocations,
-    locationsLoading,
-    ipLocation,
-    gpsLocation,
-    userPreferredLocation,
-
-    // Location methods
-    updateUserLocation,
-    initializeLocation,
-    detectGpsLocation,
-    detectIpLocation,
-
-    // Products state
-    products,
-    productsLoading,
-    productsError,
-
-    // Products methods
-    fetchAllProducts,
-
-    // Cart state
-    cartItems,
-
-    // Cart methods
-    addToCart,
-    updateCartItemQuantity,
-    removeFromCart,
-    clearCart,
-    getCartTotal,
-
-    // UI state
-    isOpen,
-    setIsOpen,
-
-    // Constants
-    LOCATION_TYPE_IP,
-    LOCATION_TYPE_GPS,
-    LOCATION_TYPE_MANUAL,
-    LOCATION_TYPE_DEFAULT,
-  }), [
-    // Auth state
-    auth.user,
-    auth.jwtToken,
-    auth.isAuthLoading,
-    auth.authError,
-    currentRole,
-    isLoggedIn,
-    isAdmin,
-    isSeller,
-
-    // Auth methods
-    register,
-    login,
-    adminLogin,
-    vendorLogin,
-    vendorRegister,
-    logout,
-    adminSignOut,
-    vendorSignOut,
-    authAxios, // authAxios is a useMemo, so it should be stable
-
-    // Location state
-    selectedLocation,
-    availableLocations,
-    locationsLoading,
-    ipLocation,
-    gpsLocation,
-    userPreferredLocation,
-
-    // Location methods
-    updateUserLocation,
-    initializeLocation,
-    detectGpsLocation,
-    detectIpLocation,
-
-    // Products state
-    products,
-    productsLoading,
-    productsError,
-
-    // Products methods
-    fetchAllProducts,
-
-    // Cart state
-    cartItems,
-
-    // Cart methods
-    addToCart,
-    updateCartItemQuantity,
-    removeFromCart,
-    clearCart,
-    getCartTotal,
-
-    // UI state
-    isOpen,
-    setIsOpen,
-
-    // Constants
-    LOCATION_TYPE_IP,
-    LOCATION_TYPE_GPS,
-    LOCATION_TYPE_MANUAL,
-    LOCATION_TYPE_DEFAULT,
-  ]);
-
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+    },
+    [updateAuthLocalStorageAndState]
   );
+
+  const login = useCallback(
+    async (credentials) => {
+      setAuth((prev) => ({ ...prev, isAuthLoading: true }));
+      try {
+        const res = await authAxios.post("/api/auth/login", credentials);
+        const { token, user, message } = res.data;
+
+        if (token && user) {
+          updateAuthLocalStorageAndState(token, user);
+          toast.success(message || "Login successful");
+          return { success: true, message: message || "Login successful" };
+        }
+        throw new Error(message || "Login failed");
+      } catch (err) {
+        const message = err.response?.data?.message || err.message;
+        setAuth((prev) => ({ ...prev, authError: message }));
+        toast.error(message);
+        return { success: false, message };
+      } finally {
+        setAuth((prev) => ({ ...prev, isAuthLoading: false }));
+      }
+    },
+    [authAxios, updateAuthLocalStorageAndState]
+  );
+
+  // Wishlist Functions (Backend-driven)
+  const fetchWishlist = useCallback(async () => {
+    if (!isLoggedIn) {
+      setWishlistItems([]); // Clear wishlist if not logged in
+      return;
+    }
+    try {
+      const response = await authAxios.get('/api/wishlist'); // Your backend endpoint to get wishlist
+      if (response.data.status === 'success') {
+        // Assuming backend returns an array of wishlist items, each with product details
+        setWishlistItems(response.data.data.wishlist || []);
+      } else {
+        toast.error(response.data.message || "Failed to fetch wishlist.");
+        setWishlistItems([]);
+      }
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      toast.error("Failed to load wishlist items.");
+      setWishlistItems([]);
+    }
+  }, [isLoggedIn, authAxios]);
+
+  const addToWishlist = useCallback(async (product) => {
+    if (!isLoggedIn) {
+      toast.error("Please log in to add items to your wishlist.");
+      return false;
+    }
+    if (!product || !product._id) {
+      toast.error("Invalid product details for wishlist operation.");
+      return false;
+    }
+
+    try {
+      const response = await authAxios.post('/api/wishlist/add', { productId: product._id });
+      if (response.data.status === 'success') {
+        fetchWishlist(); // Re-fetch to ensure consistency with backend
+        toast.success(response.data.message || `${product.name} added to wishlist!`);
+        return true;
+      } else {
+        toast.error(response.data.message || `Failed to add ${product.name} to wishlist.`);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error adding to wishlist:", error);
+      const errorMessage = error.response?.data?.message || error.message || `An unexpected error occurred while adding ${product.name} to wishlist.`;
+      toast.error(errorMessage);
+      return false;
+    }
+  }, [isLoggedIn, authAxios, fetchWishlist]);
+
+  const removeFromWishlist = useCallback(async (productId, productName = "Item") => {
+    if (!isLoggedIn) {
+      toast.error("Please log in to manage your wishlist.");
+      return false;
+    }
+
+    try {
+      const response = await authAxios.delete(`/api/wishlist/remove/${productId}`);
+      if (response.data.status === 'success') {
+        fetchWishlist(); // Re-fetch to ensure consistency with backend
+        toast.info(response.data.message || `${productName} removed from wishlist.`);
+        return true;
+      } else {
+        toast.error(response.data.message || `Failed to remove ${productName} from wishlist.`);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error removing from wishlist:", error);
+      const errorMessage = error.response?.data?.message || error.message || `An unexpected error occurred while removing ${productName} from wishlist.`;
+      toast.error(errorMessage);
+      return false;
+    }
+  }, [isLoggedIn, authAxios, fetchWishlist]);
+
+  const clearWishlist = useCallback(async () => {
+    if (!isLoggedIn) {
+      toast.error("Please log in to clear your wishlist.");
+      return false;
+    }
+    if (wishlistItems.length === 0) {
+      toast.info("Your wishlist is already empty.");
+      return true; // Already cleared
+    }
+
+    try {
+      const response = await authAxios.delete('/api/wishlist/clear');
+      if (response.data.status === 'success') {
+        setWishlistItems([]); // Clear local state immediately
+        toast.success(response.data.message || "Wishlist cleared successfully.");
+        return true;
+      } else {
+        toast.error(response.data.message || "Failed to clear wishlist.");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error clearing wishlist:", error);
+      const errorMessage = error.response?.data?.message || error.message || "An unexpected error occurred while clearing wishlist.";
+      toast.error(errorMessage);
+      return false;
+    }
+  }, [isLoggedIn, authAxios, wishlistItems.length]);
+
+
+  const isProductInWishlist = useCallback((productId) => {
+    // Check if any item in the wishlistItems array has a 'product' field (from populate)
+    // or 'productId' field (if denormalized) that matches the given productId.
+    // The backend model populates 'product' as an object, so we check product._id
+    return wishlistItems.some(item => item.product?._id?.toString() === productId?.toString() || item.productId?.toString() === productId?.toString());
+  }, [wishlistItems]);
+
+  // Fetch wishlist when user logs in or on initial load if already logged in
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchWishlist();
+    } else {
+      setWishlistItems([]); // Clear wishlist if user logs out
+    }
+  }, [isLoggedIn, fetchWishlist]);
+
+
+  // Context Value
+  const contextValue = useMemo(
+    () => ({
+      // Auth State
+      user: auth.user,
+      jwtToken: auth.jwtToken,
+      isAuthLoading: auth.isAuthLoading,
+      authError: auth.authError,
+      currentRole,
+      isLoggedIn,
+      isAdmin,
+      isSeller,
+
+      // Auth Methods
+      register,
+      login,
+      logout,
+      authAxios,
+
+      // Cart State
+      cartItems,
+
+      // Cart Methods
+      addToCart,
+      upsertCartItem,
+      updateCartItemQuantity,
+      removeFromCart,
+      clearCart,
+      getCartTotal,
+
+      // Wishlist State & Methods
+      wishlistItems,
+      addToWishlist,
+      removeFromWishlist,
+      isProductInWishlist,
+      clearWishlist, // Expose clear wishlist function
+
+      // UI State
+      isOpen,
+      setIsOpen,
+    }),
+    [
+      auth,
+      currentRole,
+      isLoggedIn,
+      isAdmin,
+      isSeller,
+      register,
+      login,
+      logout,
+      authAxios,
+      cartItems,
+      addToCart,
+      upsertCartItem,
+      updateCartItemQuantity,
+      removeFromCart,
+      clearCart,
+      getCartTotal,
+      wishlistItems,
+      addToWishlist,
+      removeFromWishlist,
+      isProductInWishlist,
+      clearWishlist,
+      isOpen,
+    ]
+  );
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 
 export default AuthProvider;
