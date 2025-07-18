@@ -199,7 +199,7 @@ const CartPage = () => {
                 </div>
 
                 <div className="px-6 py-4 bg-gray-50 flex justify-between items-center">
-                  <Link to={"/"}>
+                  <Link to={"/shopping"}>
                     <button className="flex items-center text-green-600 font-medium text-sm hover:underline">
                       <ArrowLeft size={16} className="mr-1" />
                       Continue Shopping
