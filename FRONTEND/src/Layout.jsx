@@ -10,6 +10,7 @@ import ChatbotToggle from './components/ChatBotToggle/ChatBotToggle'
 import VendorChatbotToggle from "./components/VendorChatbotToggle/VendorChatbotToggle";
 import ScrollToTop from "./components/ScrollToTop/ScrollToTop";
 import { useEffect } from "react"; // Import useEffect
+import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 
 const Layout = () => {
   const { isAuthLoading, currentRole, isLoggedIn } = useAuth();
@@ -61,7 +62,7 @@ const Layout = () => {
             <div className="top-0 right-0 left-0">
               <AdminTopbar />
             </div>
-            <main className="flex-1 overflow-auto pt-16 p-1 md:p-2 lg:p-2 bg-gray-50">
+            <main className="flex-1 overflow-auto p-1 md:p-2 lg:p-2 bg-gray-50">
               <Outlet />
             </main>
           </div>
@@ -91,8 +92,11 @@ const Layout = () => {
   <div className="min-h-screen flex flex-col">
     <ScrollToTop />
     <Header /> {/* This should be fixed positioned */}
-    <main className="flex-1 pt-16 lg:md:p-4"> {/* flex-1 for proper footer placement */}
+    
+    <main className="flex-1 lg:pt-16 lg:md:p-4"> 
+      <ErrorBoundary>
       <Outlet />
+      </ErrorBoundary>
     </main>
     <Footer />
     <ChatbotToggle />

@@ -54,10 +54,9 @@ import RoleBasedRoute from "./components/RoleBasedRoute/RoleBasedRoute.jsx";
 import VendorOrderPage from "./components/VendorOrder/VendorOrder.jsx";
 import AdminVendorsPage from "./components/VendorListPage/VendorListPage.jsx";
 import Landing from "./components/Landing/Landing.jsx";
-import VendorApplicationPage from './components/VendorApplicationPage/VendorApplicationPage.jsx'
-
-// Define your router object
-// Your routes are already correctly defined here.
+import VendorApplicationPage from "./components/VendorApplicationPage/VendorApplicationPage.jsx";
+import { LocationProvider } from "./LocationContext/LocationContext.jsx";
+import WishlistPage from "./components/WishList/WishList.jsx";
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<Layout />}>
@@ -69,12 +68,16 @@ const router = createBrowserRouter(
       <Route path="product-info/:productId" element={<ProductCardPage />} />
       <Route path="contact-us" element={<ContactUs />} />
       <Route path="about-us" element={<AboutUsPage />} />
+      
 
       {/* Auth Routes */}
       <Route path="vendor/login" element={<VendorLogin />} />
       <Route path="vendor/register" element={<VendorRegister />} />
       <Route path="admin/login" element={<AdminLogin />} />
-      <Route path="vendor/application/form" element={<VendorApplicationPage />} />
+      <Route
+        path="vendor/application/form"
+        element={<VendorApplicationPage />}
+      />
 
       {/* Customer Protected Routes */}
       <Route
@@ -91,8 +94,9 @@ const router = createBrowserRouter(
         <Route path="profile" element={<UserProfile />} />
         <Route path="rewards" element={<Reward />} />
         <Route path="orders" element={<Orders />} />
-        <Route path="landing" element={<Landing/>}/>
+        <Route path="landing" element={<Landing />} />
         <Route path="orders/:orderId" element={<OrderedItemsPage />} />
+        <Route path="wishlist" element={<WishlistPage/>}/>
       </Route>
 
       {/* Vendor Protected Routes */}
@@ -129,7 +133,7 @@ const router = createBrowserRouter(
           <Route path="users" element={<UserManagement />} />
           <Route path="users/edit/:id" element={<UserDetailPage />} />
           <Route path="products" element={<AdminProducts />} />
-          <Route path="vendors" element={<AdminVendorsPage/>}/>
+          <Route path="vendors" element={<AdminVendorsPage />} />
           <Route path="products/new" element={<AddProductPage />} />
           <Route path="products/edit/:id" element={<EditProductPage />} />
           <Route path="products/view/:id" element={<ProductViewPage />} />
@@ -149,26 +153,26 @@ function MainApp() {
   return (
     <StrictMode>
       <HelmetProvider>
-        <AuthProvider> {/* ✅ AuthProvider wraps RouterProvider */}
-          <RouterProvider router={router} />
-          <ToastContainer
-            position="top-center"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-          />
-          {/* <ScrollToTop /> */}
-        </AuthProvider>
+        <LocationProvider>
+          <AuthProvider>
+            <RouterProvider router={router} />
+            <ToastContainer
+              position="top-center"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
+          </AuthProvider>
+        </LocationProvider>
       </HelmetProvider>
     </StrictMode>
   );
 }
-
 
 // Render the MainApp
 createRoot(document.getElementById("root")).render(<MainApp />);
