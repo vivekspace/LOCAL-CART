@@ -40,7 +40,7 @@ const productSchema = new mongoose.Schema({
   },
   seller: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor', // Ensure 'Vendor' matches your actual Vendor model name
+    ref: 'User', // Ensure 'Vendor' matches your actual Vendor model name
     required: [true, 'Product must belong to a vendor']
   },
   images: [{
