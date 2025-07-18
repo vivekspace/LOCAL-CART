@@ -142,8 +142,7 @@ exports.createOrder = async (req, res) => {
     }
 
     try {
-        // Redundant check, but harmless if middleware handles it
-        if (!req.user) { 
+        if (!req.user) {
             return res.status(401).json({
                 success: false,
                 message: "Not authorized - please login"
@@ -159,27 +158,39 @@ exports.createOrder = async (req, res) => {
             });
         }
 
+        console.log('Order Controller: Incoming cartItems:', JSON.stringify(cartItems, null, 2)); // ADD THIS LINE
+
         const enrichedCartItems = await Promise.all(
             cartItems.map(async (item) => {
                 try {
+                    console.log(`--- Processing cart item with productId: ${item.productId} ---`); // ADD THIS LINE
                     if (item.productId) {
-                        const Product = require('../models/Product'); // Ensure Product model is required locally or globally
                         const product = await Product.findById(item.productId);
 
+                        console.log(`Fetched product for ${item.productId}:`, JSON.stringify(product, null, 2)); // ADD THIS LINE
+                        console.log(`Seller from fetched product for ${item.productId}:`, product ? product.seller : 'N/A - product not found or seller missing'); // ADD THIS LINE
+
                         if (product && product.seller) {
+                            console.log(`SUCCESS: Found seller ${product.seller} for product: ${product.name}`); // ADD THIS LINE
                             return {
                                 ...item,
                                 seller: product.seller // Add seller from product
                             };
+                        } else {
+                            console.warn(`WARNING: Product ${item.productId} found but seller is missing or null. Product object:`, JSON.stringify(product, null, 2)); // ADD THIS LINE
+                            return item; // If seller is missing, return item as is (will lead to error later)
                         }
                     }
-                    return item; // If no productId or product not found, return item as is
+                    console.warn(`WARNING: Cart item ${item.name || 'Unknown'} has no productId.`); // ADD THIS LINE
+                    return item; // If no productId, return item as is
                 } catch (error) {
-                    console.error(`Error fetching product ${item.productId}:`, error);
+                    console.error(`ERROR: Exception while fetching product ${item.productId}:`, error); // ADD THIS LINE
                     return item;
                 }
             })
         );
+
+        console.log('Order Controller: Enriched cart items:', JSON.stringify(enrichedCartItems, null, 2)); // ADD THIS LINE
 
         const subtotal = enrichedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const tax = subtotal * 0.08;
@@ -195,13 +206,17 @@ exports.createOrder = async (req, res) => {
                 sellerId = item.seller;
             }
 
+            console.log(`--- Normalizing item ${item.name || 'Unknown Item'}. Initial sellerId:`, sellerId); // ADD THIS LINE
+
             let finalSellerId = null;
             if (sellerId && typeof sellerId === 'string' && mongoose.Types.ObjectId.isValid(sellerId)) {
                 finalSellerId = new mongoose.Types.ObjectId(sellerId);
             } else if (sellerId && typeof sellerId === 'object' && sellerId instanceof mongoose.Types.ObjectId) {
                 finalSellerId = sellerId;
+                console.log(`Seller ID is already ObjectId instance: ${finalSellerId}`); // ADD THIS LINE
             } else {
-                console.error(`Invalid or missing seller ID for cart item: ${item.name || 'Unknown Item'}. Received sellerId:`, sellerId);
+                // This is the error-throwing block. Add more context here.
+                console.error(`!!! ERROR TRIGGERED: Invalid or missing seller ID for cart item: ${item.name || 'Unknown Item'}. Received sellerId:`, sellerId, `Type:`, typeof sellerId); // ADD THIS LINE
                 throw new Error(`Missing or invalid seller ID for product: ${item.name || 'an item in your cart'}`);
             }
             return {
@@ -376,7 +391,7 @@ async function sendVendorEmail(to, { orderId, items, customer, paymentMethod, sh
 exports.getVendorOrders = async (req, res) => {
     try {
         // --- FIX START: Use req.user._id for authenticated vendor ---
-        const vendorId = req.user._id; 
+        const vendorId = req.user._id;
         // --- FIX END ---
 
         const orders = await Order.find({ 'cartItems.seller': vendorId })
@@ -599,7 +614,7 @@ exports.updateOrderStatus = async (req, res) => {
         const { status } = req.body;
         const { orderId } = req.params;
         // --- FIX START: Use req.user._id for authenticated vendor ---
-        const vendorId = req.user._id; 
+        const vendorId = req.user._id;
         // --- FIX END ---
 
         const validStatuses = ['pending', 'processing', 'completed', 'failed', 'shipped', 'cancelled'];
@@ -672,10 +687,7 @@ exports.updateOrderStatus = async (req, res) => {
 
 exports.getAllOrders = async (req, res) => {
     try {
-        // IMPORTANT: In a real application, this endpoint should be protected by
-        // an admin-specific authentication/authorization middleware.
-        // For example: `router.get('/', protect, authorize('admin'), orderController.getAllOrders);`
-        // I'm assuming such a middleware would be applied to the route where this is used.
+
         console.log('Fetching all orders for admin view...');
 
         const orders = await Order.find({})

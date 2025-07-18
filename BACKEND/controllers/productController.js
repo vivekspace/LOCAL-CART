@@ -3,11 +3,10 @@ const mongoose = require('mongoose'); // Import mongoose for ObjectId validation
 const sharp = require('sharp'); // Import sharp
 const path = require('path'); // Import path for joining directories
 const fs = require('fs'); // Import fs for file system operations (e.g., deleting old files)
-const UniqueLocation = require('../models/uniqueLocation'); 
+const UniqueLocation = require('../models/uniqueLocation');
 
 // Assume DEFAULT_PRODUCT_IMAGE is defined somewhere, e.g., in a config file or constants.
-// For example:
-const DEFAULT_PRODUCT_IMAGE = 'default-product.webp'; 
+const DEFAULT_PRODUCT_IMAGE = 'default-product.webp';
 
 // Helper function for sending consistent error responses
 const sendErrorResponse = (res, statusCode, status, message, error = null) => {
@@ -24,31 +23,34 @@ exports.getAllProducts = async (req, res) => {
     const queryObj = { ...req.query };
 
     // Define fields that are *not* direct Mongoose query fields but are for control (pagination, sorting)
-    // or are handled separately (like 'city', 'category', 'exclude')
-    const excludedControlFields = ['page', 'sort', 'limit', 'fields', 'city', 'category', 'exclude'];
+    // or are handled separately (like 'location', 'category', 'exclude')
+    // Changed 'city' to 'location' here as frontend sends 'location'
+    const excludedControlFields = ['page', 'sort', 'limit', 'fields', 'location', 'category', 'exclude'];
 
     // Create a base filter object for Mongoose to build the query
     const filter = {};
 
     // --- Apply specific filters from query parameters ---
 
-    // 1. City Filtering
-    if (req.query.city) {
-        // Target the nested 'location.city' field
-        // Use a case-insensitive regex for robust matching (e.g., "kolkata" matches "Kolkata")
-        filter['location.city'] = { $regex: new RegExp(`^${req.query.city}$`, 'i') };
+    // 1. Location Filtering (using req.query.location)
+    if (req.query.location && req.query.location.toLowerCase() !== "default" && req.query.location.toLowerCase() !== "current_location") {
+        const cityParam = req.query.location; // Get the city name from the 'location' query parameter
+        // Use a regex that matches the city name, case-insensitive, without strict start/end anchors.
+        // This will match "Navi Mumbai" in DB if param is "navi mumbai".
+        // It's more forgiving for minor variations or extra spaces (though trim() on frontend is good).
+        filter['location.city'] = { $regex: new RegExp(cityParam, 'i') };
     }
 
     // 2. Category Filtering
     if (req.query.category && req.query.category.toLowerCase() !== 'all') {
-        // Use a case-insensitive regex for category matching
-        filter.category = { $regex: new RegExp(req.query.category, 'i') };
+      // Use a case-insensitive regex for category matching
+      filter.category = { $regex: new RegExp(req.query.category, 'i') };
     }
 
     // 3. Exclude Product by ID (useful for "related products" to exclude the current one)
     if (req.query.exclude) {
-        // Mongoose $ne operator means "not equal"
-        filter._id = { $ne: req.query.exclude };
+      // Mongoose $ne operator means "not equal"
+      filter._id = { $ne: req.query.exclude };
     }
     // --- End: Apply specific filters ---
 
@@ -85,7 +87,8 @@ exports.getAllProducts = async (req, res) => {
     } else {
       // Default fields to return. Ensure 'location' (which includes 'city') is present
       // if you need to display or use location data on the frontend for each product.
-      query = query.select('name price category images description seller location');
+      // MODIFICATION: Explicitly include 'stock' in the default selection
+      query = query.select('name price category images description seller location stock');
     }
 
     // 6. Pagination
@@ -105,9 +108,7 @@ exports.getAllProducts = async (req, res) => {
       status: 'success',
       results: products.length, // Number of products returned in the current page
       total: totalProducts,     // Total number of products matching the filters (across all pages)
-      data: {
-        products
-      }
+      data: { products } // <-- CRITICAL FIX: Nest products array inside 'data' object
     });
   } catch (err) {
     // Centralized error handling
@@ -115,10 +116,9 @@ exports.getAllProducts = async (req, res) => {
   }
 };
 
-// Enhanced with input validation and duplicate checking
 exports.createProduct = async (req, res) => {
     try {
-              console.time('Product Creation Total'); // Start total timer
+        console.time('Product Creation Total'); // Start total timer
 
         // 1. Basic validation (required fields) - KEEP AS IS
         if (!req.body.name || !req.body.price || !req.body.description || !req.body.category || !req.body.city || !req.body.location) {
@@ -140,12 +140,12 @@ exports.createProduct = async (req, res) => {
         }
 
         // --- MODIFIED: Use req.user instead of req.vendor for seller authentication ---
-                console.time('Auth & Duplicate Check');
+        console.time('Auth & Duplicate Check');
 
-        if (!req.user || !req.user.id) { 
+        if (!req.user || !req.user.id) {
             sendErrorResponse(res, 401, 'fail', 'Seller not authenticated or ID not provided.');
-                        console.timeEnd('Auth & Duplicate Check');
-                        return;
+            console.timeEnd('Auth & Duplicate Check');
+            return;
 
         }
 
@@ -156,7 +156,7 @@ exports.createProduct = async (req, res) => {
         });
 
         if (existingProduct) {
-             sendErrorResponse(res, 400, 'fail', 'You already have a product with this name');
+            sendErrorResponse(res, 400, 'fail', 'You already have a product with this name');
             console.timeEnd('Auth & Duplicate Check');
             return;
 
@@ -164,7 +164,7 @@ exports.createProduct = async (req, res) => {
 
         // --- NEW UNIQUE LOCATION LOGIC START ---
         // This ensures the city name associated with a new product is added to UniqueLocations
-                console.time('Unique Location Upsert');
+        console.time('Unique Location Upsert');
 
         const cityToStore = String(req.body.city).trim().toLowerCase(); // Normalize the city name
 
@@ -177,24 +177,22 @@ exports.createProduct = async (req, res) => {
                 );
                 // console.log(`Ensured unique location: '${cityToStore}'`); // Optional: for debugging
             } catch (err) {
-                // Handle potential duplicate key errors (code 11000) from race conditions
-                // or other MongoDB/Mongoose errors specifically for UniqueLocation
+
                 if (err.code === 11000) {
                     // This means another request already added it, which is fine.
                     console.warn(`City '${cityToStore}' was attempted to be added concurrently, but already exists.`);
                 } else {
                     console.error(`Error adding/updating unique location '${cityToStore}':`, err.message);
                 }
-                // IMPORTANT: Do NOT `return` here, as product creation should still proceed
-                // even if adding to UniqueLocation fails for non-critical reasons.
+
             }
         }
-                console.timeEnd('Unique Location Upsert');
+        console.timeEnd('Unique Location Upsert');
 
         // --- NEW UNIQUE LOCATION LOGIC END ---
 
         // --- NEW IMAGE PROCESSING LOGIC FOR createProduct - KEEP AS IS ---
-                console.time('Image Processing');
+        console.time('Image Processing');
 
         const processedImageNames = [];
         if (req.files && req.files.length > 0) {
@@ -213,11 +211,11 @@ exports.createProduct = async (req, res) => {
                 }
             }));
         }
-                console.timeEnd('Image Processing');
+        console.timeEnd('Image Processing');
 
 
         // Create product with processed images
-                console.time('Product DB Create');
+        console.time('Product DB Create');
 
         const productData = {
             ...req.body,
@@ -237,20 +235,20 @@ exports.createProduct = async (req, res) => {
         }
 
         const product = await Product.create(productData);
-                console.timeEnd('Product DB Create');
+        console.timeEnd('Product DB Create');
 
 
         res.status(201).json({
             status: 'success',
             data: { product }
         });
-                console.timeEnd('Product Creation Total'); // End total timer
+        console.timeEnd('Product Creation Total'); // End total timer
 
 
     } catch (err) {
        console.timeEnd('Product Creation Total');
-        // Your existing error handling - KEEP AS IS
-        if (err.code === 11000) {
+       // Your existing error handling - KEEP AS IS
+       if (err.code === 11000) {
             return sendErrorResponse(res, 400, 'fail', 'Product with this name already exists', err);
         }
         if (err.name === 'ValidationError') {
@@ -262,172 +260,194 @@ exports.createProduct = async (req, res) => {
 };
 
 exports.getProductById = async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return sendErrorResponse(res, 400, 'fail', 'Invalid Product ID format');
-    }
-    const product = await Product.findById(req.params.id).lean();
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return sendErrorResponse(res, 400, 'fail', 'Invalid Product ID format');
+        }
+const product = await Product.findById(req.params.id)
+            .populate({
+                path: 'reviews', // This links to the virtual 'reviews' field in your Product schema
+                populate: {
+                    path: 'user',  // This links to the 'user' field within each Review document
+                    select: 'name photo' // Selects specific fields from the User model
+                }
+            })
+            .lean();
+        if (!product) {
+            return sendErrorResponse(res, 404, 'fail', 'Product not found');
+        }
 
-    if (!product) {
-      return sendErrorResponse(res, 404, 'fail', 'Product not found');
+        res.status(200).json({
+            status: 'success',
+            data: {
+                product
+            }
+        });
+    } catch (err) {
+        sendErrorResponse(res, 500, 'error', 'Error fetching product by ID', err);
     }
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        product
-      }
-    });
-  } catch (err) {
-    sendErrorResponse(res, 500, 'error', 'Error fetching product by ID', err);
-  }
 };
 
 
 // PATCH /api/products/:id
 exports.updateProduct = async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return sendErrorResponse(res, 400, 'fail', 'Invalid Product ID format');
-    }
-
-    // Handle location parsing and validation if it's being updated
-    if (req.body.location) {
-      let parsedLocation = req.body.location;
-      if (typeof parsedLocation === 'string') {
-        try {
-          parsedLocation = JSON.parse(req.body.location);
-        } catch (err) {
-          return sendErrorResponse(res, 400, 'fail', 'Invalid location format (must be valid JSON string)');
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return sendErrorResponse(res, 400, 'fail', 'Invalid Product ID format');
         }
-      }
 
-      if (!parsedLocation || typeof parsedLocation !== 'object' || parsedLocation.type !== 'Point' || !Array.isArray(parsedLocation.coordinates) || parsedLocation.coordinates.length !== 2 || typeof parsedLocation.coordinates[0] !== 'number' || typeof parsedLocation.coordinates[1] !== 'number') {
-        return sendErrorResponse(res, 400, 'fail', 'Invalid location data. Must be a GeoJSON Point object with "type":"Point" and "coordinates":[longitude, latitude] as numbers.');
-      }
-      req.body.location = parsedLocation; // Assign validated object back
-    }
+        // Handle location parsing and validation if it's being updated
+        if (req.body.location) {
+            let parsedLocation = req.body.location;
+            if (typeof parsedLocation === 'string') {
+                try {
+                    parsedLocation = JSON.parse(req.body.location);
+                } catch (err) {
+                    return sendErrorResponse(res, 400, 'fail', 'Invalid location format (must be valid JSON string)');
+                }
+            }
 
-    // MODIFIED: Add authorization check for updating product
-    const productToUpdate = await Product.findById(req.params.id);
-    if (!productToUpdate) {
-        return sendErrorResponse(res, 404, 'fail', 'Product not found for update');
-    }
-
-    // Ensure the user is either an admin or the actual seller of the product
-    if (req.user.role !== 'admin' && productToUpdate.seller.toString() !== req.user.id) {
-        return sendErrorResponse(res, 403, 'fail', 'You are not authorized to update this product.');
-    }
-
-    // --- NEW IMAGE PROCESSING LOGIC FOR updateProduct ---
-    let newImageNames = [];
-    if (req.files && req.files.length > 0) {
-      // Fetch the existing product to get current images (if replacing/appending)
-      // This part is already covered by productToUpdate above.
-
-      // Delete old images from disk if replacing
-      if (productToUpdate.images && productToUpdate.images.length > 0) {
-        await Promise.all(productToUpdate.images.map(oldFilename => {
-          const oldImagePath = path.join(__dirname, '../uploads', oldFilename);
-          return new Promise(resolve => {
-            fs.unlink(oldImagePath, (err) => {
-              if (err && err.code !== 'ENOENT') { // ENOENT means file not found, which is fine if it was already deleted
-                console.error(`Error deleting old image file ${oldFilename}:`, err);
-              }
-              resolve(); // Resolve anyway to not block the Promise.all
-            });
-          });
-        }));
-      }
-
-      await Promise.all(req.files.map(async (file, index) => {
-        const filename = `productImages-${Date.now()}-updated-${index}.webp`; // Unique name for updated images
-        const outputPath = path.join(__dirname, '../uploads', filename);
-
-        try {
-          await sharp(file.buffer)
-            .resize(800, 600, {
-              fit: sharp.fit.inside,
-              withoutEnlargement: true
-            })
-            .webp({ quality: 80 })
-            .toFile(outputPath);
-
-          newImageNames.push(filename);
-        } catch (sharpError) {
-          console.error(`Sharp image processing error for updated file ${file.originalname}:`, sharpError);
+            if (!parsedLocation || typeof parsedLocation !== 'object' || parsedLocation.type !== 'Point' || !Array.isArray(parsedLocation.coordinates) || parsedLocation.coordinates.length !== 2 || typeof parsedLocation.coordinates[0] !== 'number' || typeof parsedLocation.coordinates[1] !== 'number') {
+                return sendErrorResponse(res, 400, 'fail', 'Invalid location data. Must be a GeoJSON Point object with "type":"Point" and "coordinates":[longitude, latitude] as numbers.');
+            }
+            req.body.location = parsedLocation; // Assign validated object back
         }
-      }));
-      req.body.images = newImageNames; // Update images array in req.body
-    }
-    // --- END NEW IMAGE PROCESSING LOGIC ---
 
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-      new: true, // Return the modified document rather than the original
-      runValidators: true // Run Mongoose validators on update
-    }).lean();
+        // MODIFIED: Add authorization check for updating product
+        const productToUpdate = await Product.findById(req.params.id);
+        if (!productToUpdate) {
+            return sendErrorResponse(res, 404, 'fail', 'Product not found for update');
+        }
+
+        // --- Debugging logs (you can remove these after confirming the fix) ---
+        console.log('--- Authorization Check ---');
+        console.log('Product ID being updated:', req.params.id);
+        console.log('Product Seller ID (from DB):', productToUpdate.seller ? productToUpdate.seller.toString() : 'N/A');
+        console.log('Logged-in User ID (req.user.id):', req.user ? req.user.id : 'N/A (user not found)');
+        console.log('Logged-in User Role (req.user.role):', req.user ? req.user.role : 'N/A (user not found)');
+
+        // CRITICAL FIX: Ensure both IDs are converted to string for reliable comparison
+        const productSellerId = productToUpdate.seller ? productToUpdate.seller._id.toString() : null;
+        const loggedInUserId = req.user ? req.user.id : null;
+
+        console.log('Are stringified IDs matching?', productSellerId === loggedInUserId);
+        console.log('Is user admin?', req.user && req.user.role === 'admin');
+        console.log('---------------------------');
+        // --- End Debugging logs ---
 
 
-    res.status(200).json({
-      status: 'success',
-      data: {
-        product
-      }
-    });
-  } catch (err) {
-    if (err.code === 11000) { // MongoDB duplicate key error
-      return sendErrorResponse(res, 400, 'fail', 'Product with this name already exists', err);
+        // Ensure the user is either an admin or the actual seller of the product
+        // Use the stringified IDs for comparison
+        if (req.user.role !== 'admin' && productSellerId !== loggedInUserId) {
+            return sendErrorResponse(res, 403, 'fail', 'You are not authorized to update this product.');
+        }
+
+        // --- NEW IMAGE PROCESSING LOGIC FOR updateProduct ---
+        let newImageNames = [];
+        if (req.files && req.files.length > 0) {
+            // Delete old images from disk if replacing
+            if (productToUpdate.images && productToUpdate.images.length > 0) {
+                await Promise.all(productToUpdate.images.map(oldFilename => {
+                    const oldImagePath = path.join(__dirname, '../uploads', oldFilename);
+                    return new Promise(resolve => {
+                        fs.unlink(oldImagePath, (err) => {
+                            if (err && err.code !== 'ENOENT') { // ENOENT means file not found, which is fine if it was already deleted
+                                console.error(`Error deleting old image file ${oldFilename}:`, err);
+                            }
+                            resolve(); // Resolve anyway to not block the Promise.all
+                        });
+                    });
+                }));
+            }
+
+            await Promise.all(req.files.map(async (file, index) => {
+                const filename = `productImages-${Date.now()}-updated-${index}.webp`; // Unique name for updated images
+                const outputPath = path.join(__dirname, '../uploads', filename);
+
+                try {
+                    await sharp(file.buffer)
+                        .resize(800, 600, {
+                            fit: sharp.fit.inside,
+                            withoutEnlargement: true
+                        })
+                        .webp({ quality: 80 })
+                        .toFile(outputPath);
+
+                    newImageNames.push(filename);
+                } catch (sharpError) {
+                    console.error(`Sharp image processing error for updated file ${file.originalname}:`, sharpError);
+                }
+            }));
+            req.body.images = newImageNames; // Update images array in req.body
+        }
+        // --- END NEW IMAGE PROCESSING LOGIC ---
+
+        // MODIFICATION: Removed .lean() here to ensure the full document is returned after update.
+        const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+            new: true, // Return the modified document rather than the original
+            runValidators: true // Run Mongoose validators on update
+        });
+
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                product
+            }
+        });
+    } catch (err) {
+        if (err.code === 11000) { // MongoDB duplicate key error
+            return sendErrorResponse(res, 400, 'fail', 'Product with this name already exists', err);
+        }
+        if (err.name === 'ValidationError') {
+            const messages = Object.values(err.errors).map(el => el.message);
+            return sendErrorResponse(res, 400, 'fail', `Invalid input data: ${messages.join('. ')}`, err);
+        }
+        sendErrorResponse(res, 400, 'error', 'Failed to update product', err);
     }
-    if (err.name === 'ValidationError') {
-      const messages = Object.values(err.errors).map(el => el.message);
-      return sendErrorResponse(res, 400, 'fail', `Invalid input data: ${messages.join('. ')}`, err);
-    }
-    sendErrorResponse(res, 400, 'error', 'Failed to update product', err);
-  }
 };
-
 // DELETE /api/products/:id
 exports.deleteProduct = async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return sendErrorResponse(res, 400, 'fail', 'Invalid Product ID format');
-    }
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return sendErrorResponse(res, 400, 'fail', 'Invalid Product ID format');
+        }
 
-    const productToDelete = await Product.findById(req.params.id);
-    if (!productToDelete) {
-      return sendErrorResponse(res, 404, 'fail', 'Product not found');
-    }
+        const productToDelete = await Product.findById(req.params.id);
+        if (!productToDelete) {
+            return sendErrorResponse(res, 404, 'fail', 'Product not found');
+        }
 
-    // MODIFIED: Add authorization check for deleting product
-    // Ensure the user is either an admin or the actual seller of the product
-    if (req.user.role !== 'admin' && productToDelete.seller.toString() !== req.user.id) {
-        return sendErrorResponse(res, 403, 'fail', 'You are not authorized to delete this product.');
-    }
+        // MODIFIED: Add authorization check for deleting product
+        // Ensure the user is either an admin or the actual seller of the product
+        if (req.user.role !== 'admin' && productToDelete.seller.toString() !== req.user.id) {
+            return sendErrorResponse(res, 403, 'fail', 'You are not authorized to delete this product.');
+        }
 
-    // Delete associated images from disk
-    if (productToDelete.images && productToDelete.images.length > 0) {
-      await Promise.all(productToDelete.images.map(filename => {
-        const imagePath = path.join(__dirname, '../uploads', filename);
-        return new Promise(resolve => {
-          fs.unlink(imagePath, (err) => {
-            if (err && err.code !== 'ENOENT') { // ENOENT means file not found, which is fine
-              console.error(`Error deleting image file ${filename}:`, err);
-            }
-            resolve(); // Resolve anyway to not block the Promise.all
-          });
+        // Delete associated images from disk
+        if (productToDelete.images && productToDelete.images.length > 0) {
+            await Promise.all(productToDelete.images.map(filename => {
+                const imagePath = path.join(__dirname, '../uploads', filename);
+                return new Promise(resolve => {
+                    fs.unlink(imagePath, (err) => {
+                        if (err && err.code !== 'ENOENT') { // ENOENT means file not found, which is fine
+                            console.error(`Error deleting image file ${filename}:`, err);
+                        }
+                        resolve(); // Resolve anyway to not block the Promise.all
+                    });
+                });
+            }));
+        }
+
+        // Delete product from database
+        const product = await Product.findByIdAndDelete(req.params.id);
+
+
+        res.status(204).json({ // 204 No Content for successful deletion
+            status: 'success',
+            data: null
         });
-      }));
+    } catch (err) {
+        sendErrorResponse(res, 500, 'error', 'Error deleting product', err);
     }
-
-    // Delete product from database
-    const product = await Product.findByIdAndDelete(req.params.id);
-
-
-    res.status(204).json({ // 204 No Content for successful deletion
-      status: 'success',
-      data: null
-    });
-  } catch (err) {
-    sendErrorResponse(res, 500, 'error', 'Error deleting product', err);
-  }
 };

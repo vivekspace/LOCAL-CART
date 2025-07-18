@@ -376,14 +376,16 @@ exports.getVendorDashboard = async (req, res) => {
         const recentOrders = await Order.find({ 'cartItems.seller': vendorId })
             .sort({ createdAt: -1 })
             .limit(5)
-            .populate('customerId', 'firstname lastname')
+            .populate('customerId', 'firstname lastname email')
             .select('orderId status totalAmount createdAt cartItems.name cartItems.price cartItems.quantity');
 
         const formattedRecentOrders = recentOrders.map(order => ({
             id: order.orderId || order._id,
-            customer: order.customerId ? `${order.customerId.firstname || ''} ${order.customerId.lastname || ''}`.trim() : 'Guest User',
+            customer: order.customerId ? `${order.customerDetails.firstname || ''} ${order.customerDetails.lastname || ''}`.trim() : 'Guest User',
             amount: order.totalAmount,
             status: order.status,
+                        customerEmail: order.customerId ? order.customerId.email : 'Email Unavailable',
+
         }));
         console.log('Recent Orders:', formattedRecentOrders);
 
