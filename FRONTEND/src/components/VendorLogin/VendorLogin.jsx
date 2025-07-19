@@ -13,8 +13,8 @@ const VendorLogin = () => {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
-  // Destructure 'login' instead of 'vendorLogin' from useAuth
-  const { login } = useAuth(); // Changed from vendorLogin to login
+  // Get both login function and user state from AuthContext
+  const { login, user } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,21 +30,22 @@ const VendorLogin = () => {
         return;
       }
 
-      // Call the generic 'login' function
-      const loginResult = await login({ // Changed from vendorLogin to login
+      // Call the login function
+      const loginResult = await login({
         email: email.trim().toLowerCase(),
         password,
       });
 
-      console.log("VendorLogin.jsx: loginResult received:", loginResult); // Debug log
+      console.log("VendorLogin.jsx: loginResult received:", loginResult);
 
-      // Check for loginResult.success and loginResult.user (not loginResult.vendor)
-      if (loginResult.success && loginResult.user) {
-        const userRole = loginResult.user.role; // Access role from loginResult.user
+      if (loginResult.success) {
+        // Use the user from AuthContext state instead of loginResult
+        const userRole = user?.role; // Get role from AuthContext state
         console.log("VendorLogin.jsx: User role for redirection:", userRole);
 
+        // Navigate based on role
         if (userRole === 'admin') {
-          navigate("/admin-panel", { replace: true });
+          navigate("/admin/panel", { replace: true });
         } else if (userRole === 'seller') {
           navigate("/vendor/dashboard", { replace: true });
           console.log("VendorLogin.jsx: Navigating to /vendor/dashboard.");
@@ -54,17 +55,18 @@ const VendorLogin = () => {
           console.warn("VendorLogin.jsx: Unknown user role, navigating to home.");
           navigate("/", { replace: true });
         }
-        toast.success(loginResult.message || "Login successful!"); // Show success toast
+        
+        toast.success(loginResult.message || "Login successful!");
       } else {
         // If login was not successful, display the message from the result
-        setError(loginResult.message || "Vendor login failed. Please try again.");
-        toast.error(loginResult.message || "Login failed!"); // Show error toast
+        setError(loginResult.message || "Login failed. Please try again.");
+        toast.error(loginResult.message || "Login failed!");
       }
     } catch (err) {
       console.error("Vendor Login (VendorLogin.jsx) unexpected error:", err);
-      const errorMessage = err.response?.data?.message || err.message || "An unexpected error occurred during vendor login.";
+      const errorMessage = err.response?.data?.message || err.message || "An unexpected error occurred during login.";
       setError(errorMessage);
-      toast.error(errorMessage); // Show unexpected error toast
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

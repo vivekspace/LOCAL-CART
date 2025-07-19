@@ -15,64 +15,58 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Destructure 'login' instead of 'adminLogin' from useAuth
-  const { login } = useAuth(); // Changed from adminLogin to login
+  const { login , user } = useAuth(); 
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!email || !password) {
-      setError("Please fill in all fields.");
-      toast.error("Please fill in all fields."); // Added toast notification
-      return;
-    }
 
     setLoading(true);
     setError("");
 
     try {
-      // Call the generic 'login' function
-      const result = await login({ // Changed from adminLogin to login
+      if (!email || !password) {
+        toast.error("Please fill in all fields.");
+        setError("Please fill in all fields.");
+        setLoading(false);
+        return;
+      }
+
+      // Call the login function
+      const loginResult = await login({
         email: email.trim().toLowerCase(),
         password,
       });
 
-      console.log("AdminLogin.jsx: login result received:", result); // Debug log
+      console.log("VendorLogin.jsx: loginResult received:", loginResult);
 
-      // Check for result.success and result.user (not result.admin)
-      if (result.success && result.user) {
-        const userRole = result.user.role; // Access role from result.user
-        console.log("AdminLogin.jsx: User role for redirection:", userRole);
+      if (loginResult.success) {
+        const userRole = user?.role; 
+        console.log("VendorLogin.jsx: User role for redirection:", userRole);
 
-        if (userRole === "admin") {
+        // Navigate based on role
+        if (userRole === 'admin') {
           navigate("/admin/panel", { replace: true });
-          console.log("AdminLogin.jsx: Navigating to /admin/panel.");
-          toast.success(result.message || "Admin login successful!"); // Added toast notification
-        } else if (userRole === "seller") {
+        } else if (userRole === 'seller') {
           navigate("/vendor/dashboard", { replace: true });
-          console.log("AdminLogin.jsx: Navigating to /vendor/dashboard.");
-          toast.warn("You are logged in as a seller. Redirecting to vendor dashboard."); // Added toast notification
-        } else if (userRole === "customer") {
+          console.log("VendorLogin.jsx: Navigating to /vendor/dashboard.");
+        } else if (userRole === 'customer') {
           navigate("/user-dashboard", { replace: true });
-          console.log("AdminLogin.jsx: Navigating to /user-dashboard.");
-          toast.warn("You are logged in as a customer. Redirecting to user dashboard."); // Added toast notification
         } else {
-          console.warn(
-            "AdminLogin.jsx: Unknown user role, navigating to home."
-          );
+          console.warn("VendorLogin.jsx: Unknown user role, navigating to home.");
           navigate("/", { replace: true });
-          toast.error("Unknown user role. Redirecting to home."); // Added toast notification
         }
+        
+        toast.success(loginResult.message || "Login successful!");
       } else {
         // If login was not successful, display the message from the result
-        setError(result.message || "Admin login failed.");
-        toast.error(result.message || "Login failed!"); // Added toast notification
+        setError(loginResult.message || "Login failed. Please try again.");
+        toast.error(loginResult.message || "Login failed!");
       }
     } catch (err) {
-      console.error("Admin Login component caught an error:", err);
+      console.error("Admin Login (AdminLogin.jsx) unexpected error:", err);
       const errorMessage = err.response?.data?.message || err.message || "An unexpected error occurred during login.";
       setError(errorMessage);
-      toast.error(errorMessage); // Added toast notification
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

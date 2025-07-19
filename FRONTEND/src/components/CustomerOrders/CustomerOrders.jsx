@@ -18,8 +18,7 @@ const OrderedItemsPage = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-console.log(order.items[0].image)
-  const { authAxios } = useAuth(); // Use the authAxios instance from AuthContext
+  const { authAxios } = useAuth(); 
 
   useEffect(() => {
     const fetchOrder = async () => {

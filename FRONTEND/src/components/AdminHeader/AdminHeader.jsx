@@ -137,7 +137,7 @@ const AdminTopbar = () => {
       </div>
 
       {/* Brand/Dashboard Link (Visible on desktop) */}
-      <Link to="/admin-panel" className="text-xl font-semibold text-gray-800 flex items-center space-x-2">
+      <Link to="/admin/panel" className="text-xl font-semibold text-gray-800 flex items-center space-x-2">
         <img src={logo} alt="Logo" className="h-12 w-auto" />
       </Link>
 
