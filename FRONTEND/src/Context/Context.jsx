@@ -294,16 +294,14 @@ const AuthProvider = ({ children }) => {
     [authAxios, updateAuthLocalStorageAndState]
   );
 
-  // Wishlist Functions (Backend-driven)
   const fetchWishlist = useCallback(async () => {
     if (!isLoggedIn) {
-      setWishlistItems([]); // Clear wishlist if not logged in
+      setWishlistItems([]); 
       return;
     }
     try {
-      const response = await authAxios.get('/api/wishlist'); // Your backend endpoint to get wishlist
+      const response = await authAxios.get('/api/wishlist'); 
       if (response.data.status === 'success') {
-        // Assuming backend returns an array of wishlist items, each with product details
         setWishlistItems(response.data.data.wishlist || []);
       } else {
         toast.error(response.data.message || "Failed to fetch wishlist.");
@@ -329,7 +327,7 @@ const AuthProvider = ({ children }) => {
     try {
       const response = await authAxios.post('/api/wishlist/add', { productId: product._id });
       if (response.data.status === 'success') {
-        fetchWishlist(); // Re-fetch to ensure consistency with backend
+        fetchWishlist();
         toast.success(response.data.message || `${product.name} added to wishlist!`);
         return true;
       } else {
@@ -353,7 +351,7 @@ const AuthProvider = ({ children }) => {
     try {
       const response = await authAxios.delete(`/api/wishlist/remove/${productId}`);
       if (response.data.status === 'success') {
-        fetchWishlist(); // Re-fetch to ensure consistency with backend
+        fetchWishlist();
         toast.info(response.data.message || `${productName} removed from wishlist.`);
         return true;
       } else {
@@ -398,18 +396,15 @@ const AuthProvider = ({ children }) => {
 
 
   const isProductInWishlist = useCallback((productId) => {
-    // Check if any item in the wishlistItems array has a 'product' field (from populate)
-    // or 'productId' field (if denormalized) that matches the given productId.
-    // The backend model populates 'product' as an object, so we check product._id
+    
     return wishlistItems.some(item => item.product?._id?.toString() === productId?.toString() || item.productId?.toString() === productId?.toString());
   }, [wishlistItems]);
 
-  // Fetch wishlist when user logs in or on initial load if already logged in
   useEffect(() => {
     if (isLoggedIn) {
       fetchWishlist();
     } else {
-      setWishlistItems([]); // Clear wishlist if user logs out
+      setWishlistItems([]); 
     }
   }, [isLoggedIn, fetchWishlist]);
 
@@ -449,7 +444,7 @@ const AuthProvider = ({ children }) => {
       addToWishlist,
       removeFromWishlist,
       isProductInWishlist,
-      clearWishlist, // Expose clear wishlist function
+      clearWishlist, 
 
       // UI State
       isOpen,
