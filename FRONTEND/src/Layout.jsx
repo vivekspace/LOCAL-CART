@@ -93,7 +93,7 @@ const Layout = () => {
     <ScrollToTop />
     <Header /> {/* This should be fixed positioned */}
     
-    <main className="flex-1 pt-16 lg:md:p-4"> 
+    <main className="flex-1 pt-16 "> 
       <ErrorBoundary>
       <Outlet />
       </ErrorBoundary>
