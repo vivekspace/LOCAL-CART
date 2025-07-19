@@ -1,4 +1,4 @@
-// LocationContext.js
+// LocationContext.js - Optimized Version
 import {
   createContext,
   useContext,
@@ -25,7 +25,8 @@ export const LocationProvider = ({ children }) => {
   const LOCATIONS_CACHE_KEY = "available_locations_cache";
   const IP_LOCATION_KEY = "ip_detected_location";
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-  const GEOLOCATION_TIMEOUT = 10000; // 10 seconds
+  const GEOLOCATION_TIMEOUT = 8000; // Reduced to 8 seconds
+  const IP_DETECTION_TIMEOUT = 4000; // 4 seconds max for IP detection
 
   const LOCATION_TYPE_IP = "ip_detected";
   const LOCATION_TYPE_GPS = "gps_location";
@@ -40,7 +41,7 @@ export const LocationProvider = ({ children }) => {
   const [gpsLocation, setGpsLocation] = useState(null);
   const [userPreferredLocation, setUserPreferredLocation] = useState(null);
 
-  // 1. IP Location Detection
+  // 1. OPTIMIZED IP Location Detection - Parallel requests
   const detectIpLocation = useCallback(async () => {
     try {
       // Check cache first
@@ -48,24 +49,28 @@ export const LocationProvider = ({ children }) => {
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < CACHE_DURATION) {
+          console.log("Using cached IP location");
           return data;
         }
       }
 
-      // Fallback services (try multiple for reliability)
+      // Use fastest and most reliable services with parallel requests
       const services = [
         "https://ipapi.co/json/",
         "https://api.ipgeolocation.io/ipgeo?apiKey=free",
-        "https://ipwhois.app/json/",
+        // Remove unreliable service that might cause delays
       ];
 
-      for (const url of services) {
+      // Race multiple services - use whichever responds first
+      const racePromises = services.map(async (url) => {
         try {
-          const response = await axios.get(url, { timeout: 3000 });
+          const response = await axios.get(url, { 
+            timeout: IP_DETECTION_TIMEOUT / 2 // 2 seconds per service
+          });
           const data = response.data;
 
           if (data.city && data.country) {
-            const location = {
+            return {
               city: data.city.toLowerCase(),
               region: data.region || data.state || "",
               country: data.country_name || data.country,
@@ -76,31 +81,42 @@ export const LocationProvider = ({ children }) => {
               lng: data.longitude || data.lng || data.lon,
               type: LOCATION_TYPE_IP,
             };
-
-            localStorage.setItem(
-              IP_LOCATION_KEY,
-              JSON.stringify({
-                data: location,
-                timestamp: Date.now(),
-              })
-            );
-
-            return location;
           }
+          throw new Error("Invalid data format");
         } catch (e) {
-          console.warn(`IP service failed (${url}):`, e);
-          continue;
+          throw new Error(`Service ${url} failed: ${e.message}`);
         }
-      }
+      });
 
-      throw new Error("All IP services failed");
+      // Add a timeout promise
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("IP detection timeout")), IP_DETECTION_TIMEOUT)
+      );
+
+      // Race all promises including timeout
+      const location = await Promise.race([
+        Promise.any(racePromises), // Resolves with first successful result
+        timeoutPromise
+      ]);
+
+      // Cache successful result
+      localStorage.setItem(
+        IP_LOCATION_KEY,
+        JSON.stringify({
+          data: location,
+          timestamp: Date.now(),
+        })
+      );
+
+      return location;
+
     } catch (error) {
-      console.error("IP detection failed:", error);
+      console.warn("IP detection failed:", error.message);
       return null;
     }
-  }, [CACHE_DURATION]);
+  }, [CACHE_DURATION, IP_DETECTION_TIMEOUT]);
 
-  // 2. GPS Location Detection
+  // 2. SIMPLIFIED GPS Location Detection
   const detectGpsLocation = useCallback(async () => {
     if (!navigator.geolocation) {
       throw new Error("Geolocation not supported");
@@ -112,104 +128,48 @@ export const LocationProvider = ({ children }) => {
           try {
             const { latitude, longitude } = position.coords;
 
-            // Try multiple reverse geocoding services to avoid CORS issues
-            const reverseGeocodingServices = [
-              // Service 1: OpenCage (if you have API key)
-              // `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=YOUR_API_KEY`,
-
-              // Service 2: BigDataCloud (free, no API key needed)
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
-
-              // Service 3: Nominatim with different approach
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
-            ];
-
-            let location = null;
-
-            // Try BigDataCloud first (most reliable for CORS)
+            // Use only the most reliable reverse geocoding service
             try {
-              const response = await axios.get(reverseGeocodingServices[0], {
-                timeout: 5000,
-                headers: {
-                  Accept: "application/json",
-                },
-              });
+              const response = await axios.get(
+                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
+                {
+                  timeout: 3000, // Reduced timeout
+                  headers: { Accept: "application/json" },
+                }
+              );
 
               const data = response.data;
               if (data.city || data.locality) {
-                location = {
+                const location = {
                   city: data.city || data.locality || "Current Location",
                   region: data.principalSubdivision || data.countryName || "",
                   country: data.countryName || "",
                   name: `${data.city || data.locality || "Current Location"}, ${
                     data.principalSubdivision || data.countryName || ""
-                  }`
-                    .replace(", ", ", ")
-                    .trim(),
+                  }`.replace(", ", ", ").trim(),
                   lat: latitude,
                   lng: longitude,
                   type: LOCATION_TYPE_GPS,
                 };
+                resolve(location);
+                return;
               }
             } catch (error) {
-              console.warn("BigDataCloud geocoding failed:", error);
+              console.warn("Reverse geocoding failed:", error);
             }
 
-            // Fallback to Nominatim if BigDataCloud fails
-            if (!location) {
-              try {
-                const response = await axios.get(reverseGeocodingServices[1], {
-                  timeout: 5000,
-                  headers: {
-                    "User-Agent": "LocalCart-App",
-                    Accept: "application/json",
-                  },
-                });
-
-                const address = response.data.address;
-                if (address) {
-                  location = {
-                    city:
-                      address.city ||
-                      address.town ||
-                      address.village ||
-                      "Current Location",
-                    region: address.state || address.region || "",
-                    country: address.country || "",
-                    name: `${
-                      address.city ||
-                      address.town ||
-                      address.village ||
-                      "Current Location"
-                    }, ${address.state || address.region || ""}`
-                      .replace(", ", ", ")
-                      .trim(),
-                    lat: latitude,
-                    lng: longitude,
-                    type: LOCATION_TYPE_GPS,
-                  };
-                }
-              } catch (error) {
-                console.warn("Nominatim geocoding failed:", error);
-              }
-            }
-
-            // If all reverse geocoding fails, use coordinates only
-            if (!location) {
-              location = {
-                city: "current_location",
-                name: "Current Location",
-                lat: latitude,
-                lng: longitude,
-                type: LOCATION_TYPE_GPS,
-              };
-            }
-
-            resolve(location);
-          } catch (error) {
-            // Final fallback
+            // Fallback location without reverse geocoding
             resolve({
               city: "current_location",
+              name: "Current Location",
+              lat: latitude,
+              lng: longitude,
+              type: LOCATION_TYPE_GPS,
+            });
+
+          } catch (error) {
+            resolve({
+              city: "current_location", 
               name: "Current Location",
               lat: position.coords.latitude,
               lng: position.coords.longitude,
@@ -227,15 +187,15 @@ export const LocationProvider = ({ children }) => {
           );
         },
         {
-          enableHighAccuracy: false,
+          enableHighAccuracy: false, // Faster response
           timeout: GEOLOCATION_TIMEOUT,
-          maximumAge: 300000, // 5 minute cache
+          maximumAge: 600000, // 10 minute cache (increased)
         }
       );
     });
   }, [GEOLOCATION_TIMEOUT]);
 
-  // 3. Fetch Available Locations (Vendor Areas)
+  // 3. Fetch Available Locations (Same as before but with error handling)
   const fetchAvailableLocations = useCallback(async () => {
     try {
       // Check cache
@@ -249,27 +209,20 @@ export const LocationProvider = ({ children }) => {
       }
 
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/locations/service-areas `
+        `${import.meta.env.VITE_API_URL}/api/locations/service-areas`,
+        { timeout: 5000 } // Add timeout
       );
       const locations = response.data?.data?.locations || [];
 
       const formatted = locations
-        .filter((loc) => loc && loc.city) // Filter out null/undefined locs or those missing 'city'
+        .filter((loc) => loc && loc.city)
         .map((loc) => ({
-          name: String(loc.city), // Ensure name is always a string
-          city: String(loc.city).toLowerCase(), // Ensure city is always a string and lowercase
-          lat:
-            loc.coordinates && loc.coordinates.length === 2
-              ? loc.coordinates[1]
-              : undefined,
-          lng:
-            loc.coordinates && loc.coordinates.length === 2
-              ? loc.coordinates[0]
-              : undefined,
+          name: String(loc.city),
+          city: String(loc.city).toLowerCase(),
+          lat: loc.coordinates?.length === 2 ? loc.coordinates[1] : undefined,
+          lng: loc.coordinates?.length === 2 ? loc.coordinates[0] : undefined,
           type: LOCATION_TYPE_MANUAL,
         }));
-
-      console.log("Fetched and formatted available locations:", formatted);
 
       localStorage.setItem(
         LOCATIONS_CACHE_KEY,
@@ -282,57 +235,86 @@ export const LocationProvider = ({ children }) => {
       return formatted;
     } catch (error) {
       console.error("Failed to fetch locations:", error);
+      // Return cached data even if expired, as fallback
+      const cached = localStorage.getItem(LOCATIONS_CACHE_KEY);
+      if (cached) {
+        try {
+          const { data } = JSON.parse(cached);
+          console.log("Using expired cached locations as fallback");
+          return data;
+        } catch (e) {
+          console.error("Failed to parse cached locations:", e);
+        }
+      }
       return [];
     }
   }, [CACHE_DURATION]);
-  // 4. Location Initialization
+
+  // 4. OPTIMIZED Location Initialization - Show results immediately
   const initializeLocation = useCallback(async () => {
     setLocationsLoading(true);
 
     try {
-      // Step 1: Fetch available vendor locations
-      const vendorLocations = await fetchAvailableLocations();
-      setAvailableLocations(vendorLocations);
-
-      // Step 2: Check saved user preference
+      // Step 1: Check saved user preference first (INSTANT)
       const savedLocation = localStorage.getItem(USER_LOCATION_KEY);
       if (savedLocation) {
-        const parsed = JSON.parse(savedLocation);
-        if (parsed?.name) {
-          setSelectedLocation(parsed);
-          setUserPreferredLocation(parsed);
-          setLocationsLoading(false);
-          return;
+        try {
+          const parsed = JSON.parse(savedLocation);
+          if (parsed?.name) {
+            console.log("Using saved user preference");
+            setSelectedLocation(parsed);
+            setUserPreferredLocation(parsed);
+            setLocationsLoading(false);
+            
+            // Still fetch available locations in background for dropdown
+            fetchAvailableLocations().then(setAvailableLocations);
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to parse saved location:", e);
+          localStorage.removeItem(USER_LOCATION_KEY);
         }
       }
 
-      // Step 3: Try IP detection
-      const ipLoc = await detectIpLocation();
-      if (ipLoc) {
-        setIpLocation(ipLoc);
+      // Step 2: Start fetching available locations (parallel with IP detection)
+      const vendorLocationsPromise = fetchAvailableLocations();
+      const ipLocationPromise = detectIpLocation();
 
-        // Find matching vendor location
-        const match = vendorLocations.find(
+      // Wait for both with a reasonable timeout
+      const [vendorLocations, ipLoc] = await Promise.allSettled([
+        vendorLocationsPromise,
+        ipLocationPromise
+      ]);
+
+      const locations = vendorLocations.status === 'fulfilled' ? vendorLocations.value : [];
+      const ipLocation = ipLoc.status === 'fulfilled' ? ipLoc.value : null;
+
+      setAvailableLocations(locations);
+
+      if (ipLocation) {
+        setIpLocation(ipLocation);
+        
+        // Try to match with vendor locations
+        const match = locations.find(
           (loc) =>
-            loc.city === ipLoc.city ||
-            loc.name.toLowerCase().includes(ipLoc.city)
+            loc.city === ipLocation.city ||
+            loc.name.toLowerCase().includes(ipLocation.city)
         );
 
-        setSelectedLocation(match || ipLoc);
-        setLocationsLoading(false);
-        return;
+        setSelectedLocation(match || ipLocation);
+      } else {
+        // Use first available location or default
+        setSelectedLocation(
+          locations[0] || {
+            name: "Default Location",
+            city: "default",
+            type: LOCATION_TYPE_DEFAULT,
+          }
+        );
       }
 
-      // Step 4: Final fallback
-      setSelectedLocation(
-        vendorLocations[0] || {
-          name: "Default Location",
-          city: "default",
-          type: LOCATION_TYPE_DEFAULT,
-        }
-      );
     } catch (error) {
-      console.error("Location init failed:", error);
+      console.error("Location initialization failed:", error);
       setSelectedLocation({
         name: "Default Location",
         city: "default",
@@ -343,7 +325,7 @@ export const LocationProvider = ({ children }) => {
     }
   }, [fetchAvailableLocations, detectIpLocation]);
 
-  // 5. Update User Location
+  // 5. Update User Location (same but with better error handling)
   const updateUserLocation = useCallback(
     async (location) => {
       if (!location) return;
