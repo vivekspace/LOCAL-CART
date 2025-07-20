@@ -57,6 +57,9 @@ import Landing from "./components/Landing/Landing.jsx";
 import VendorApplicationPage from "./components/VendorApplicationPage/VendorApplicationPage.jsx";
 import { LocationProvider } from "./LocationContext/LocationContext.jsx";
 import WishlistPage from "./components/WishList/WishList.jsx";
+import ViewAllProducts from "./components/ViewAllProducts/ViewAllProducts.jsx";
+import { View } from "lucide-react";
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<Layout />}>
@@ -68,6 +71,7 @@ const router = createBrowserRouter(
       <Route path="product-info/:productId" element={<ProductCardPage />} />
       <Route path="contact-us" element={<ContactUs />} />
       <Route path="about-us" element={<AboutUsPage />} />
+      <Route path="view-all" element={<ViewAllProducts/>}/>
       
 
       {/* Auth Routes */}
