@@ -19,7 +19,7 @@ import {
   Navigation,
   Store,
   Loader2,
-  Heart
+  Heart,
 } from "lucide-react";
 import { AuthContext } from "../../Context/Context.jsx";
 import { useLocation } from "../../LocationContext/LocationContext.jsx";
@@ -28,7 +28,8 @@ import { toast } from "react-toastify";
 
 const Header = () => {
   // Authentication-related states/methods from AuthContext
-  const { cartItems, logout, isLoggedIn, user, wishlistItems } = useContext(AuthContext);
+  const { cartItems, logout, isLoggedIn, user, wishlistItems } =
+    useContext(AuthContext);
 
   // Location-related states/methods from LocationContext via useLocation hook
   const {
@@ -79,14 +80,14 @@ const Header = () => {
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (menuOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     }
-    
+
     // Cleanup function to reset overflow when component unmounts
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     };
   }, [menuOpen]);
 
@@ -154,16 +155,16 @@ const Header = () => {
   // Enhanced keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         setMenuOpen(false);
         setLocationDropdownOpen(false);
         setUserDropdownOpen(false);
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
@@ -256,7 +257,12 @@ const Header = () => {
 
     if (Array.isArray(availableLocations)) {
       availableLocations.forEach((loc) => {
-        if (!loc || typeof loc !== 'object' || !loc.city || typeof loc.name !== 'string') {
+        if (
+          !loc ||
+          typeof loc !== "object" ||
+          !loc.city ||
+          typeof loc.name !== "string"
+        ) {
           console.warn("Skipping malformed location object:", loc);
           return;
         }
@@ -275,13 +281,15 @@ const Header = () => {
       });
     }
 
-    const sortedManualLocations = Array.from(uniqueManualLocations.values()).sort((a, b) => {
-      if (typeof a.name === 'string' && typeof b.name === 'string') {
+    const sortedManualLocations = Array.from(
+      uniqueManualLocations.values()
+    ).sort((a, b) => {
+      if (typeof a.name === "string" && typeof b.name === "string") {
         return a.name.localeCompare(b.name);
       }
-      if (typeof a.name !== 'string' && typeof b.name !== 'string') return 0;
-      if (typeof a.name !== 'string') return 1;
-      if (typeof b.name !== 'string') return -1;
+      if (typeof a.name !== "string" && typeof b.name !== "string") return 0;
+      if (typeof a.name !== "string") return 1;
+      if (typeof b.name !== "string") return -1;
       return 0;
     });
 
@@ -299,11 +307,11 @@ const Header = () => {
     selectedLocation,
     detectingGps,
     LOCATION_TYPE_GPS,
-    LOCATION_TYPE_MANUAL
+    LOCATION_TYPE_MANUAL,
   ]);
 
   const navigate = useNavigate();
-  
+
   const handleLogOut = () => {
     logout();
     setMenuOpen(false);
@@ -419,10 +427,13 @@ const Header = () => {
                         <button
                           key={`${option.type}_${option.city}`}
                           onClick={() => handleLocationSelect(option)}
-                          disabled={detectingGps && option.type === LOCATION_TYPE_GPS}
+                          disabled={
+                            detectingGps && option.type === LOCATION_TYPE_GPS
+                          }
                           className={`w-full px-3 py-3 text-sm text-left font-medium rounded-lg flex items-center justify-between transition-all duration-200 my-1 ${
                             selectedLocation?.type === option.type &&
-                            selectedLocation?.city?.toLowerCase() === option.city?.toLowerCase()
+                            selectedLocation?.city?.toLowerCase() ===
+                              option.city?.toLowerCase()
                               ? "bg-green-50 text-green-600 shadow-sm border border-green-100"
                               : "text-gray-700 hover:bg-green-50 hover:text-green-600 hover:shadow-sm"
                           } ${
@@ -444,7 +455,8 @@ const Header = () => {
                             <span className="truncate">{option.name}</span>
                           </span>
                           {selectedLocation?.type === option.type &&
-                            selectedLocation?.city?.toLowerCase() === option.city?.toLowerCase() && (
+                            selectedLocation?.city?.toLowerCase() ===
+                              option.city?.toLowerCase() && (
                               <div className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0 animate-pulse"></div>
                             )}
                         </button>
@@ -485,11 +497,13 @@ const Header = () => {
                     aria-haspopup="true"
                     aria-expanded={userDropdownOpen}
                   >
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 flex items-center justify-center text-white shadow-sm">
+                    <div className="h-8 w-8  rounded-full bg-gradient-to-r from-green-400 to-emerald-500 flex items-center justify-center text-white shadow-sm">
                       <User className="h-4 w-4" />
                     </div>
-                    <span className="font-medium">
-                      {user?.name ? `Hi, ${user.name.split(" ")[0]}` : "Account"}
+                    <span className="font-medium lg:block md:hidden">
+                      {user?.name
+                        ? `Hi, ${user.name.split(" ")[0]}`
+                        : "Account"}
                     </span>
                     <ChevronDown
                       className={`h-4 w-4 transition-transform duration-200 ${
@@ -561,7 +575,7 @@ const Header = () => {
                 <ShoppingCart className="h-5 w-5 text-gray-700 group-hover:text-green-600 transition-colors" />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center transform group-hover:scale-110 transition-transform shadow-sm">
-                    {cartCount > 99 ? '99+' : cartCount}
+                    {cartCount > 99 ? "99+" : cartCount}
                   </span>
                 )}
               </NavLink>
@@ -574,7 +588,7 @@ const Header = () => {
                 <Heart className="h-5 w-5 text-gray-700 group-hover:text-red-500 transition-colors" />
                 {wishlistCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center transform group-hover:scale-110 transition-transform shadow-sm">
-                    {wishlistCount > 99 ? '99+' : wishlistCount}
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
                   </span>
                 )}
               </NavLink>
@@ -590,7 +604,7 @@ const Header = () => {
                 <ShoppingCart className="h-5 w-5 text-gray-700 group-hover:text-green-600" />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center transform group-hover:scale-110 transition-transform">
-                    {cartCount > 99 ? '99+' : cartCount}
+                    {cartCount > 99 ? "99+" : cartCount}
                   </span>
                 )}
               </NavLink>
@@ -604,7 +618,7 @@ const Header = () => {
                 <Heart className="h-5 w-5 text-gray-700 group-hover:text-red-500 transition-colors" />
                 {wishlistCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center transform group-hover:scale-110 transition-transform">
-                    {wishlistCount > 99 ? '99+' : wishlistCount}
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
                   </span>
                 )}
               </NavLink>
@@ -640,7 +654,6 @@ const Header = () => {
                 onClick={toggleMenu}
               >
                 <img src={logo} alt="LocalCart Logo" className="h-8 w-auto" />
-                
               </Link>
               <button
                 onClick={toggleMenu}
@@ -662,7 +675,9 @@ const Header = () => {
                 }}
                 disabled={locationsLoading}
                 className={`w-full flex items-center justify-between px-4 py-3 bg-white rounded-xl shadow-sm transition-all duration-300 border ${
-                  locationDropdownOpen ? "border-green-200 shadow-md" : "border-gray-200"
+                  locationDropdownOpen
+                    ? "border-green-200 shadow-md"
+                    : "border-gray-200"
                 } ${locationsLoading ? "opacity-75 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center gap-3">
@@ -693,10 +708,13 @@ const Header = () => {
                     <button
                       key={`${option.type}_${option.city}`}
                       onClick={() => handleLocationSelect(option)}
-                      disabled={detectingGps && option.type === LOCATION_TYPE_GPS}
+                      disabled={
+                        detectingGps && option.type === LOCATION_TYPE_GPS
+                      }
                       className={`w-full px-3 py-3 text-sm rounded-lg flex items-center justify-between transition-all duration-200 ${
                         selectedLocation?.type === option.type &&
-                        selectedLocation?.city?.toLowerCase() === option.city?.toLowerCase()
+                        selectedLocation?.city?.toLowerCase() ===
+                          option.city?.toLowerCase()
                           ? "bg-green-50 text-green-600 shadow-sm border border-green-100"
                           : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                       } ${
@@ -722,8 +740,9 @@ const Header = () => {
                         </span>
                       </span>
                       {selectedLocation?.type === option.type &&
-                        selectedLocation?.city?.toLowerCase() === option.city?.toLowerCase() && (
-<ChevronRight className="h-4 w-4 text-green-500" />
+                        selectedLocation?.city?.toLowerCase() ===
+                          option.city?.toLowerCase() && (
+                          <ChevronRight className="h-4 w-4 text-green-500" />
                         )}
                     </button>
                   ))}
@@ -789,7 +808,7 @@ const Header = () => {
                     <ShoppingCart className="h-5 w-5" />
                     {cartCount > 0 && (
                       <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                        {cartCount > 99 ? '99+' : cartCount}
+                        {cartCount > 99 ? "99+" : cartCount}
                       </span>
                     )}
                   </div>
@@ -817,7 +836,7 @@ const Header = () => {
                     <Heart className="h-5 w-5" />
                     {wishlistCount > 0 && (
                       <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                        {wishlistCount > 99 ? '99+' : wishlistCount}
+                        {wishlistCount > 99 ? "99+" : wishlistCount}
                       </span>
                     )}
                   </div>
@@ -842,7 +861,9 @@ const Header = () => {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-800">
-                          {user?.name ? `Hi, ${user.name.split(" ")[0]}!` : "Welcome!"}
+                          {user?.name
+                            ? `Hi, ${user.name.split(" ")[0]}!`
+                            : "Welcome!"}
                         </p>
                         <p className="text-xs text-gray-600">
                           {user?.email || "Manage your account"}
