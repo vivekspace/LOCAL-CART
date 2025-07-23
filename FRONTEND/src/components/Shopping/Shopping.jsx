@@ -74,66 +74,85 @@ const ShoppingPage = () => {
   const debouncedSearch = useDebounce(search, 300);
 
   const fetchProducts = useCallback(async (locationData) => {
-    setIsLoadingProducts(true);
-    setProductError(null);
-    setProducts([]);
+  // Add early return if same location
+  if (locationData?.city === products[0]?.location) {
+    console.log('Same location, skipping refetch');
+    return;
+  }
 
-    if (!locationData || (!locationData.city && !locationData.lat && !locationData.lng)) {
-      console.log("ShoppingPage: fetchProducts - Invalid or incomplete locationData, skipping fetch.");
+  setIsLoadingProducts(true);
+  setProductError(null);
+  // DON'T clear products immediately - keep showing previous ones
+  // setProducts([]); // Remove this line
+
+  if (!locationData || (!locationData.city && !locationData.lat && !locationData.lng)) {
+    console.log("Invalid location data, skipping fetch.");
+    setIsLoadingProducts(false);
+    return;
+  }
+
+  try {
+    let apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
+    const params = {};
+
+    if (locationData.type === 'gps_location' && locationData.lat && locationData.lng) {
+      apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby`;
+      params.lat = locationData.lat;
+      params.lng = locationData.lng;
+      params.distance = 10;
+    } else if (locationData.city) {
+      params.location = locationData.city;
+    } else {
+      console.warn("Cannot determine product fetch endpoint.");
       setIsLoadingProducts(false);
+      setProductError("Invalid location data provided.");
       return;
     }
 
-    try {
-      let apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
-      const params = {};
+    const response = await authAxios.get(apiUrl, { 
+      params,
+      timeout: 8000 // Add timeout to prevent hanging
+    });
 
-      if (locationData.type === 'gps_location' && locationData.lat && locationData.lng) {
-        apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby`;
-        params.lat = locationData.lat;
-        params.lng = locationData.lng;
-        params.distance = 10;
-      } else if (locationData.city) {
-        params.location = locationData.city;
-      } else {
-        console.warn("ShoppingPage: Cannot determine product fetch endpoint without city or lat/lng.");
-        setIsLoadingProducts(false);
-        setProductError("Invalid location data provided. Cannot fetch products.");
-        return;
-      }
-
-      const response = await authAxios.get(apiUrl, { params });
-
-      if (response.data?.status === "success" && Array.isArray(response.data?.data?.products)) {
-        setProducts(response.data.data.products);
-        toast.success(`Products updated for ${locationData.name || locationData.city}`);
-      } else {
-        setProducts([]);
-        toast.info("No products found in this area or unexpected data format.");
-      }
-
-    } catch (error) {
-      console.error("ShoppingPage: Error fetching products:", error);
-      setProductError("Failed to load products for this location.");
-      toast.error("Failed to load products for selected location.");
-      setProducts([]);
-    } finally {
-      setIsLoadingProducts(false);
-    }
-  }, [authAxios]);
-
-  useEffect(() => {
-    if (selectedLocation && !locationsLoading) {
-      fetchProducts(selectedLocation);
-    } else if (locationsLoading) {
-      setProducts([]);
-      setIsLoadingProducts(true);
-      setProductError(null);
+    if (response.data?.status === "success" && Array.isArray(response.data?.data?.products)) {
+      setProducts(response.data.data.products);
+      toast.success(`${response.data.data.products.length} products loaded for ${locationData.name || locationData.city}`);
     } else {
-      setIsLoadingProducts(false);
-      setProductError("Please select a location to view products.");
+      setProducts([]);
+      toast.info("No products found in this area.");
     }
-  }, [selectedLocation, locationsLoading, fetchProducts]);
+
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    setProductError("Failed to load products for this location.");
+    toast.error("Failed to load products. Please try again.");
+    // Don't clear products on error - keep showing previous ones
+  } finally {
+    setIsLoadingProducts(false);
+  }
+}, [authAxios]);
+
+
+useEffect(() => {
+  // Start loading products as soon as we have ANY location data
+  // Don't wait for locationsLoading to be false
+  if (selectedLocation && selectedLocation.city !== 'default') {
+    console.log('Starting product fetch for:', selectedLocation);
+    fetchProducts(selectedLocation);
+  } else if (!selectedLocation && !locationsLoading) {
+    // Only show error if location detection is complete but no location found
+    setIsLoadingProducts(false);
+    setProductError("Please select a location to view products.");
+  }
+  // Remove locationsLoading dependency to avoid waiting
+}, [selectedLocation, fetchProducts]);
+
+useEffect(() => {
+  // Start loading immediately if we have basic location info
+  if (selectedLocation?.city && selectedLocation.city !== 'default') {
+    fetchProducts(selectedLocation);
+  }
+}, [selectedLocation?.city, selectedLocation?.lat, selectedLocation?.lng]);
 
   // Update URL search params whenever search or selectedCategory changes
   useEffect(() => {
