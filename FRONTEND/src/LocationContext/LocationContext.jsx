@@ -24,7 +24,7 @@ export const LocationProvider = ({ children }) => {
   const USER_LOCATION_KEY = "user_preferred_location_v3";
   const LOCATIONS_CACHE_KEY = "available_locations_cache";
   const IP_LOCATION_KEY = "ip_detected_location";
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes instead of 5
   const GEOLOCATION_TIMEOUT = 8000; // Reduced to 8 seconds
   const IP_DETECTION_TIMEOUT = 4000; // 4 seconds max for IP detection
 
@@ -64,8 +64,8 @@ export const LocationProvider = ({ children }) => {
       // Race multiple services - use whichever responds first
       const racePromises = services.map(async (url) => {
         try {
-          const response = await axios.get(url, { 
-            timeout: IP_DETECTION_TIMEOUT / 2 // 2 seconds per service
+          const response = await axios.get(url, {
+            timeout: IP_DETECTION_TIMEOUT / 2, // 2 seconds per service
           });
           const data = response.data;
 
@@ -90,13 +90,16 @@ export const LocationProvider = ({ children }) => {
 
       // Add a timeout promise
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("IP detection timeout")), IP_DETECTION_TIMEOUT)
+        setTimeout(
+          () => reject(new Error("IP detection timeout")),
+          IP_DETECTION_TIMEOUT
+        )
       );
 
       // Race all promises including timeout
       const location = await Promise.race([
         Promise.any(racePromises), // Resolves with first successful result
-        timeoutPromise
+        timeoutPromise,
       ]);
 
       // Cache successful result
@@ -109,7 +112,6 @@ export const LocationProvider = ({ children }) => {
       );
 
       return location;
-
     } catch (error) {
       console.warn("IP detection failed:", error.message);
       return null;
@@ -146,7 +148,9 @@ export const LocationProvider = ({ children }) => {
                   country: data.countryName || "",
                   name: `${data.city || data.locality || "Current Location"}, ${
                     data.principalSubdivision || data.countryName || ""
-                  }`.replace(", ", ", ").trim(),
+                  }`
+                    .replace(", ", ", ")
+                    .trim(),
                   lat: latitude,
                   lng: longitude,
                   type: LOCATION_TYPE_GPS,
@@ -166,10 +170,9 @@ export const LocationProvider = ({ children }) => {
               lng: longitude,
               type: LOCATION_TYPE_GPS,
             });
-
           } catch (error) {
             resolve({
-              city: "current_location", 
+              city: "current_location",
               name: "Current Location",
               lat: position.coords.latitude,
               lng: position.coords.longitude,
@@ -260,15 +263,13 @@ export const LocationProvider = ({ children }) => {
       if (savedLocation) {
         try {
           const parsed = JSON.parse(savedLocation);
+          // In initializeLocation function, after setting saved location:
           if (parsed?.name) {
-            console.log("Using saved user preference");
             setSelectedLocation(parsed);
             setUserPreferredLocation(parsed);
             setLocationsLoading(false);
-            
-            // Still fetch available locations in background for dropdown
-            fetchAvailableLocations().then(setAvailableLocations);
-            return;
+            // TRIGGER PRODUCT LOADING IMMEDIATELY
+            return; // Products will start loading via useEffect in ShoppingPage
           }
         } catch (e) {
           console.error("Failed to parse saved location:", e);
@@ -283,17 +284,18 @@ export const LocationProvider = ({ children }) => {
       // Wait for both with a reasonable timeout
       const [vendorLocations, ipLoc] = await Promise.allSettled([
         vendorLocationsPromise,
-        ipLocationPromise
+        ipLocationPromise,
       ]);
 
-      const locations = vendorLocations.status === 'fulfilled' ? vendorLocations.value : [];
-      const ipLocation = ipLoc.status === 'fulfilled' ? ipLoc.value : null;
+      const locations =
+        vendorLocations.status === "fulfilled" ? vendorLocations.value : [];
+      const ipLocation = ipLoc.status === "fulfilled" ? ipLoc.value : null;
 
       setAvailableLocations(locations);
 
       if (ipLocation) {
         setIpLocation(ipLocation);
-        
+
         // Try to match with vendor locations
         const match = locations.find(
           (loc) =>
@@ -312,7 +314,6 @@ export const LocationProvider = ({ children }) => {
           }
         );
       }
-
     } catch (error) {
       console.error("Location initialization failed:", error);
       setSelectedLocation({
@@ -384,7 +385,7 @@ export const LocationProvider = ({ children }) => {
       gpsLocation,
       userPreferredLocation,
       updateUserLocation,
-      detectGpsLocation, 
+      detectGpsLocation,
     ]
   );
 
