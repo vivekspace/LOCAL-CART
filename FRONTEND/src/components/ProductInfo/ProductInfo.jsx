@@ -5,7 +5,7 @@
   import "react-toastify/dist/ReactToastify.css";
   import MapComponent from "../MapComponent/MapComponent";
   import { Helmet } from "react-helmet-async";
-  import { Heart, ShoppingCart, Loader2, Star, MapPin, Home, ChevronRight, Info, Truck, Check, Leaf, Shield, Clock, Package, ArrowRight } from 'lucide-react';
+  import { Heart, ShoppingCart, Loader2, Star, MapPin, Home, ChevronRight, Info, Truck, Check, Leaf, Shield, Clock, Package, ArrowRight , X } from 'lucide-react';
   import { motion, AnimatePresence } from "framer-motion";
 
   // Constants
@@ -45,157 +45,329 @@
 
   // --- ProductImageGallery Component ---
   const ProductImageGallery = ({ product, selectedImage, setSelectedImage }) => {
-    const productImages = useMemo(() => {
-      if (product?.images?.length > 0) {
-        return product.images.map(
-          (img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`
-        );
-      }
-      return [`${import.meta.env.VITE_API_URL}${DEFAULT_PRODUCT_IMAGE_PATH}`];
-    }, [product]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-    useEffect(() => {
-      if (productImages && productImages.length > 0 && selectedImage === null) {
-        setSelectedImage(0);
-      }
-    }, [productImages, selectedImage, setSelectedImage]);
+  const productImages = useMemo(() => {
+    if (product?.images?.length > 0) {
+      return product.images.map(
+        (img) => `${import.meta.env.VITE_API_URL}/uploads/${img}`
+      );
+    }
+    return [`${import.meta.env.VITE_API_URL}${DEFAULT_PRODUCT_IMAGE_PATH}`];
+  }, [product]);
 
-    const handleImageError = (e) => {
-      e.target.src = `${import.meta.env.VITE_API_URL}${DEFAULT_PRODUCT_IMAGE_PATH}`;
-    };
+  // Reset selected image to 0 when product changes
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [product?.images, setSelectedImage]); // Depend on product.images to reset when product (or its images) change
 
-    return (
-      <div className="w-full md:w-1/2 p-3 sm:p-4 md:p-6">
-        {/* Main Image Container */}
-        <div className="relative w-full mb-4">
-          {/* Responsive aspect ratio container with centered content */}
-          <div className="relative w-full aspect-square max-h-[70vh] sm:max-h-[60vh] md:max-h-[500px] lg:max-h-[600px] rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 shadow-sm flex items-center justify-center">
-            {/* White background for transparent images */}
-            <div className="absolute inset-0 bg-white flex items-center justify-center p-4">
+  const handleSwipe = useCallback((swipeDirection) => {
+    if (swipeDirection === 'left') {
+      setSelectedImage(prev => (prev < productImages.length - 1 ? prev + 1 : 0));
+    } else {
+      setSelectedImage(prev => (prev > 0 ? prev - 1 : productImages.length - 1));
+    }
+  }, [productImages.length, setSelectedImage]);
+
+  // In handleDragEnd, adjust the threshold
+  const handleDragEnd = useCallback((event, info) => {
+    if (info.offset.x > 30) { // Reduced from 50 to 30 for better sensitivity
+      handleSwipe('right');
+    } else if (info.offset.x < -30) {
+      handleSwipe('left');
+    }
+  }, [handleSwipe]);
+
+  // Touch swipe handling for mobile
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = useCallback((e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  }, []);
+
+  const onTouchMove = useCallback((e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      handleSwipe('left');
+    } else if (isRightSwipe) {
+      handleSwipe('right');
+    }
+  }, [touchStart, touchEnd, handleSwipe, minSwipeDistance]);
+
+  return (
+    <div className="w-full md:w-1/2 p-3 sm:p-4 md:p-6">
+      {/* Main Image Container */}
+      <div className="relative w-full mb-4 group">
+        <div 
+  className="product-gallery-container relative w-full aspect-square max-h-[70vh] sm:max-h-[60vh] md:max-h-[500px] lg:max-h-[600px] rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 shadow-sm flex items-center justify-center cursor-zoom-in" // Changed cursor
+  onClick={() => setIsFullscreen(true)}
+  onTouchStart={onTouchStart}
+  onTouchMove={onTouchMove}
+  onTouchEnd={onTouchEnd}
+>
+          {/* White background for transparent images */}
+          <div className="absolute inset-0 bg-white flex items-center justify-center p-4">
+            <motion.div
+              className="w-full h-full flex items-center justify-center"
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              onDragEnd={handleDragEnd}
+              dragElastic={0.1}
+              whileTap={{ cursor: "grabbing" }}
+            >
               <picture className="w-full h-full flex items-center justify-center">
                 <motion.img
                   src={productImages[selectedImage] || productImages[0]}
                   alt={product.name || "Product Image"}
-                  className="max-w-[90%] max-h-[90%] object-contain"
+                  className="max-w-[90%] max-h-[90%] object-contain select-none" // Removed pointer-events-none here
                   loading="eager"
-                  onError={handleImageError}
+                  onError={handleImageError} // Using the centralized error handler
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3 }}
                   key={selectedImage}
+                  draggable="false"
                 />
               </picture>
-            </div>
-
-            {/* Badges */}
-            <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col space-y-1 sm:space-y-2">
-              {product.isNew && (
-                <motion.div
-                  initial={{ scale: 0.8 }}
-                  animate={{ scale: 1 }}
-                  className="bg-green-500 text-white text-xs font-bold px-2 py-1 sm:px-3 sm:py-1 rounded-full shadow-md"
-                >
-                  NEW
-                </motion.div>
-              )}
-              {product.discountPrice && product.price > product.discountPrice && (
-                <motion.div
-                  initial={{ scale: 0.8 }}
-                  animate={{ scale: 1 }}
-                  className="bg-red-500 text-white text-xs font-bold px-2 py-1 sm:px-3 sm:py-1 rounded-full shadow-md"
-                >
-                  {Math.round(
-                    ((product.price - product.discountPrice) / product.price) * 100
-                  )}% OFF
-                </motion.div>
-              )}
-            </div>
-
-            {/* Image Navigation Arrows (for mobile) */}
-            {productImages.length > 1 && (
-              <>
-                <button
-                  onClick={() => setSelectedImage(selectedImage > 0 ? selectedImage - 1 : productImages.length - 1)}
-                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md transition-all md:hidden"
-                  type="button"
-                  aria-label="Previous image"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setSelectedImage(selectedImage < productImages.length - 1 ? selectedImage + 1 : 0)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md transition-all md:hidden"
-                  type="button"
-                  aria-label="Next image"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </>
-            )}
-
-            {/* Image counter for mobile */}
-            {productImages.length > 1 && (
-              <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full md:hidden">
-                {selectedImage + 1}/{productImages.length}
-              </div>
-            )}
+            </motion.div>
           </div>
-        </div>
 
-        {/* Thumbnails - Hidden on small screens, visible on medium+ */}
-        {productImages.length > 1 && (
-          <div className="hidden sm:grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-4 gap-2 sm:gap-3">
-            {productImages.map((img, index) => (
-              <motion.button
-                key={index}
-                onClick={() => setSelectedImage(index)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={`relative aspect-square rounded-lg sm:rounded-xl overflow-hidden transition-all ${
-                  selectedImage === index
-                    ? "ring-2 ring-green-500 ring-offset-1 sm:ring-offset-2"
-                    : "hover:ring-1 hover:ring-gray-300"
-                }`}
-                type="button"
-                aria-label={`View image ${index + 1}`}
+          {/* Badges */}
+          <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col space-y-1 sm:space-y-2">
+            {product.isNew && (
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="bg-green-500 text-white text-xs font-bold px-2 py-1 sm:px-3 sm:py-1 rounded-full shadow-md"
               >
-                <img
-                  src={img}
-                  alt={`${product.name || "Product"} thumbnail ${index + 1}`}
-                  className="w-full h-full object-cover bg-gray-50"
-                  loading="lazy"
-                  onError={handleImageError}
-                />
-              </motion.button>
-            ))}
+                NEW
+              </motion.div>
+            )}
+            {product.discountPrice && product.price > product.discountPrice && (
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="bg-red-500 text-white text-xs font-bold px-2 py-1 sm:px-3 sm:py-1 rounded-full shadow-md"
+              >
+                {Math.round(
+                  ((product.price - product.discountPrice) / product.price) * 100
+                )}% OFF
+              </motion.div>
+            )}
           </div>
-        )}
 
-        {/* Mobile Thumbnail Dots */}
-        {productImages.length > 1 && (
-          <div className="flex justify-center space-x-2 mt-3 sm:hidden">
-            {productImages.map((_, index) => (
+          {/* Image Navigation Arrows (for desktop/tablet hover) */}
+          {productImages.length > 1 && (
+            <>
               <button
-                key={index}
-                onClick={() => setSelectedImage(index)}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  selectedImage === index
-                    ? "bg-green-500 w-6"
-                    : "bg-gray-300 hover:bg-gray-400"
-                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSwipe('right');
+                }}
+                className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md transition-all opacity-0 md:group-hover:opacity-100 hidden md:block"
                 type="button"
-                aria-label={`Go to image ${index + 1}`}
-              />
-            ))}
-          </div>
-        )}
+                aria-label="Previous image"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSwipe('left');
+                }}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md transition-all opacity-0 md:group-hover:opacity-100 hidden md:block"
+                type="button"
+                aria-label="Next image"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </>
+          )}
+
+          {/* Image counter for mobile */}
+          {productImages.length > 1 && (
+            <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full md:hidden">
+              {selectedImage + 1}/{productImages.length}
+            </div>
+          )}
+
+          {/* Swipe indicator for mobile */}
+          {productImages.length > 1 && (
+            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full md:hidden flex items-center space-x-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+              </svg>
+              <span>Swipe</span>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </div>
+          )}
+        </div>
       </div>
-    );
-  };
+
+      {/* Thumbnails - Hidden on small screens, visible on medium+ */}
+      {productImages.length > 1 && (
+        <div className="hidden sm:grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-4 gap-2 sm:gap-3">
+          {productImages.map((img, index) => (
+            <motion.button
+              key={index}
+              onClick={() => setSelectedImage(index)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`relative aspect-square rounded-lg sm:rounded-xl overflow-hidden transition-all ${
+                selectedImage === index
+                  ? "ring-2 ring-green-500 ring-offset-1 sm:ring-offset-2"
+                  : "hover:ring-1 hover:ring-gray-300"
+              }`}
+              type="button"
+              aria-label={`View image ${index + 1}`}
+            >
+              <img
+                src={img}
+                alt={`${product.name || "Product"} thumbnail ${index + 1}`}
+                className="w-full h-full object-cover bg-gray-50"
+                loading="lazy"
+                onError={handleImageError} // Using the centralized error handler
+              />
+            </motion.button>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile Thumbnail Dots */}
+      {productImages.length > 1 && (
+        <div className="flex justify-center space-x-2 mt-3 sm:hidden">
+          {productImages.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setSelectedImage(index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                selectedImage === index
+                  ? "bg-green-500 w-6"
+                  : "bg-gray-300 hover:bg-gray-400"
+              }`}
+              type="button"
+              aria-label={`Go to image ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Fullscreen Gallery */}
+      <AnimatePresence>
+        {isFullscreen && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {/* Add z-index to ensure it's always clickable */}
+            <button
+              className="absolute top-1 right-4 text-white p-2 rounded-full hover:bg-white/10 transition-colors z-50"
+              onClick={() => setIsFullscreen(false)}
+              aria-label="Close fullscreen"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <motion.div
+              className="w-full h-full flex items-center justify-center relative"
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              onDragEnd={handleDragEnd}
+              dragElastic={0.1}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              transition={{ duration: 0.3 }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
+              {/* White background container for fullscreen - matches main gallery */}
+              <div className="absolute inset-0 bg-white m-8 rounded-2xl flex items-center justify-center">
+                <picture className="w-full h-full flex items-center justify-center p-4">
+                  <motion.img
+                    src={productImages[selectedImage] || productImages[0]}
+                    alt={product.name || "Product Image"}
+                    className="max-w-full max-h-full object-contain select-none"
+                    loading="eager"
+                    onError={handleImageError} // Using the centralized error handler
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    key={`fullscreen-${selectedImage}`}
+                    draggable="false"
+                  />
+                </picture>
+              </div>
+
+              {/* Navigation arrows for fullscreen */}
+              {productImages.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSwipe('right');
+                    }}
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full shadow-md transition-all z-10"
+                    type="button"
+                    aria-label="Previous image"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSwipe('left');
+                    }}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full shadow-md transition-all z-10"
+                    type="button"
+                    aria-label="Next image"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
+
+              {/* Image counter for fullscreen */}
+              {productImages.length > 1 && (
+                <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-sm px-4 py-2 rounded-full z-10">
+                  {selectedImage + 1}/{productImages.length}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
   // --- ProductPrice Component ---
   const ProductPrice = ({ product, quantity = 1 }) => {
