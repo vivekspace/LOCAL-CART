@@ -1,10 +1,9 @@
 // controllers/orderController.js
 const Order = require('../models/Order');
-// Removed: const Vendor = require('../models/Vendor'); // No longer needed as User model is unified
-const Product = require('../models/Product'); // <-- ADD THIS LINE: Import Product model
+const Product = require('../models/Product');
 const nodemailer = require('nodemailer');
-const User = require('../models/User'); // Use the unified User model
-const mongoose = require('mongoose'); // Ensure mongoose is imported
+const User = require('../models/User');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const { v4: uuidv4 } = require('uuid');
@@ -21,7 +20,6 @@ const transporter = nodemailer.createTransport({
 // Get all orders (for customers)
 exports.getCustomerOrders = async (req, res) => {
     try {
-        // 1. ENFORCE AUTHENTICATION - MUST come from protect middleware
         if (!req.user) {
             return res.status(401).json({
                 success: false,
@@ -29,20 +27,17 @@ exports.getCustomerOrders = async (req, res) => {
             });
         }
 
-        // 2. DATA ISOLATION & POPULATION - Only get orders for the current user and populate product images
         const orders = await Order.find({
-            customerId: req.user._id // Critical security filter
+            customerId: req.user._id
         })
             .populate({
-                path: 'cartItems.productId', // Path to the product ID within each cart item
-                model: 'Product',           // The model to use for population
-                select: 'images',           // Select only the 'images' array from the Product document
+                path: 'cartItems.productId',
+                model: 'Product',
+                select: 'images',
             })
             .sort({ createdAt: -1 })
-            .lean(); // Use .lean() for faster query results if you don't need Mongoose document methods
+            .lean();
 
-
-        // 3. TRANSFORM DATA - Include image URL in the transformed output
         const transformedOrders = orders.map(order => ({
             _id: order._id,
             orderNumber: order._id.toString().slice(-8).toUpperCase(),
@@ -54,23 +49,19 @@ exports.getCustomerOrders = async (req, res) => {
             itemCount: order.cartItems.length,
             paymentMethod: order.paymentDetails.method,
             paymentStatus: order.paymentDetails.status,
-            // Include cartItems with image URLs
             cartItems: order.cartItems.map(item => {
-                let imageUrl = '/placeholder-product.png'; // Default fallback image path
+                let imageUrl = '/placeholder-product.png';
 
-                // Check if productId was successfully populated and has images
                 if (item.productId && item.productId.images && item.productId.images.length > 0) {
-                    imageUrl = item.productId.images[0]; // Take the first image from the array
+                    imageUrl = item.productId.images[0];
                 }
 
                 return {
-                    productId: item.productId ? item.productId._id : null, // Keep product ID
+                    productId: item.productId ? item.productId._id : null,
                     name: item.name,
                     quantity: item.quantity,
                     price: item.price,
-                    imageUrl: imageUrl, // Add the image URL here
-                    // Optionally include seller if frontend needs it for individual items
-                    // seller: item.seller
+                    imageUrl: imageUrl,
                 };
             })
         }));
@@ -82,7 +73,7 @@ exports.getCustomerOrders = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error fetching customer orders:', error); // More specific error message
+        console.error('Error fetching customer orders:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch your orders',
@@ -91,7 +82,6 @@ exports.getCustomerOrders = async (req, res) => {
     }
 };
 
-// Get orders by customer email (if you don't have user auth) - No change needed here for images unless this route is also used for detailed user view
 exports.getOrdersByEmail = async (req, res) => {
     try {
         const { email } = req.query;
@@ -103,7 +93,6 @@ exports.getOrdersByEmail = async (req, res) => {
             });
         }
 
-        // If you want images here too, you'd add .populate similarly
         const orders = await Order.find({ 'customerDetails.email': email }).sort({ createdAt: -1 });
 
         const transformedOrders = orders.map(order => ({
@@ -129,7 +118,7 @@ exports.getOrdersByEmail = async (req, res) => {
 };
 
 // Create new order
-exports.createOrder = async (req, res) => {
+exports.createOrder = async (req, res, next) => { // Added 'next' for error handling consistency
     console.log('Order Controller: Starting createOrder execution.');
     console.log('Order Controller: req.user at entry:', req.user ? req.user._id : 'null/undefined');
 
@@ -142,13 +131,6 @@ exports.createOrder = async (req, res) => {
     }
 
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: "Not authorized - please login"
-            });
-        }
-
         const { customerDetails, cartItems, paymentDetails, shipping, pricing, orderStatus } = req.body;
 
         if (!customerDetails || !cartItems || cartItems.length === 0 || !shipping || !shipping.address) {
@@ -158,39 +140,30 @@ exports.createOrder = async (req, res) => {
             });
         }
 
-        console.log('Order Controller: Incoming cartItems:', JSON.stringify(cartItems, null, 2)); // ADD THIS LINE
-
         const enrichedCartItems = await Promise.all(
             cartItems.map(async (item) => {
                 try {
-                    console.log(`--- Processing cart item with productId: ${item.productId} ---`); // ADD THIS LINE
                     if (item.productId) {
                         const product = await Product.findById(item.productId);
 
-                        console.log(`Fetched product for ${item.productId}:`, JSON.stringify(product, null, 2)); // ADD THIS LINE
-                        console.log(`Seller from fetched product for ${item.productId}:`, product ? product.seller : 'N/A - product not found or seller missing'); // ADD THIS LINE
-
                         if (product && product.seller) {
-                            console.log(`SUCCESS: Found seller ${product.seller} for product: ${product.name}`); // ADD THIS LINE
                             return {
                                 ...item,
-                                seller: product.seller // Add seller from product
+                                seller: product.seller
                             };
                         } else {
-                            console.warn(`WARNING: Product ${item.productId} found but seller is missing or null. Product object:`, JSON.stringify(product, null, 2)); // ADD THIS LINE
-                            return item; // If seller is missing, return item as is (will lead to error later)
+                            console.warn(`WARNING: Product ${item.productId} found but seller is missing or null. Product object:`, JSON.stringify(product, null, 2));
+                            return item;
                         }
                     }
-                    console.warn(`WARNING: Cart item ${item.name || 'Unknown'} has no productId.`); // ADD THIS LINE
-                    return item; // If no productId, return item as is
+                    console.warn(`WARNING: Cart item ${item.name || 'Unknown'} has no productId.`);
+                    return item;
                 } catch (error) {
-                    console.error(`ERROR: Exception while fetching product ${item.productId}:`, error); // ADD THIS LINE
+                    console.error(`ERROR: Exception while fetching product ${item.productId}:`, error);
                     return item;
                 }
             })
         );
-
-        console.log('Order Controller: Enriched cart items:', JSON.stringify(enrichedCartItems, null, 2)); // ADD THIS LINE
 
         const subtotal = enrichedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const tax = subtotal * 0.08;
@@ -206,17 +179,13 @@ exports.createOrder = async (req, res) => {
                 sellerId = item.seller;
             }
 
-            console.log(`--- Normalizing item ${item.name || 'Unknown Item'}. Initial sellerId:`, sellerId); // ADD THIS LINE
-
             let finalSellerId = null;
             if (sellerId && typeof sellerId === 'string' && mongoose.Types.ObjectId.isValid(sellerId)) {
                 finalSellerId = new mongoose.Types.ObjectId(sellerId);
             } else if (sellerId && typeof sellerId === 'object' && sellerId instanceof mongoose.Types.ObjectId) {
                 finalSellerId = sellerId;
-                console.log(`Seller ID is already ObjectId instance: ${finalSellerId}`); // ADD THIS LINE
             } else {
-                // This is the error-throwing block. Add more context here.
-                console.error(`!!! ERROR TRIGGERED: Invalid or missing seller ID for cart item: ${item.name || 'Unknown Item'}. Received sellerId:`, sellerId, `Type:`, typeof sellerId); // ADD THIS LINE
+                console.error(`!!! ERROR TRIGGERED: Invalid or missing seller ID for cart item: ${item.name || 'Unknown Item'}. Received sellerId:`, sellerId, `Type:`, typeof sellerId);
                 throw new Error(`Missing or invalid seller ID for product: ${item.name || 'an item in your cart'}`);
             }
             return {
@@ -277,9 +246,28 @@ exports.createOrder = async (req, res) => {
         await Promise.all(
             Object.entries(vendorItemsMap).map(async ([sellerId, items]) => {
                 try {
-                    // --- FIX START: Use User model for vendor lookup ---
-                    const vendor = await User.findById(sellerId); // Changed from Vendor.findById
-                    // --- FIX END ---
+                    const vendor = await User.findById(sellerId);
+
+                    // --- ADDED SOCKET.IO NOTIFICATION LOGIC FOR REAL ORDERS ---
+                    const io = req.app.get('socketio'); // Get the Socket.IO instance
+                    if (io && vendor) {
+                        const notificationData = {
+                            recipient: vendor._id,
+                            type: 'new-order',
+                            title: `New Order: #${savedOrder._id.toString().slice(-6).toUpperCase()}`,
+                            message: `You received a new order for ${items.length} item(s). Total for your items: ₹${items.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2)}.`,
+                            link: `/vendor/orders/${savedOrder._id}`, // Link to the order details page
+                            isRead: false,
+                            createdAt: new Date(),
+                            orderId: savedOrder._id,
+                        };
+                        await Notification.create(notificationData); // Save notification to DB
+                        io.to(vendor._id.toString()).emit('newNotification', notificationData); // Emit to seller's room
+                        console.log(`[OrderController] SUCCESS: Emitted 'newNotification' for actual order ${savedOrder._id} to vendor ${vendor._id}`);
+                    } else {
+                        console.warn(`[OrderController] WARNING: Socket.IO instance or vendor not found for real order notification. io: ${!!io}, vendor: ${!!vendor}. Seller ID: ${sellerId}`);
+                    }
+                    // --- END ADDED SOCKET.IO LOGIC ---
 
                     if (vendor && vendor.email) {
                         await sendVendorEmail(vendor.email, {
@@ -299,8 +287,8 @@ exports.createOrder = async (req, res) => {
                     } else {
                         console.warn(`Vendor with ID ${sellerId} not found or missing email for email notification.`);
                     }
-                } catch (emailError) {
-                    console.error(`Failed to send email to vendor ${sellerId}:`, emailError);
+                } catch (notificationOrEmailError) {
+                    console.error(`Failed to send notification/email to vendor ${sellerId}:`, notificationOrEmailError);
                 }
             })
         );
@@ -313,14 +301,10 @@ exports.createOrder = async (req, res) => {
 
     } catch (error) {
         console.error('Order creation error:', error);
-        res.status(400).json({
-            success: false,
-            error: error.message || 'Failed to create order'
-        });
+        next(error); // Pass error to Express error handling middleware
     }
 };
 
-// Helper function to send email
 async function sendVendorEmail(to, { orderId, items, customer, paymentMethod, shippingAddress, overallTotal }) {
     const customerFullName = (customer.name && customer.name.trim() !== '') ? customer.name : `${customer.firstname || ''} ${customer.lastname || ''}`.trim();
     const displayCustomerName = customerFullName || 'N/A';
@@ -390,16 +374,13 @@ async function sendVendorEmail(to, { orderId, items, customer, paymentMethod, sh
 // controllers/orderController.js (Updated getVendorOrders function)
 exports.getVendorOrders = async (req, res) => {
     try {
-        // --- FIX START: Use req.user._id for authenticated vendor ---
         const vendorId = req.user._id;
-        // --- FIX END ---
 
         const orders = await Order.find({ 'cartItems.seller': vendorId })
-            .sort({ createdAt: -1 }) // Latest first
-            .lean(); // Optional: Makes result faster if no Mongoose methods needed
+            .sort({ createdAt: -1 })
+            .lean();
 
         const vendorOrders = orders.map(order => {
-            // Filter only the items that belong to this vendor
             const vendorItems = order.cartItems.filter(item => item.seller.toString() === vendorId.toString());
 
             return {
@@ -417,8 +398,6 @@ exports.getVendorOrders = async (req, res) => {
                     name: item.name,
                     quantity: item.quantity,
                     price: item.price,
-                    // If you want images for vendor view as well, populate in getVendorOrders too.
-                    // For now, only for customer view.
                 })),
                 totalAmount: vendorItems.reduce((acc, item) => acc + item.quantity * item.price, 0)
             };
@@ -443,15 +422,13 @@ exports.getPublicOrderDetails = async (req, res) => {
             });
         }
 
-        // Here, we *only* query by _id. No customerId check.
-        // If you want images for public details, add .populate here too
         const order = await Order.findById(orderId)
             .populate({
                 path: 'cartItems.productId',
                 model: 'Product',
                 select: 'images'
             })
-            .lean(); // Add lean for better performance
+            .lean();
 
         console.log("Order object retrieved from DB:", order);
 
@@ -482,7 +459,7 @@ exports.getPublicOrderDetails = async (req, res) => {
                     name: item.name,
                     quantity: item.quantity,
                     price: item.price,
-                    image: imageUrl, // Use the populated image URL
+                    image: imageUrl,
                 };
             }),
             subtotal,
@@ -530,8 +507,6 @@ exports.getOrderDetails = async (req, res) => {
             });
         }
 
-        // ✅ CRITICAL SECURITY FIX: Only get orders for the authenticated user
-        // ✅ ADD POPULATE HERE FOR DETAILED VIEW
         const order = await Order.findOne({
             _id: orderId,
             customerId: req.user._id
@@ -539,9 +514,9 @@ exports.getOrderDetails = async (req, res) => {
             .populate({
                 path: 'cartItems.productId',
                 model: 'Product',
-                select: 'images' // Select only the images field
+                select: 'images'
             })
-            .lean(); // Use .lean() for better performance
+            .lean();
 
         if (!order) {
             return res.status(404).json({
@@ -572,7 +547,7 @@ exports.getOrderDetails = async (req, res) => {
                     price: item.price,
                     originalPrice: item.originalPrice || null,
                     quantity: item.quantity,
-                    image: imageUrl, // Use the populated image URL
+                    image: imageUrl,
                     seller: item.seller
                 };
             }),
@@ -609,13 +584,11 @@ exports.getOrderDetails = async (req, res) => {
 };
 
 // Update order status
-exports.updateOrderStatus = async (req, res) => {
+exports.updateOrderStatus = async (req, res, next) => { // Added 'next' here
     try {
         const { status } = req.body;
         const { orderId } = req.params;
-        // --- FIX START: Use req.user._id for authenticated vendor ---
         const vendorId = req.user._id;
-        // --- FIX END ---
 
         const validStatuses = ['pending', 'processing', 'completed', 'failed', 'shipped', 'cancelled'];
         if (!validStatuses.includes(status)) {
@@ -658,6 +631,27 @@ exports.updateOrderStatus = async (req, res) => {
             { new: true }
         );
 
+        // --- ADDED SOCKET.IO NOTIFICATION LOGIC FOR STATUS UPDATES ---
+        const io = req.app.get('socketio'); // Get the Socket.IO instance
+        if (io && updatedOrder && updatedOrder.customerId) {
+            const customerNotificationData = {
+                recipient: updatedOrder.customerId,
+                type: 'order-status-update',
+                title: `Order #${updatedOrder._id.toString().slice(-6).toUpperCase()} Status Update`,
+                message: `Your order is now '${updatedOrder.status}'.`,
+                link: `/orders/${updatedOrder._id}`, // Link to customer's order details
+                isRead: false,
+                createdAt: new Date(),
+                orderId: updatedOrder._id,
+            };
+            await Notification.create(customerNotificationData); // Save notification to DB
+            io.to(updatedOrder.customerId.toString()).emit('newNotification', customerNotificationData); // Emit to customer's room
+            console.log(`[OrderController] Socket.IO: Emitted 'newNotification' to customer room ${updatedOrder.customerId} for order status update.`);
+        } else {
+            console.warn(`[OrderController] Socket.IO instance or order/customer not found for status update notification.`);
+        }
+        // --- END ADDED SOCKET.IO LOGIC ---
+
         try {
             await sendStatusUpdateEmail(updatedOrder);
         } catch (emailErr) {
@@ -677,28 +671,23 @@ exports.updateOrderStatus = async (req, res) => {
 
     } catch (error) {
         console.error('Error updating order status:', error);
-        return res.status(500).json({
-            message: 'Failed to update order status',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+        next(error); // Pass error to Express error handling middleware
     }
 };
 
 
 exports.getAllOrders = async (req, res) => {
     try {
-
         console.log('Fetching all orders for admin view...');
 
         const orders = await Order.find({})
             .populate({
-                path: 'cartItems.productId', // Path to the product ID within each cart item
-                model: 'Product',           // The model to use for population
-                select: 'images name'       // Select images and name for display
+                path: 'cartItems.productId',
+                model: 'Product',
+                select: 'images name'
             })
-            .sort({ createdAt: -1 }) // Sort by latest orders first
-            .lean(); // Use .lean() for faster query results if you don't need Mongoose document methods
-
+            .sort({ createdAt: -1 })
+            .lean();
 
         const transformedOrders = orders.map(order => {
             const customerFullName = `${order.customerDetails?.firstname || ''} ${order.customerDetails?.lastname || ''}`.trim();
@@ -707,7 +696,7 @@ exports.getAllOrders = async (req, res) => {
 
             return {
                 _id: order._id,
-                orderNumber: order._id.toString().slice(-8).toUpperCase(), // Short unique ID
+                orderNumber: order._id.toString().slice(-8).toUpperCase(),
                 customerName: customerFullName || 'N/A',
                 customerEmail: order.customerDetails?.email || 'N/A',
                 customerPhone: order.customerDetails?.phone || 'N/A',
@@ -718,26 +707,25 @@ exports.getAllOrders = async (req, res) => {
                 paymentStatus: order.paymentDetails?.status || 'N/A',
                 shippingAddress: order.shippingAddress,
                 items: order.cartItems.map(item => {
-                    let imageUrl = '/placeholder-product.png'; // Default fallback image path
+                    let imageUrl = '/placeholder-product.png';
                     let productName = item.name;
 
-                    // Check if productId was successfully populated and has images/name
                     if (item.productId) {
                         if (item.productId.images && item.productId.images.length > 0) {
-                            imageUrl = item.productId.images[0]; // Take the first image
+                            imageUrl = item.productId.images[0];
                         }
                         if (item.productId.name) {
-                            productName = item.productId.name; // Use populated product name
+                            productName = item.productId.name;
                         }
                     }
 
                     return {
                         productId: item.productId ? item.productId._id : null,
-                        name: productName, // Use the populated product name or original item name
+                        name: productName,
                         quantity: item.quantity,
                         price: item.price,
-                        imageUrl: imageUrl, // Add the image URL here
-                        seller: item.seller // Include seller ID for potential future use (e.g., filtering by vendor)
+                        imageUrl: imageUrl,
+                        seller: item.seller
                     };
                 })
             };
@@ -760,28 +748,25 @@ exports.getAllOrders = async (req, res) => {
 };
 
 exports.sendOrderMessageToCustomer = async (req, res) => {
-    // --- FIX START: Use req.user for authentication and role check ---
-    if (!req.user || req.user.role !== 'seller') { // Assuming only 'seller' can send messages
-        return res.status(403).json({ // 403 Forbidden if not authorized role
+    if (!req.user || req.user.role !== 'seller') {
+        return res.status(403).json({
             success: false,
             message: "Not authorized - only sellers can send messages to customers."
         });
     }
 
     const { orderId, messageContent } = req.body;
-    const vendorId = req.user._id; // Get vendor ID from authenticated req.user
-    // --- FIX END ---
+    const vendorId = req.user._id;
 
     if (!orderId || !messageContent) {
         return res.status(400).json({ success: false, message: 'Order ID and message content are required.' });
     }
 
     try {
-        // Find the order to get customer details and ensure the vendor is associated with it
         const order = await Order.findOne({
             _id: orderId,
-            'cartItems.seller': vendorId // Ensure the vendor owns items in this order
-        }).lean(); // Use lean for faster query
+            'cartItems.seller': vendorId
+        }).lean();
 
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found or not associated with this vendor.' });
@@ -794,32 +779,56 @@ exports.sendOrderMessageToCustomer = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Customer email not found for this order.' });
         }
 
-        // --- FIX START: Get vendor details from User model ---
-        const vendor = await User.findById(vendorId); // Changed from Vendor.findById
-        const vendorShopName = vendor?.storeName || 'Your LocalCart Vendor'; // Changed from shopName to storeName
-        // --- FIX END ---
+        const vendor = await User.findById(vendorId);
+        const vendorShopName = vendor?.storeName || 'Your LocalCart Vendor';
 
         const mailOptions = {
-            from: `"LocalCart - ${vendorShopName}" <${process.env.EMAIL_FROM}>`,
-            to: customerEmail,
-            subject: `Message from ${vendorShopName} regarding your Order #${order._id.toString().slice(-8).toUpperCase()}`,
-            html: `
-                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                    <h2 style="color: #0056b3;">Hello ${customerName},</h2>
-                    <p>You have received a message from <strong>${vendorShopName}</strong> regarding your recent order on LocalCart.</p>
-                    <p><strong>Order ID:</strong> <span style="font-weight: bold; color: #d9534f;">#${order._id.toString().slice(-8).toUpperCase()}</span></p>
+    from: `"LocalCart - ${vendorShopName}" <${process.env.EMAIL_FROM}>`,
+    to: customerEmail,
+    subject: `Important Message Regarding Your LocalCart Order #${order._id.toString().slice(-8).toUpperCase()} from ${vendorShopName}`,
+    html: `
+        <div style="font-family: 'Inter', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <!-- Header Section -->
+            <div style="background-color: #0056b3; color: #ffffff; padding: 20px 25px; text-align: center; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: bold;">LocalCart</h1>
+                <p style="margin: 5px 0 0; font-size: 16px;">Connecting You with Local Businesses</p>
+            </div>
 
-                    <h3 style="color: #0056b3;">Message:</h3>
-                    <div style="background-color: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
-                        <p>${messageContent.replace(/\n/g, '<br>')}</p>
-                    </div>
+            <!-- Body Content -->
+            <div style="padding: 25px;">
+                <h2 style="color: #0056b3; font-size: 22px; margin-top: 0;">Dear ${customerName},</h2>
+                <p style="font-size: 15px; margin-bottom: 20px;">You have received an important message from <strong>${vendorShopName}</strong> concerning your recent order on LocalCart.</p>
 
-                    <p>Please log in to LocalCart or reply to this email if you need further assistance.</p>
-                    <p>Thank you for shopping with LocalCart!</p>
-                    <p>Best regards,<br>The LocalCart Team</p>
+                <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 18px 20px; border-radius: 6px; margin-bottom: 20px;">
+                    <p style="font-size: 15px; margin: 0;"><strong>Order Reference:</strong> <span style="font-weight: bold; color: #d9534f;">#${order._id.toString().slice(-8).toUpperCase()}</span></p>
                 </div>
-            `
-        };
+
+                <h3 style="color: #0056b3; font-size: 18px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px; margin-bottom: 20px;">Message from ${vendorShopName}:</h3>
+                <div style="background-color: #f9f9f9; border: 1px solid #ddd; padding: 20px; border-radius: 6px; margin-bottom: 25px;">
+                    <p style="font-size: 15px; margin: 0;">${messageContent.replace(/\n/g, '<br>')}</p>
+                </div>
+
+                <p style="font-size: 15px; text-align: center; margin-bottom: 25px;">For further assistance or to respond to this message, please log in to your LocalCart account or reply directly to this email.</p>
+
+                <!-- Call to Action Button (Example - adjust URL as needed) -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <a href="YOUR_LOCALCART_LOGIN_URL" style="display: inline-block; background-color: #28a745; color: #ffffff; padding: 12px 25px; border-radius: 5px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                        Access Your Order on LocalCart
+                    </a>
+                </div>
+
+                <p style="font-size: 15px; margin-top: 0; text-align: center;">Thank you for choosing LocalCart for your shopping needs!</p>
+            </div>
+
+            <!-- Footer Section -->
+            <div style="background-color: #f0f0f0; color: #666; padding: 15px 25px; text-align: center; font-size: 13px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+                <p style="margin: 0;">Best regards,<br>The LocalCart Team</p>
+                <p style="margin: 10px 0 0;">&copy; ${new Date().getFullYear()} LocalCart. All rights reserved.</p>
+            </div>
+        </div>
+    `
+};
+
 
         await transporter.sendMail(mailOptions);
         console.log(`Vendor message sent for order ${orderId} to ${customerEmail}`);
