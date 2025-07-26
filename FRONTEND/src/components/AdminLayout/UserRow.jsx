@@ -167,102 +167,121 @@ export default function UserRow({ user, onToggleBlock, authAxios }) {
 
     return (
         <>
-            <div className="grid grid-cols-12 p-4 border-b border-gray-200 text-gray-900 hover:bg-gray-50">
-                <div className="col-span-3 flex items-center">
-                    {renderUserPhoto()}
-                    {/* Fallback avatar div */}
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3 text-gray-600 font-semibold text-lg uppercase fallback-avatar"
-                        style={{ display: (currentUser.photo && currentUser.photo !== 'default.jpg') ? 'none' : 'flex' }}>
-                        {currentUser.name ? currentUser.name.charAt(0) : '?'}
-                    </div>
-                    <div>
-                        {/* Link to User Detail Page using React Router's Link component */}
-                        <Link
-                            to={`/admin/users/${currentUser._id}`}
-                            className="font-medium text-gray-900 hover:text-blue-600 hover:underline"
-                        >
-                            {currentUser.name}
-                        </Link>
-                    </div>
-                </div>
-                <div className="col-span-3 text-sm text-gray-600 truncate">{currentUser.email}</div>
-                <div className="col-span-1">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        isVendor ? 'bg-purple-100 text-purple-800' :
-                        isAdmin ? 'bg-blue-100 text-blue-800' :
-                        isSuperAdmin ? 'bg-indigo-100 text-indigo-800' :
-                        'bg-green-100 text-green-800'
-                    } capitalize`}>
-                        {currentUser.role}
-                    </span>
-                </div>
-                <div className="col-span-2 text-sm text-gray-600">
-                    {currentUser.lastLoginAt ? new Date(currentUser.lastLoginAt).toLocaleString() : 'N/A'}
-                </div>
-                <div className="col-span-1 text-center text-sm text-gray-600">
-                    {currentUser.transactionsCount !== undefined ? currentUser.transactionsCount : 0}
-                </div>
-                <div className="col-span-2 flex items-center justify-between pl-2">
-                    {/* Status display */}
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        isBlocked ? 'bg-red-100 text-red-800' :
-                        isPending ? 'bg-yellow-100 text-yellow-800' :
-                        isActive ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
-                    } capitalize`}>
-                        {currentUser.status || 'N/A'}
-                    </span>
-                    {/* Action buttons */}
-                    <div className="flex space-x-2 ml-4">
-                        {isVendor && isPending && (
-                            <>
-                                <button
-                                    onClick={handleApproveVendor}
-                                    className="p-1 rounded-full bg-green-100 text-green-600 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75 focus:ring-offset-2 focus:ring-offset-white"
-                                    title="Approve Vendor"
-                                    disabled={isUpdating}
-                                >
-                                    {isUpdating ? <span className="animate-spin h-4 w-4 border-2 border-green-500 border-t-transparent rounded-full block"></span> : <ShieldCheck size={18} />}
-                                </button>
-                                <button
-                                    onClick={handleRejectVendor}
-                                    className="p-1 rounded-full bg-red-100 text-red-600 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-75 focus:ring-offset-2 focus:ring-offset-white"
-                                    title="Reject Vendor"
-                                    disabled={isUpdating}
-                                >
-                                    {isUpdating ? <span className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full block"></span> : <Trash size={18} />}
-                                </button>
-                            </>
-                        )}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-0 p-4 border-b border-gray-200 text-gray-900 hover:bg-gray-50">
+  {/* User Info - Full width on mobile, auto cols on desktop */}
+  <div className="sm:col-span-3 flex items-center">
+    {renderUserPhoto()}
+    {/* Fallback avatar div */}
+    <div 
+      className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3 text-gray-600 font-semibold text-lg uppercase fallback-avatar"
+      style={{ display: (currentUser.photo && currentUser.photo !== 'default.jpg') ? 'none' : 'flex' }}
+    >
+      {currentUser.name ? currentUser.name.charAt(0) : '?'}
+    </div>
+    <div className="truncate">
+      <Link
+        to={`/admin/users/${currentUser._id}`}
+        className="font-medium text-gray-900 hover:text-blue-600 hover:underline block truncate"
+      >
+        {currentUser.name}
+      </Link>
+      {/* Show email on mobile only */}
+      <div className="sm:hidden text-xs text-gray-500 truncate">
+        {currentUser.email}
+      </div>
+    </div>
+  </div>
 
-                        {/* Block/Unblock button for non-pending, non-vendor, non-admin users */}
-                        {(!isPending && !isVendor && !isAdmin && !isSuperAdmin) && (
-                            <button
-                                onClick={() => setIsBlockModalOpen(true)}
-                                className={`p-1 rounded-full ${
-                                    isBlocked
-                                        ? 'bg-green-100 text-green-600 hover:bg-green-200'
-                                        : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
-                                } focus:outline-none focus:ring-2 focus:ring-opacity-75 focus:ring-offset-2 focus:ring-offset-white`}
-                                title={isBlocked ? 'Activate User' : 'Block User'}
-                                disabled={isUpdating}
-                            >
-                                {isUpdating ? <span className="animate-spin h-4 w-4 border-2 border-yellow-500 border-t-transparent rounded-full block"></span> : (isBlocked ? <ShieldCheck size={18} /> : <ShieldAlert size={18} />)}
-                            </button>
-                        )}
+  {/* Email - Hidden on mobile, shown on desktop */}
+  <div className="hidden sm:block sm:col-span-3 text-sm text-gray-600 truncate">
+    {currentUser.email}
+  </div>
 
-                        {/* Edit/View Details button - now linking to UserEditPage for editing */}
-                        <Link
-                            to={`/admin/users/edit/${currentUser._id}`} // Changed to /edit/:id for an actual edit page
-                            className="p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 focus:ring-offset-2 focus:ring-offset-white"
-                            title="Edit User Details" // Updated title
-                            disabled={isUpdating}
-                        >
-                            <Edit size={16} /> {/* Keep Edit icon as it now links to an edit page */}
-                        </Link>
-                    </div>
-                </div>
-            </div>
+  {/* Role Badge */}
+  <div className="sm:col-span-1">
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+      isVendor ? 'bg-purple-100 text-purple-800' :
+      isAdmin ? 'bg-blue-100 text-blue-800' :
+      isSuperAdmin ? 'bg-indigo-100 text-indigo-800' :
+      'bg-green-100 text-green-800'
+    } capitalize inline-block w-full sm:w-auto text-center`}>
+      {currentUser.role}
+    </span>
+  </div>
+
+  {/* Last Login - Stacked layout on mobile */}
+  <div className="sm:col-span-2 text-sm text-gray-600">
+    <span className="sm:hidden font-medium mr-2">Last Login:</span>
+    {currentUser.lastLoginAt ? new Date(currentUser.lastLoginAt).toLocaleString() : 'N/A'}
+  </div>
+
+  {/* Transactions - Stacked layout on mobile */}
+  <div className="sm:col-span-1 text-sm text-gray-600">
+    <span className="sm:hidden font-medium mr-2">Transactions:</span>
+    {currentUser.transactionsCount !== undefined ? currentUser.transactionsCount : 0}
+  </div>
+
+  {/* Status and Actions - Full width on mobile */}
+  <div className="sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 sm:pl-2">
+    {/* Status */}
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+      isBlocked ? 'bg-red-100 text-red-800' :
+      isPending ? 'bg-yellow-100 text-yellow-800' :
+      isActive ? 'bg-green-100 text-green-800' :
+      'bg-gray-100 text-gray-800'
+    } capitalize w-full sm:w-auto text-center`}>
+      {currentUser.status || 'N/A'}
+    </span>
+
+    {/* Action Buttons */}
+    <div className="flex justify-end sm:justify-start space-x-2 sm:ml-4">
+      {isVendor && isPending && (
+        <>
+          <button
+            onClick={handleApproveVendor}
+            className="p-1 rounded-full bg-green-100 text-green-600 hover:bg-green-200"
+            title="Approve Vendor"
+            disabled={isUpdating}
+          >
+            {isUpdating ? <span className="animate-spin h-4 w-4 border-2 border-green-500 border-t-transparent rounded-full block"></span> : <ShieldCheck size={18} />}
+          </button>
+          <button
+            onClick={handleRejectVendor}
+            className="p-1 rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+            title="Reject Vendor"
+            disabled={isUpdating}
+          >
+            {isUpdating ? <span className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full block"></span> : <Trash size={18} />}
+          </button>
+        </>
+      )}
+
+      {(!isPending && !isVendor && !isAdmin && !isSuperAdmin) && (
+        <button
+          onClick={() => setIsBlockModalOpen(true)}
+          className={`p-1 rounded-full ${
+            isBlocked
+              ? 'bg-green-100 text-green-600 hover:bg-green-200'
+              : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
+          }`}
+          title={isBlocked ? 'Activate User' : 'Block User'}
+          disabled={isUpdating}
+        >
+          {isUpdating ? <span className="animate-spin h-4 w-4 border-2 border-yellow-500 border-t-transparent rounded-full block"></span> : (isBlocked ? <ShieldCheck size={18} /> : <ShieldAlert size={18} />)}
+        </button>
+      )}
+
+      <Link
+        to={`/admin/users/edit/${currentUser._id}`}
+        className="p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200"
+        title="Edit User Details"
+        disabled={isUpdating}
+      >
+        <Edit size={16} />
+      </Link>
+    </div>
+  </div>
+</div>
 
             {/* Error message display for actions */}
             {actionError && (
