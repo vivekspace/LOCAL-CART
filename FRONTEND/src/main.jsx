@@ -1,3 +1,5 @@
+// frontend/src/main.jsx (or App.jsx if you have one wrapping the router)
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
@@ -49,16 +51,18 @@ import ContactUs from "./components/ContactUs/ContactUs.jsx";
 import AboutUsPage from "./components/AboutUs/AboutUs.jsx";
 import NotFoundPage from "./components/PageNotFound/PageNotFound.jsx";
 import AccountSettings from "./components/AccountSetting/AccountSetting.jsx";
-import AuthProvider from "/src/Context/Context.jsx";
+import AuthProvider from "./Context/Context.jsx"; // Ensure this path is correct
 import RoleBasedRoute from "./components/RoleBasedRoute/RoleBasedRoute.jsx";
 import VendorOrderPage from "./components/VendorOrder/VendorOrder.jsx";
-import AdminVendorsPage from "./components/VendorListPage/VendorListPage.jsx";
+import AdminVendorsPage from "./components/AdminVendorsPage/AdminVendorsPage.jsx";
 import Landing from "./components/Landing/Landing.jsx";
 import VendorApplicationPage from "./components/VendorApplicationPage/VendorApplicationPage.jsx";
 import { LocationProvider } from "./LocationContext/LocationContext.jsx";
 import WishlistPage from "./components/WishList/WishList.jsx";
 import ViewAllProducts from "./components/ViewAllProducts/ViewAllProducts.jsx";
-import { View } from "lucide-react";
+import { NotificationProvider } from './NotificationContext/NotificationContext.jsx'; 
+import VendorNotifications from './components/VendorNotification/VendorNotification.jsx'; 
+import VendorOrderDetailsPage from './components/VendorOrderDetails/VendorOrderDetails.jsx'; 
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -72,11 +76,10 @@ const router = createBrowserRouter(
       <Route path="contact-us" element={<ContactUs />} />
       <Route path="about-us" element={<AboutUsPage />} />
       <Route path="view-all" element={<ViewAllProducts/>}/>
-      
 
-      {/* Auth Routes */}
-      <Route path="vendor/login" element={<VendorLogin />} />
+      {/* Auth Routes (Login/Register specific to roles) */}
       <Route path="vendor/register" element={<VendorRegister />} />
+      <Route path="vendor/login" element={<VendorLogin />} />
       <Route path="admin/login" element={<AdminLogin />} />
       <Route
         path="vendor/application/form"
@@ -107,7 +110,7 @@ const router = createBrowserRouter(
       <Route
         element={
           <RoleBasedRoute
-            allowedRoles={["seller"]}
+            allowedRoles={["seller"]} // Your backend uses 'seller' for vendors
             redirectPath="/vendor/login"
           />
         }
@@ -120,6 +123,9 @@ const router = createBrowserRouter(
           <Route path="analytics" element={<VendorAnalytics />} />
           <Route path="profile" element={<VendorProfile />} />
           <Route path="messages" element={<VendorMessagesPage />} />
+          <Route path="notifications" element={<VendorNotifications />} />
+          <Route path="orders/:orderId" element={<VendorOrderDetailsPage />} /> {/* <--- ADD THIS ROUTE */}
+         
         </Route>
       </Route>
 
@@ -158,19 +164,23 @@ function MainApp() {
     <StrictMode>
       <HelmetProvider>
         <LocationProvider>
+          {/* AuthProvider must wrap NotificationProvider as it provides user context */}
           <AuthProvider>
-            <RouterProvider router={router} />
-            <ToastContainer
-              position="top-center"
-              autoClose={5000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-            />
+            {/* NotificationProvider added here */}
+            <NotificationProvider>
+              <RouterProvider router={router} />
+              <ToastContainer
+                position="top-center" // Your ToastContainer settings
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+              />
+            </NotificationProvider>
           </AuthProvider>
         </LocationProvider>
       </HelmetProvider>

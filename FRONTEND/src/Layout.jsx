@@ -22,16 +22,42 @@ const Layout = () => {
     const isAdminRoute = location.pathname.startsWith("/admin");
     const isVendorRoute = location.pathname.startsWith("/vendor");
     const isPublicRoute = !isAdminRoute && !isVendorRoute;
-    const isAuthRoute = ['/login', '/register', '/vendor/login', '/vendor/register', '/admin/login'].includes(location.pathname);
     
-    return { isAdminRoute, isVendorRoute, isPublicRoute, isAuthRoute };
+    // FIXED: Define auth routes more comprehensively
+    const isAuthRoute = [
+      '/login', 
+      '/register', 
+      '/vendor/login', 
+      '/vendor/register',  // This was missing from being properly handled
+      '/admin/login'
+    ].includes(location.pathname);
+    
+    // FIXED: Add check for vendor auth routes specifically
+    const isVendorAuthRoute = ['/vendor/login', '/vendor/register'].includes(location.pathname);
+    const isAdminAuthRoute = location.pathname === '/admin/login';
+    
+    return { 
+      isAdminRoute, 
+      isVendorRoute, 
+      isPublicRoute, 
+      isAuthRoute, 
+      isVendorAuthRoute, 
+      isAdminAuthRoute 
+    };
   }, [location.pathname]);
 
   // Optimized redirection logic - only redirect when necessary
   useEffect(() => {
     if (isAuthLoading) return; // Don't do anything while loading
 
-    const { isAdminRoute, isVendorRoute, isPublicRoute, isAuthRoute } = routeInfo;
+    const { 
+      isAdminRoute, 
+      isVendorRoute, 
+      isPublicRoute, 
+      isAuthRoute, 
+      isVendorAuthRoute, 
+      isAdminAuthRoute 
+    } = routeInfo;
 
     // Only redirect if user is logged in and on incompatible route
     if (isLoggedIn && !isAuthRoute) {
@@ -48,25 +74,27 @@ const Layout = () => {
       }
     }
 
-    // Redirect if accessing protected routes without proper auth
+    // FIXED: Redirect if accessing protected routes without proper auth
+    // But exclude auth routes from redirection
     if (!isLoggedIn) {
-      if (isAdminRoute) {
+      if (isAdminRoute && !isAdminAuthRoute) {
         navigate("/admin/login", { replace: true });
         return;
       }
-      if (isVendorRoute) {
+      // FIXED: Only redirect vendor routes that are NOT auth routes
+      if (isVendorRoute && !isVendorAuthRoute) {
         navigate("/vendor/login", { replace: true });
         return;
       }
     }
-  }, [isAuthLoading, isLoggedIn, currentRole, location.pathname, navigate]);
+  }, [isAuthLoading, isLoggedIn, currentRole, location.pathname, navigate, routeInfo]);
 
   // Show loader only during initial auth check
   if (isAuthLoading) {
     return <Loader />;
   }
 
-  const { isAdminRoute, isVendorRoute } = routeInfo;
+  const { isAdminRoute, isVendorRoute, isVendorAuthRoute } = routeInfo;
 
   // Admin Layout
   if (isAdminRoute && isLoggedIn && currentRole === "admin") {
@@ -90,8 +118,8 @@ const Layout = () => {
     );
   }
 
-  // Vendor Layout
-  if (isVendorRoute && isLoggedIn && currentRole === "seller") {
+  // Vendor Layout - FIXED: Allow vendor auth routes to use public layout
+  if (isVendorRoute && !isVendorAuthRoute && isLoggedIn && currentRole === "seller") {
     return (
       <div className="min-h-screen flex flex-col">
         <ScrollToTop />
@@ -107,7 +135,7 @@ const Layout = () => {
     );
   }
 
-
+  // Default Public Layout (includes vendor auth routes)
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
