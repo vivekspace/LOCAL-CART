@@ -20,8 +20,8 @@ export default function VendorRegister() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({}); // State for field-specific validation errors
 
-  // Destructure vendorRegister from AuthContext
-  const { vendorRegister } = useContext(AuthContext); // Assuming you'll add vendorRegister to AuthContext
+  // Destructure 'register' from AuthContext (instead of vendorRegister)
+  const { register } = useContext(AuthContext); // Changed from vendorRegister to register
 
   const navigate = useNavigate();
 
@@ -32,7 +32,7 @@ export default function VendorRegister() {
     confirmPassword: "", // Added confirmPassword to formData state
     storeName: "",
     phone: "",
-    role: "vendor", // Explicitly set role for vendor registration
+    role: "seller", // Explicitly set role for vendor registration (using 'seller' as per previous context)
     acceptTerms: false, // Added acceptTerms for consistency
   });
 
@@ -111,14 +111,14 @@ export default function VendorRegister() {
     setErrors({}); // Clear any lingering errors before new submission
 
     try {
-      // Use the vendorRegister function from AuthContext
-      const response = await vendorRegister(formData);
+      // Use the generic 'register' function from AuthContext
+      const response = await register(formData); // Changed from vendorRegister to register
 
       if (response && response.success) {
         toast.success("Vendor account created successfully!");
         navigate("/vendor/dashboard"); // Redirect to vendor dashboard on success
       } else {
-        // If vendorRegister returns success: false or no response, show error
+        // If register returns success: false or no response, show error
         toast.error(response?.message || "Vendor registration failed. Please try again.");
       }
     } catch (err) {
@@ -326,7 +326,7 @@ export default function VendorRegister() {
                     value={formData.storeName}
                     onChange={handleChange}
                     placeholder="Your unique store name"
-                    className={`block w-full pl-10 pr-3 py-3 rounded-lg border ${errors.storeName ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-gray-500 transition`}
+                    className={`block w-full pl-10 pr-3 py-3 rounded-lg border ${errors.storeName ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-gray-50 transition`}
                     required
                   />
                 </div>

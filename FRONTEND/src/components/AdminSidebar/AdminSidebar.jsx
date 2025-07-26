@@ -49,13 +49,13 @@ const menuItems = [
                 tab: "admins",
                 link: "/admin/users/admins",
             },
+            {
+                icon: <Store size={18} />,
+                name: "Vendors",
+                tab: "vendors",
+                link: "/admin/vendors",
+            },
         ],
-    },
-    {
-        icon: <Store size={18} />,
-        name: "Vendors",
-        tab: "vendors",
-        link: "/admin/vendors",
     },
     {
         icon: <Package size={18} />,
@@ -304,7 +304,7 @@ const AdminSidebar = () => {
                     >
                         <Link
                             to="/admin/panel"
-                            className={`flex items-center text-xl font-bold text-green-600 hover:text-green-700 transition-colors ${
+                            className={`flex items-center text-xl font-bold te xt-blue-600 hover:te xt-blue-700 transition-colors ${
                                 isOpen ? "block" : "hidden "
                             }`}
                         >
@@ -313,7 +313,7 @@ const AdminSidebar = () => {
 
                         <button
                             onClick={() => setIsOpen(!isOpen)}
-                            className={`text-black hover:text-green-500 focus:outline-none transition-transform duration-300
+                            className={`text-black hover:te xt-blue-500 focus:outline-none transition-transform duration-300
                                 ${isOpen ? "rotate-90" : "rotate-0"}
                             `}
                             aria-label="Toggle sidebar"
@@ -345,8 +345,8 @@ const AdminSidebar = () => {
                                 }
                                 className={`flex items-center justify-between w-full p-3 rounded-lg transition-colors duration-200 cursor-pointer ${
                                     isActive(item.link, item.submenu)
-                                        ? "bg-green-500 text-white"
-                                        : "text-gray-700 hover:bg-green-100 hover:text-green-700"
+                                        ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white"
+                                        : "text-gray-700 hover:bg-blue-100 hover:text-blue-700"
                                 }`}
                             >
                                 <div className="flex items-center">
@@ -373,8 +373,8 @@ const AdminSidebar = () => {
                                             onClick={() => handleSubmenuItemClick(subItem.link)}
                                             className={`block p-2 text-sm rounded-lg transition-colors ${
                                                 location.pathname.startsWith(subItem.link)
-                                                    ? "bg-green-200 text-green-800"
-                                                    : "text-gray-600 hover:bg-green-50 hover:text-green-700"
+                                                    ? " bg-blue-200 te xt-blue-800"
+                                                    : "text-gray-600 hover: bg-blue-50 hover:te xt-blue-700"
                                             }`}
                                         >
                                             {subItem.name}
@@ -389,7 +389,7 @@ const AdminSidebar = () => {
                 <div className="mt-auto p-4 border-t border-gray-200 bg-white">
                     <button
                         onClick={handleNotificationClick}
-                        className="relative flex items-center p-3 w-full rounded-lg text-gray-700 hover:bg-gray-100 hover:text-green-700 transition-colors"
+                        className="relative flex items-center p-3 w-full rounded-lg text-gray-700 hover:bg-gray-100 hover:te xt-blue-700 transition-colors"
                     >
                         <Bell size={18} className="flex-shrink-0" />
                         <span className={menuItemTextClass}>Notifications</span>
@@ -405,7 +405,7 @@ const AdminSidebar = () => {
                     <div className="relative mt-2" ref={dropdownRef}>
                         <button
                             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                            className="flex items-center p-3 w-full rounded-lg text-gray-700 hover:bg-gray-100 hover:text-green-700 transition-colors"
+                            className="flex items-center p-3 w-full rounded-lg text-gray-700 hover:bg-gray-100 hover:te xt-blue-700 transition-colors"
                         >
                             {renderAvatar(user, "w-8 h-8", "text-sm")}
                             <div className={menuItemTextClass}>

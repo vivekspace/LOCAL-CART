@@ -29,20 +29,40 @@ const VendorProductsPage = () => {
       }
 
       try {
-        setLoading(true);
-        setError(null);
-        const response = await authAxios.get(`/api/vendor/products`);
-        setProducts(response.data.data.products);
-      } catch (err) {
-        console.error('Error fetching vendor products:', err);
-        setError(err.response?.data?.message || "Failed to fetch products");
-      } finally {
-        setLoading(false);
-      }
-    };
+      setLoading(true);
+      setError(null);
+      const response = await authAxios.get(`/api/vendor/products`);
 
-    fetchProducts();
-  }, [authAxios, isLoggedIn, isSeller]);
+      // -------------------------------------------------------------
+      // CRITICAL FIX HERE: Access response.data.data directly
+      // -------------------------------------------------------------
+      const productsArray = response.data.data; // This 'data' property holds the array
+
+      console.log("Backend full response object:", response); // Good for debugging
+      console.log("Backend response data:", response.data); // Good for debugging
+      console.log("Type of products from backend (after fix):", typeof productsArray); // Should be 'object' (for array)
+      console.log("Value of products from backend (after fix):", productsArray); // Should be [] or [product1, ...]
+
+
+      if (Array.isArray(productsArray)) {
+        setProducts(productsArray); // Set state with the actual array
+      } else {
+        console.error("Backend response 'data' field is not an array as expected:", productsArray);
+        setProducts([]); // Fallback to an empty array to prevent errors
+        setError("Failed to load products: Unexpected data format from server.");
+      }
+
+    } catch (err) {
+      console.error('Error fetching vendor products:', err);
+      setError(err.response?.data?.message || "Failed to fetch products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchProducts();
+}, [authAxios, isLoggedIn, isSeller]);
+
 
   const handleSort = (key) => {
     let direction = 'ascending';
@@ -52,34 +72,46 @@ const VendorProductsPage = () => {
     setSortConfig({ key, direction });
   };
 
-  const sortedProducts = [...products].sort((a, b) => {
-    if (sortConfig.key) {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === 'ascending' ? -1 : 1;
-      }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === 'ascending' ? 1 : -1;
-      }
+  const safeProducts = Array.isArray(products) ? products : []; // Defensive check
+
+
+const sortedProducts = [...safeProducts].sort((a, b) => { // Apply sort to the safe array
+  if (sortConfig.key) {
+    if (a[sortConfig.key] < b[sortConfig.key]) {
+      return sortConfig.direction === 'ascending' ? -1 : 1;
     }
-    return 0;
-  });
-
+    if (a[sortConfig.key] > b[sortConfig.key]) {
+      return sortConfig.direction === 'ascending' ? 1 : -1;
+    }
+  }
+  return 0;
+});
 const filteredProducts = sortedProducts.filter((product) => {
-    // Ensure product.name and product.category are strings before calling toLowerCase()
-    const productName = product.name || ''; // Default to empty string if null/undefined
-    const productCategory = product.category || ''; // Default to empty string if null/undefined
+  // Add an early return if 'product' itself is null or undefined
+  if (!product) {
+    console.warn("Skipping null/undefined product in filter:", product);
+    return false; // Exclude null/undefined entries
+  }
 
-    const matchesSearch =
-      productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      productCategory.toLowerCase().includes(searchTerm.toLowerCase()); // No need for && here anymore
+  // Ensure product.name and product.category exist and are strings
+  // Use optional chaining (?.) for properties that might be missing on 'product'
+  const productName = product?.name || '';
+  const productCategory = product?.category || '';
 
-    const matchesFilter =
-      activeFilter === "all" ||
-      (activeFilter === "active" && product.stock > 0) ||
-      (activeFilter === "out-of-stock" && product.stock <= 0);
+  const matchesSearch =
+    productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    productCategory.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchesSearch && matchesFilter;
-  });
+      console.log("Checking product in filter:", product); // Log the product object causing issues
+
+
+  const matchesFilter =
+    activeFilter === "all" ||
+    (activeFilter === "active" && (product?.stock || 0) > 0) || // Line 114 is likely here
+    (activeFilter === "out-of-stock" && (product?.stock || 0) <= 0);
+
+  return matchesSearch && matchesFilter;
+});
 
   const handleDelete = async (productId) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
@@ -134,7 +166,7 @@ const filteredProducts = sortedProducts.filter((product) => {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-            className="rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"
+            className="rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500 mx-auto mb-4"
           />
           <motion.p
             initial={{ y: 10, opacity: 0 }}
@@ -196,16 +228,16 @@ const filteredProducts = sortedProducts.filter((product) => {
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
           >
-            <Box className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl p-2" size={35} />
+            <Box className="bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-xl p-2" size={35} />
           </motion.div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
             My Products
           </h1>
         </div>
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Link
             to={"/vendor/sell"}
-            className="flex items-center bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-3 rounded-lg transition-all shadow-md hover:shadow-lg w-full lg:md:w-auto"
+            className="flex items-center bg-gradient-to-r from-indigo-500 to-indigo-500 hover:from-indigo-600 hover:to-indigo-600 text-white px-4 py-3 rounded-lg transition-all shadow-md hover:shadow-lg w-full lg:md:w-auto"
           >
             <FiPlus className="mr-2" />
             Add New Product
@@ -225,7 +257,7 @@ const filteredProducts = sortedProducts.filter((product) => {
           <input
             type="text"
             placeholder="Search products by name or category..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all duration-200 focus:shadow-md"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200 focus:shadow-md"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -238,7 +270,7 @@ const filteredProducts = sortedProducts.filter((product) => {
             onClick={() => setActiveFilter("all")}
             className={`px-4 py-2 rounded-lg transition-all ${
               activeFilter === "all"
-                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200 shadow-inner"
+                ? "bg-gradient-to-r from-indigo-100 to-indigo-100 text-indigo-700 border border-indigo-200 shadow-inner"
                 : "bg-white border border-gray-200 hover:border-gray-300"
             }`}
           >
@@ -250,7 +282,7 @@ const filteredProducts = sortedProducts.filter((product) => {
             onClick={() => setActiveFilter("active")}
             className={`px-4 py-2 rounded-lg transition-all ${
               activeFilter === "active"
-                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200 shadow-inner"
+                ? "bg-gradient-to-r from-indigo-100 to-indigo-100 text-indigo-700 border border-indigo-200 shadow-inner"
                 : "bg-white border border-gray-200 hover:border-gray-300"
             }`}
           >
@@ -288,7 +320,7 @@ const filteredProducts = sortedProducts.filter((product) => {
           title="Active Products"
           value={products.filter((p) => p.stock > 0).length}
           icon={<FiTrendingUp className="w-6 h-6" />}
-          color="from-green-500 to-emerald-500"
+          color="from-indigo-500 to-indigo-500"
         />
         <StatCard
           title="Out of Stock"
@@ -393,7 +425,7 @@ const filteredProducts = sortedProducts.filter((product) => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           product.stock > 0
-                            ? "bg-green-100 text-green-800"
+                            ? "bg-indigo-100 text-indigo-800"
                             : "bg-red-100 text-red-800"
                         }`}>
                           {product.stock > 0 ? "In Stock" : "Out of Stock"}
@@ -489,7 +521,7 @@ const filteredProducts = sortedProducts.filter((product) => {
                       </p>
                       <Link
                         to="/vendor/sell"
-                        className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                       >
                         <FiPlus className="-ml-1 mr-2 h-5 w-5" />
                         Add New Product
@@ -636,7 +668,7 @@ const ProductEditModal = ({ product, onClose, onSave }) => {
               name="name"
               value={editedProduct.name}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
           </div>
@@ -651,7 +683,7 @@ const ProductEditModal = ({ product, onClose, onSave }) => {
               value={editedProduct.description}
               onChange={handleChange}
               rows="3"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
@@ -666,7 +698,7 @@ const ProductEditModal = ({ product, onClose, onSave }) => {
                 name="price"
                 value={editedProduct.price}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 min="0"
                 step="0.01"
                 required
@@ -682,7 +714,7 @@ const ProductEditModal = ({ product, onClose, onSave }) => {
                 name="stock"
                 value={editedProduct.stock}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 min="0"
                 required
               />
@@ -699,7 +731,7 @@ const ProductEditModal = ({ product, onClose, onSave }) => {
               name="category"
               value={editedProduct.category}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
@@ -713,7 +745,7 @@ const ProductEditModal = ({ product, onClose, onSave }) => {
               name="sku"
               value={editedProduct.sku}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
@@ -729,7 +761,7 @@ const ProductEditModal = ({ product, onClose, onSave }) => {
               type="submit"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg shadow-md hover:from-green-600 hover:to-emerald-600 transition-all"
+              className="px-5 py-2 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg shadow-md hover:from-indigo-600 hover:to-indigo-600 transition-all"
             >
               Save Changes
             </motion.button>

@@ -279,7 +279,7 @@ const VendorOrderPage = () => {
         label: "Pending",
       },
       completed: {
-        bg: "bg-gradient-to-r from-green-400 to-emerald-500",
+        bg: "bg-gradient-to-r from-indigo-400 to-indigo-500",
         text: "text-white",
         icon: Check,
         label: "Completed",
@@ -376,7 +376,7 @@ const VendorOrderPage = () => {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-            className="rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"
+            className="rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500 mx-auto mb-4"
           />
           <motion.p
             initial={{ y: 10, opacity: 0 }}
@@ -430,7 +430,7 @@ const VendorOrderPage = () => {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => window.location.href = '/login'} // Or navigate('/login') if using react-router-dom
-          className="mt-6 inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all duration-200 shadow-lg"
+          className="mt-6 inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all duration-200 shadow-lg"
         >
           Go to Login
         </motion.button>
@@ -440,7 +440,7 @@ const VendorOrderPage = () => {
 
   return (
     <div
-      className={`min-h-screen bg-gradient-to-br from-green-50 via-white to-cyan-50`}
+      className={`min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50`}
     >
       {/* Header */}
       <motion.header
@@ -455,12 +455,12 @@ const VendorOrderPage = () => {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 p-2 rounded-xl"
+                className="bg-gradient-to-r from-indigo-600 to-indigo-600 p-2 rounded-xl"
               >
                 <ShoppingBag className="w-6 h-6 text-white" />
               </motion.div>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
                   Order Management
                 </h1>
                 <p className="text-gray-600 text-sm">
@@ -474,7 +474,7 @@ const VendorOrderPage = () => {
               whileTap={{ scale: 0.95 }}
               onClick={() => fetchOrders(true)}
               disabled={refreshing}
-              className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
+              className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-xl hover:from-indigo-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
             >
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
@@ -504,7 +504,7 @@ const VendorOrderPage = () => {
             title="Total Revenue"
             value={`₹${safeToFixed(stats.total)}`}
             icon={<CreditCard className="w-6 h-6" />}
-            color="from-green-500 to-emerald-500"
+            color="from-indigo-500 to-indigo-500"
             delay={0.2}
           />
           <StatCard
@@ -518,7 +518,7 @@ const VendorOrderPage = () => {
             title="Completed"
             value={stats.completed}
             icon={<Check className="w-6 h-6" />}
-            color="from-emerald-500 to-teal-500"
+            color="from-indigo-500 to-teal-500"
             delay={0.4}
           />
         </motion.div>
@@ -537,7 +537,7 @@ const VendorOrderPage = () => {
               </div>
               <input
                 type="text"
-                className="block w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200"
+                className="block w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all duration-200"
                 placeholder="Search orders, customers, or emails..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -546,7 +546,7 @@ const VendorOrderPage = () => {
 
             <div className="relative">
               <select
-                className="appearance-none bg-gray-50 border border-gray-200 pl-4 pr-10 py-3 rounded-xl leading-5 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 min-w-[160px]"
+                className="appearance-none bg-gray-50 border border-gray-200 pl-4 pr-10 py-3 rounded-xl leading-5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all duration-200 min-w-[160px]"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -586,7 +586,7 @@ const VendorOrderPage = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => fetchOrders()}
-                className="mt-4 inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200"
+                className="mt-4 inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-xl hover:from-indigo-700 hover:to-indigo-700 transition-all duration-200"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh
@@ -604,10 +604,10 @@ const VendorOrderPage = () => {
                   className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                 >
                   {/* Order Header */}
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-100">
+                  <div className="bg-gradient-to-r from-indigo-50 to-indigo-50 px-6 py-4 border-b border-gray-100">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center space-x-4">
-                        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-600 text-white px-3 py-1 rounded-lg text-sm font-semibold">
                           #{order.orderId}
                         </div>
                         {getStatusBadge(order)}
@@ -629,7 +629,7 @@ const VendorOrderPage = () => {
                   <div className="p-6">
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-blue-100">
+                      <div className="bg-gradient-to-r from-indigo-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-semibold text-gray-800">
                             Order Summary
@@ -781,7 +781,7 @@ const VendorOrderPage = () => {
                               <span className="text-gray-900">
                                 Grand Total:
                               </span>
-                              <span className="text-green-600">
+                              <span className="text-indigo-600">
                                 ₹{safeToFixed(order.totalAmount)}
                               </span>
                             </div>
@@ -830,7 +830,7 @@ const VendorOrderPage = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => handleUpdateStatusClick(order)}
-                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
+                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-xl hover:from-indigo-600 hover:to-indigo-600 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
                         >
                           <RefreshCw className="w-4 h-4 mr-2" />
                           Update Status
@@ -882,7 +882,7 @@ const VendorOrderPage = () => {
                 <div className="relative">
                   <select
                     id="newOrderStatus"
-                    className="mt-1 block w-full py-3 px-4 border border-gray-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm appearance-none"
+                    className="mt-1 block w-full py-3 px-4 border border-gray-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm appearance-none"
                     value={newOrderStatus}
                     onChange={(e) => setNewOrderStatus(e.target.value)}
                     disabled={updateLoading || updateSuccess}
@@ -916,7 +916,7 @@ const VendorOrderPage = () => {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl relative mb-4"
+                  className="bg-indigo-100 border border-indigo-400 text-indigo-700 px-4 py-3 rounded-xl relative mb-4"
                   role="alert"
                 >
                   <Check className="inline w-5 h-5 mr-2" />
@@ -940,7 +940,7 @@ const VendorOrderPage = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleUpdateOrderStatus}
-                  className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl shadow-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white rounded-xl shadow-md hover:from-indigo-700 hover:to-indigo-700 transition-all duration-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={updateLoading || updateSuccess}
                 >
                   {updateLoading ? (
@@ -1068,7 +1068,7 @@ const VendorOrderPage = () => {
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-4">
                   <span>Grand Total:</span>
-                  <span className="text-green-600">
+                  <span className="text-indigo-600">
                     ₹{safeToFixed(selectedOrder.totalAmount)}
                   </span>
                 </div>

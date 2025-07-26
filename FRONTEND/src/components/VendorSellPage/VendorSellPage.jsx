@@ -209,7 +209,7 @@ const AddProduct = () => {
           className="bg-white rounded-2xl shadow-lg overflow-hidden"
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-green-600 to-green-700 p-8 text-white">
+          <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-8 text-white">
             <h1 className="text-2xl font-bold flex items-center">
               <Tag className="mr-3 w-6 h-6" />
               List Your Product

@@ -193,7 +193,7 @@ const Dashboard = () => {
           <motion.div 
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-            className="rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"
+            className="rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500 mx-auto mb-4"
           />
           <motion.p 
             initial={{ y: 10, opacity: 0 }}
@@ -255,9 +255,9 @@ const Dashboard = () => {
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
             >
-              <LayoutDashboard className="inline bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg p-2" size={35}/>
+              <LayoutDashboard className="inline bg-gradient-to-r from-indigo-500 to-indigo-500 text-white rounded-lg p-2" size={35}/>
             </motion.div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
               Vendor Dashboard
             </h1>
           </div>
@@ -266,7 +266,7 @@ const Dashboard = () => {
               <input
                 type="text"
                 placeholder="Search..."
-                className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 w-64 transition-all duration-200 focus:w-72"
+                className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-64 transition-all duration-200 focus:w-72"
               />
               <svg
                 className="w-5 h-5 text-gray-400 absolute left-3 top-2.5"
@@ -316,7 +316,7 @@ const Dashboard = () => {
             value={`₹${dashboardData?.totalRevenue?.toLocaleString('en-IN') ?? "0"}`}
             change="+12.5%"
             changeType="increase"
-            color="from-green-500 to-emerald-500"
+            color="from-indigo-500 to-indigo-500"
             delay={0.1}
           />
           <StatCard
@@ -386,46 +386,57 @@ const Dashboard = () => {
 
         {/* Charts and Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Sales Chart */}
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow lg:col-span-2 border border-gray-100"
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Sales Overview
-              </h2>
-              <select 
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-                className="border rounded-md px-3 py-1 text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-              >
-                <option>Last 7 days</option>
-                <option>Last 30 days</option>
-                <option>Last 90 days</option>
-                <option>This Year</option>
-              </select>
-            </div>
-            <div className="h-80">
-              {dashboardData.salesChartData?.labels?.length > 0 ? (
-                <Line data={salesChartConfig} options={chartOptions} />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  <div className="text-center">
+                <motion.div 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow lg:col-span-2 border border-gray-100"
+                >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold text-gray-800">
+                  Sales Overview
+                  </h2>
+                  <select 
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  className="border rounded-md px-3 py-1 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  >
+                  <option>Last 7 days</option>
+                  <option>Last 30 days</option>
+                  <option>Last 90 days</option>
+                  <option>This Year</option>
+                  </select>
+                </div>
+                <div className="h-80 ">
+                  {dashboardData.salesChartData?.labels?.length > 0 ? (
+                  <Line 
+                    data={{
+                    ...salesChartConfig,
+                    datasets: [
+                      {
+                      ...salesChartConfig.datasets[0],
+                  borderColor: "#6366f1", 
+                  pointBackgroundColor: "#6366f1",
+                      },
+                    ],
+                    }} 
+                    options={chartOptions} 
+                  />
+                  ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="text-center">
                     <svg className="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <p className="mt-2">No sales data available</p>
                     <p className="text-sm text-gray-400">for the selected period</p>
+                    </div>
                   </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </motion.div>
+                </motion.div>
 
-          {/* Top Products */}
+                {/* Top Products */}
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -438,7 +449,7 @@ const Dashboard = () => {
               </h2>
               <Link
                 to="/vendor/products"
-                className="text-sm font-medium text-green-600 hover:text-green-800 transition-colors"
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
               >
                 View All
               </Link>
@@ -492,7 +503,7 @@ const Dashboard = () => {
                         </span>
                       </div>
                     </div>
-                    <div className="text-green-600 font-medium ml-4">
+                    <div className="text-indigo-600 font-medium ml-4">
                       ₹{product.price?.toLocaleString('en-IN') || "0"}
                     </div>
                   </motion.div>
@@ -523,7 +534,7 @@ const Dashboard = () => {
             </h2>
             <Link
               to="/vendor/orders"
-              className="text-green-600 hover:text-green-800 text-sm font-medium transition-colors"
+              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium transition-colors"
             >
               View All
             </Link>
@@ -595,7 +606,7 @@ const Dashboard = () => {
                         {/* Changed Link to a button to trigger the modal */}
                         <button
                           onClick={() => handleViewDetailsClick(order)}
-                          className="text-green-600 hover:text-green-900 transition-colors"
+                          className="text-indigo-600 hover:text-indigo-900 transition-colors"
                         >
                           View Details
                         </button>
@@ -628,8 +639,8 @@ const Dashboard = () => {
 const StatusBadge = ({ status }) => {
   const statusConfig = {
     Delivered: {
-      bg: "bg-green-100",
-      text: "text-green-800",
+      bg: "bg-indigo-100",
+      text: "text-indigo-800",
       icon: (
         <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -685,7 +696,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const StatCard = ({ icon, title, value, change, changeType, color = "from-green-500 to-emerald-500", delay = 0 }) => {
+const StatCard = ({ icon, title, value, change, changeType, color = "from-indigo-500 to-indigo-500", delay = 0 }) => {
   return (
     <motion.div 
       initial={{ y: 20, opacity: 0 }}
@@ -704,7 +715,7 @@ const StatCard = ({ icon, title, value, change, changeType, color = "from-green-
       </div>
       <div
         className={`mt-4 text-sm flex items-center ${
-          changeType === "increase" ? "text-green-600" : "text-red-600"
+          changeType === "increase" ? "text-indigo-600" : "text-red-600"
         }`}
       >
         {changeType === "increase" ? (
@@ -788,7 +799,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
           </div>
           <div>
             <p className="font-semibold">Total Amount:</p>
-            <p className="text-green-600 text-lg font-bold">₹{order.amount?.toLocaleString('en-IN') || "0"}</p>
+            <p className="text-indigo-600 text-lg font-bold">₹{order.amount?.toLocaleString('en-IN') || "0"}</p>
           </div>
           {/* Display Shipping Address if available */}
           {order.address && (
@@ -817,7 +828,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
                     <p className="font-medium text-gray-900">{item.name}</p>
                     <p className="text-sm text-gray-600">Quantity: {item.quantity} | Price: ₹{item.price?.toLocaleString('en-IN') || "0"}</p>
                   </div>
-                  <span className="font-semibold text-green-700">₹{(item.quantity * item.price)?.toLocaleString('en-IN') || "0"}</span>
+                  <span className="font-semibold text-indigo-700">₹{(item.quantity * item.price)?.toLocaleString('en-IN') || "0"}</span>
                 </li>
               ))}
             </ul>
