@@ -122,7 +122,7 @@ const VendorMessagesPage = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-              <MessageSquare className="mr-3 text-green-600 w-8 h-8" />
+              <MessageSquare className="mr-3 text-indigo-600 w-8 h-8" />
               Customer Messages
             </h1>
             <p className="text-gray-500 mt-2">
@@ -216,7 +216,7 @@ const VendorMessagesPage = () => {
                                 setSelectedOrderId(order._id);
                                 setIsOrderDropdownOpen(false);
                               }}
-                              className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${selectedOrderId === order._id ? 'bg-green-50 text-green-700' : 'text-gray-700'}`}
+                              className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${selectedOrderId === order._id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}
                             >
                               <div className="flex justify-between items-center">
                                 <span className="font-medium">#{order.orderNumber}</span>
@@ -251,7 +251,7 @@ const VendorMessagesPage = () => {
                     </div>
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <p className="text-sm font-medium text-gray-700">Order Total:</p>
-                      <p className="text-lg font-bold text-green-600">
+                      <p className="text-lg font-bold text-indigo-600">
                         ₹{selectedOrder.totalAmount?.toFixed(2) || '0.00'}
                       </p>
                     </div>
@@ -280,7 +280,7 @@ const VendorMessagesPage = () => {
                 <textarea
                   id="messageContent"
                   rows="6"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                   placeholder="Write your message to the customer..."
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
@@ -294,7 +294,7 @@ const VendorMessagesPage = () => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className={`p-4 rounded-lg ${messageStatus === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+                    className={`p-4 rounded-lg ${messageStatus === 'success' ? 'bg-indigo-50 text-indigo-700' : 'bg-red-50 text-red-700'}`}
                   >
                     <div className="flex items-center">
                       {messageStatus === 'success' ? (
@@ -312,7 +312,7 @@ const VendorMessagesPage = () => {
                 <button
                   type="submit"
                   disabled={!selectedOrderId || !messageContent.trim() || sendingMessage || overallLoading || !jwtToken}
-                  className="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {sendingMessage ? (
                     <>
