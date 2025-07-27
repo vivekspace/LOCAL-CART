@@ -32,7 +32,7 @@ const AdminOrdersPage = () => {
     setError(null);
 
     try {
-      const response = await authAxios.get(`/api/orders/admin`);
+    const response = await authAxios.get(`/api/admin/orders`); // Corrected path
       setOrders(response.data.orders);
     } catch (err) {
       console.error("Failed to fetch orders:", err);
@@ -88,7 +88,7 @@ const AdminOrdersPage = () => {
     }
 
     try {
-      await authAxios.put(`/api/orders/${selectedOrder._id}/status`, { status: currentStatus });
+    await authAxios.put(`/api/admin/orders/${selectedOrder._id}/status`, { status: currentStatus }); // Corrected path
       setStatusUpdateMessage('Order status updated successfully!');
       fetchOrders();
     } catch (err) {

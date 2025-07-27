@@ -47,6 +47,8 @@ const VendorOrderPage = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const printRef = useRef(); // Ref for the print component
 
+  console.log(orders)
+
   // Use the useAuth hook to get auth-related state and methods
   const { authAxios, isLoggedIn, isAdmin, isSeller } = useAuth();
   const API_URL = import.meta.env.VITE_API_URL; // Ensure VITE_API_URL is set in your .env

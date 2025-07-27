@@ -20,17 +20,26 @@ import {
   Users,
   TrendingUp,
   Edit,
-  X, // For closing modal if needed, or other general use
+  X,
+  ChevronDown,
+  ChevronUp,
+  DollarSign,
+  Calendar,
+  User,
+  Package,
+  Mail,
+  Phone,
 } from "lucide-react";
-import { useAuth } from "../../Context/Context"; // Correct import for useAuth hook
+import { useAuth } from "../../Context/Context";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom"; // Assuming you use react-router-dom
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Define a simple LoadingSpinner component if it's not imported
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center h-screen bg-gray-50">
     <div className="text-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mx-auto mb-4"></div>
+      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-4"></div>
       <p className="text-lg text-gray-700">Loading your analytics...</p>
       <p className="text-sm text-gray-500">LocalCart is crunching the numbers</p>
     </div>
@@ -152,7 +161,6 @@ const OrderActionModal = ({ isOpen, onClose, order, onSave }) => {
   );
 };
 
-
 const AdminPanel = () => {
   const { user, jwtToken, isAuthLoading, logout } = useAuth();
   const navigate = useNavigate();
@@ -161,20 +169,21 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   const [dashboardStats, setDashboardStats] = useState({
     totalSales: "0.00",
     orders: "0",
     customers: "0",
-    products: "0", // Keeping products stat for dashboard view
+    products: "0",
     salesChange: "+0%",
     salesTrend: "up",
     ordersChange: "+0%",
     ordersTrend: "up",
     customersChange: "+0%",
     customersTrend: "+0%",
-    productsChange: "+0%", // Keeping products stat for dashboard view
-    totalProductsTrend: "down", // Keeping products stat for dashboard view
+    productsChange: "+0%",
+    totalProductsTrend: "down",
   });
 
   const [salesOverviewData, setSalesOverviewData] = useState({
@@ -213,7 +222,7 @@ const AdminPanel = () => {
           <p className="text-gray-700">You do not have the necessary permissions to view this page.</p>
           <button
             onClick={() => logout()}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="mt-4 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded hover:bg-blue-600"
           >
             Log Out
           </button>
@@ -258,6 +267,7 @@ const AdminPanel = () => {
       if (tab === "dashboard") {
         res = await axios.get(`${API_BASE_URL}/api/admin/dashboard/stats`, getAuthHeaders());
         const data = res.data.data;
+        console.log(data)
         setDashboardStats({
           totalSales: `$${data.totalSales ? data.totalSales.toFixed(2) : "0.00"}`,
           orders: data.totalOrders?.toLocaleString() || "0",
@@ -272,17 +282,23 @@ const AdminPanel = () => {
           productsChange: data.productsChange || "+0%",
           totalProductsTrend: data.productsTrend || "down",
         });
-        setSalesOverviewData({
-          labels: data.salesOverview?.labels || [],
-          datasets: [{
-            label: "Sales ($)",
-            data: data.salesOverview?.sales || [],
-            backgroundColor: "#10B981",
-            borderColor: "#059669",
-            borderWidth: 2,
-            borderRadius: 8,
-          }],
-        });
+        const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+gradient.addColorStop(0, '#2563eb'); // blue-600
+gradient.addColorStop(1, '#3b82f6'); // blue-500
+
+setSalesOverviewData({
+  labels: data.salesOverview?.labels || [],
+  datasets: [{
+    label: "Sales ($)",
+    data: data.salesOverview?.sales || [],
+    backgroundColor: gradient,
+    borderColor: "#1d4ed8", // blue-700 for border
+    borderWidth: 2,
+    borderRadius: 8,
+  }],
+});
         setOrderStatusChartData({
           labels: data.orderStatus?.labels || [],
           datasets: [{
@@ -314,6 +330,9 @@ const AdminPanel = () => {
     fetchData(activeTab);
   }, [activeTab, fetchData]);
 
+  const toggleExpandOrder = (orderId) => {
+    setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
+  };
 
   const handleOpenOrderModal = (order) => {
     setSelectedOrder(order);
@@ -330,13 +349,12 @@ const AdminPanel = () => {
     setError(null);
     try {
       const response = await axios.put(
-        `${API_BASE_URL}/api/admin/orders/${orderId}`, // Assuming an API endpoint for updating orders
+        `${API_BASE_URL}/api/admin/orders/${orderId}`,
         updatedData,
         getAuthHeaders()
       );
       if (response.status === 200) {
         toast.success("Order updated successfully!");
-        // Optimistically update the recent orders list or re-fetch
         setRecentOrders((prevOrders) =>
           prevOrders.map((order) =>
             order._id === orderId ? { ...order, ...updatedData } : order
@@ -358,6 +376,22 @@ const AdminPanel = () => {
     }
   };
 
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "delivered":
+        return "bg-green-100 text-green-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "processing":
+        return "bg-blue-100 text-blue-800";
+      case "shipped":
+        return "bg-indigo-100 text-indigo-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
   const baseSalesChartOptions = {
     responsive: true,
@@ -491,7 +525,7 @@ const AdminPanel = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 max-w-screen text-gray-900 duration-300">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 max-w-screen text-gray-900 duration-300">
       <div className="p-2 lg:p-6 mx-auto w-full max-w-screen overflow-x-hidden duration-200">
         <div className="flex-1 flex flex-col">
           {/* Tab Navigation (only Dashboard tab) */}
@@ -541,9 +575,8 @@ const AdminPanel = () => {
                     change: dashboardStats.customersChange,
                     trend: dashboardStats.customersTrend,
                   },
-                  // Keeping Products stat as it's part of general dashboard overview
                   {
-                    icon: <ShoppingBag size={24} />, // Changed to ShoppingBag since Package was likely for Products tab
+                    icon: <Package size={24} />,
                     title: "Total Products",
                     value: dashboardStats.products,
                     change: dashboardStats.productsChange,
@@ -552,7 +585,7 @@ const AdminPanel = () => {
                 ].map((stat, index) => (
                   <div
                     key={index}
-                    className="p-4 sm:p-6 rounded-xl shadow bg-white"
+                    className="p-4 sm:p-6 rounded-xl shadow-sm bg-white"
                   >
                     <div className="flex justify-between">
                       <div>
@@ -583,155 +616,231 @@ const AdminPanel = () => {
                 ))}
               </div>
 
-              {/* Charts */}
-              <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                <div className="p-4 sm:p-6 rounded-xl shadow bg-white lg:col-span-2">
-                  <h3 className="text-lg sm:text-xl font-semibold mb-4 text-gray-900">
-                    Sales Overview
-                  </h3>
-                  {salesOverviewData.labels.length > 0 ? (
-                    <div className="h-48 sm:h-64 relative">
-                      <Bar
-                        data={salesOverviewData}
-                        options={salesChartOptions}
-                      />
+              {/* Sales Chart - Full Width */}
+              <div className="p-4 sm:p-6 rounded-xl shadow-sm bg-white">
+                <h3 className="text-lg sm:text-xl font-semibold mb-4 text-gray-900">
+                  Sales Overview
+                </h3>
+                {salesOverviewData.labels.length > 0 ? (
+                  <div className="h-64 sm:h-80 relative">
+                    <Bar
+                      data={salesOverviewData}
+                      options={salesChartOptions}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-64 sm:h-80 flex items-center justify-center text-gray-500">
+                    <p>No sales data available.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Orders and Order Status Chart */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                {/* Recent Orders - Takes 2/3 width */}
+                <div className="lg:col-span-2 p-4 sm:p-6 rounded-xl shadow-sm bg-white">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-0">
+                      Recent Orders
+                    </h3>
+                    <Link to={'/admin/orders'} className="text-sm text-green-600 hover:text-green-700">
+                      View All
+                    </Link>
+                  </div>
+                  {recentOrders.length > 0 ? (
+                    <div className="space-y-3">
+                      {recentOrders.map((order) => (
+                        <div key={order.id || order._id} className="bg-gray-50 rounded-lg shadow-sm overflow-hidden">
+                          {/* Order Summary */}
+                          <div
+                            className="p-4 cursor-pointer hover:bg-gray-100 transition-colors grid grid-cols-2 md:grid-cols-4 gap-4 items-center"
+                            onClick={() => toggleExpandOrder(order._id || order.id)}
+                          >
+                            <div>
+                              <p className="text-sm text-gray-500">Order ID</p>
+                              <p className="font-medium text-gray-900 truncate">
+                                {(order.orderId || order.id || order._id).substring(0, 8)}...
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <p className="text-sm text-gray-500">Customer</p>
+                              <p className="font-medium text-gray-900 truncate">
+                                {order.customer ||
+                                  (order.customerId
+                                    ? `${order.customerId.firstname} ${order.customerId.lastname}`
+                                    : "Guest User")}
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <p className="text-sm text-gray-500">Amount</p>
+                              <p className="font-medium text-gray-900">
+                                ${order.amount ? order.amount.toFixed(2) : "0.00"}
+                              </p>
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}
+                              >
+                                {order.status}
+                              </span>
+                              {expandedOrderId === (order._id || order.id) ? (
+                                <ChevronUp className="h-5 w-5 text-gray-400 ml-2" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5 text-gray-400 ml-2" />
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Expanded Order Details */}
+                          <AnimatePresence>
+                            {expandedOrderId === (order._id || order.id) && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="border-t border-gray-200 p-4 bg-white">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Order Details */}
+                                    <div className="space-y-3">
+                                      <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                                        <ShoppingBag className="w-4 h-4 text-green-600" />
+                                        Order Information
+                                      </h4>
+                                      <div className="space-y-2 text-sm">
+                                        <div className="flex items-center gap-2">
+                                          <Package className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-600">Full Order ID:</span>
+                                          <span className="text-gray-900 text-xs font-mono">
+                                            {order.orderId || order.id || order._id}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Calendar className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-600">Date:</span>
+                                          <span className="text-gray-900">
+                                            {order.createdAt && !isNaN(new Date(order.createdAt))
+                                              ? format(new Date(order.createdAt), "MMM dd, yyyy HH:mm")
+                                              : "N/A"}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <DollarSign className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-600">Total Amount:</span>
+                                          <span className="text-gray-900 font-semibold">
+                                            ${order.amount ? order.amount.toFixed(2) : "0.00"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Customer Details */}
+                                    <div className="space-y-3">
+                                      <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                                        <User className="w-4 h-4 text-green-600" />
+                                        Customer Details
+                                      </h4>
+                                      <div className="space-y-2 text-sm">
+                                        <div className="flex items-center gap-2">
+                                          <User className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-600">Name:</span>
+                                          <span className="text-gray-900">
+                                            {order.customer ||
+                                              (order.customerId
+                                                ? `${order.customerId.firstname} ${order.customerId.lastname}`
+                                                : "Guest User")}
+                                          </span>
+                                        </div>
+                                        {order.customerId?.email && (
+                                          <div className="flex items-center gap-2">
+                                            <Mail className="w-3 h-3 text-gray-400" />
+                                            <span className="text-gray-600">Email:</span>
+                                            <span className="text-gray-900">{order.customerId.email}</span>
+                                          </div>
+                                        )}
+                                        {order.customerId?.phone && (
+                                          <div className="flex items-center gap-2">
+                                            <Phone className="w-3 h-3 text-gray-400" />
+                                            <span className="text-gray-600">Phone:</span>
+                                            <span className="text-gray-900">{order.customerId.phone}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Action Buttons */}
+                                  <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-gray-100">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenOrderModal(order);
+                                      }}
+                                      className="flex items-center justify-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                      Edit Order
+                                    </button>
+                                    <Link
+                                      to={`/admin/orders/${order._id || order.id}`}
+                                      className="flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Package className="w-4 h-4" />
+                                      View Details
+                                    </Link>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="h-48 sm:h-64 flex items-center justify-center text-gray-500">
-                      <p>No sales data available.</p>
+                    <div className="text-center py-8 text-gray-500">
+                      <ShoppingBag className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <p>No recent orders found.</p>
                     </div>
                   )}
                 </div>
-                <div className="p-4 sm:p-6 rounded-xl shadow bg-white">
+
+                {/* Order Status Chart - Takes 1/3 width */}
+                <div className="p-4 sm:p-6 rounded-xl shadow-sm bg-white">
                   <h3 className="text-lg sm:text-xl font-semibold mb-4 text-gray-900">
                     Order Status
                   </h3>
                   {orderStatusChartData.labels.length > 0 ? (
-                    <div className="h-48 sm:h-64">
+                    <div className="h-64 relative">
                       <Pie
                         data={orderStatusChartData}
                         options={orderStatusChartOptions}
                       />
                     </div>
                   ) : (
-                    <div className="h-48 sm:h-64 flex items-center justify-center text-gray-500">
+                    <div className="h-64 flex items-center justify-center text-gray-500">
                       <p>No order status data available.</p>
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Recent Orders */}
-              <div className="p-4 sm:p-6 rounded-xl shadow bg-white mb-8">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-0">
-                    Recent Orders
-                  </h3>
-                  <Link to={'/admin/orders'} className="text-sm text-green-600 hover:text-green-700">
-                    View All
-                  </Link>
-                </div>
-                {recentOrders.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Order ID
-                          </th>
-                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Customer
-                          </th>
-                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Amount
-                          </th>
-                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Date
-                          </th>
-                          <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {recentOrders.map((order) => (
-                          <tr
-                            key={order.id || order._id}
-                            className="hover:bg-gray-50"
-                          >
-                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {order.orderId || order.id || order._id}
-                            </td>
-                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
-                              {order.customer ||
-                                (order.customerId
-                                  ? `${order.customerId.firstname} ${order.customerId.lastname}`
-                                  : "Guest User")}
-                            </td>
-                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
-                              ${order.amount ? order.amount.toFixed(2) : "0.00"}
-                            </td>
-                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm">
-                              <span
-                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  order.status === "delivered"
-                                    ? "bg-green-100 text-green-800"
-                                    : order.status === "pending"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : order.status === "processing"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : order.status === "shipped"
-                                    ? "bg-indigo-100 text-indigo-800"
-                                    : order.status === "cancelled"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {order.status}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
-                              {order.createdAt &&
-                              !isNaN(new Date(order.createdAt))
-                                ? format(
-                                    new Date(order.createdAt),
-                                    "MMM dd, yyyy HH:mm"
-                                  )
-                                : "N/A"}
-                            </td>
-                            <td className="px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
-                              <button
-                                onClick={() => handleOpenOrderModal(order)}
-                                className="text-blue-600 hover:text-blue-700 mr-2"
-                                title="Edit Order"
-                              >
-                                <Edit size={16} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No recent orders found.</p>
-                )}
-              </div>
             </div>
           )}
         </div>
       </div>
-      {selectedOrder && (
-        <OrderActionModal
-          isOpen={isOrderModalOpen}
-          onClose={handleCloseOrderModal}
-          order={selectedOrder}
-          onSave={handleUpdateOrder}
-        />
-      )}
+
+      {/* Order Action Modal */}
+      <OrderActionModal
+        isOpen={isOrderModalOpen}
+        onClose={handleCloseOrderModal}
+        order={selectedOrder}
+        onSave={handleUpdateOrder}
+      />
     </div>
   );
 };

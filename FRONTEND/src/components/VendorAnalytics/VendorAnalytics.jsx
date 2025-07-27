@@ -47,7 +47,7 @@ const VendorAnalytics = () => {
     salesTrend: [],
     recentOrders: [],
   });
-
+console.log(analyticsData)
   const fetchAnalytics = useCallback(async () => {
     // If auth is still loading or no token, don't proceed with fetching analytics
     if (isAuthLoading) {
@@ -449,7 +449,7 @@ const VendorAnalytics = () => {
                           {product.orders} orders
                         </span>
                         <span className="text-gray-500 text-sm bg-gray-50 px-2 py-1 rounded">
-                          ₹{(product.price || 0).toFixed(2)} {/* Changed to ₹ */}
+                          ₹{(product.revenue || 0).toFixed(2)} {/* Changed to ₹ */}
                         </span>
                       </div>
                     </div>

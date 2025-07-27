@@ -1,328 +1,285 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import {
-  StarIcon,
-  MapPinIcon,
-  PhoneIcon,
-  EnvelopeIcon,
-  ShoppingCartIcon,
-  HeartIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from "@heroicons/react/24/solid";
-import { useAuth } from '../../Context/Context'; // Or useAppContext
+import React, { useState } from 'react';
 
-const VendorProfile = () => {
-  const [activeTab, setActiveTab] = useState("products");
-  const [favorite, setFavorite] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [cart, setCart] = useState([]); // Or use context cart
+// Dummy Data for the Vendor Profile
+const vendorData = {
+  id: 'vendor123',
+  name: 'Fresh Harvest Farms',
+  profilePicture: 'https://placehold.co/150x150/6366f1/ffffff?text=Vendor', // Placeholder image with indigo background
+  bannerImage: 'https://placehold.co/1200x300/4f46e5/ffffff?text=Farm+Fresh+Produce', // Placeholder banner
+  rating: 4.8,
+  reviewsCount: 120,
+  description: 'Fresh Harvest Farms is dedicated to providing the freshest organic produce directly from our fields to your table. We believe in sustainable farming practices and supporting local communities.',
+  location: 'Green Valley, CA',
+  contactEmail: 'info@freshharvestfarms.com',
+  contactPhone: '+1 (555) 123-4567',
+  products: [
+    {
+      id: 'prod001',
+      name: 'Organic Tomatoes',
+      price: 3.99,
+      unit: 'lb',
+      image: 'https://placehold.co/300x200/6366f1/ffffff?text=Tomatoes',
+      description: 'Juicy, ripe organic tomatoes, perfect for salads and sauces.',
+      category: 'Vegetables',
+      stock: 50
+    },
+    {
+      id: 'prod002',
+      name: 'Farm Fresh Eggs',
+      price: 5.00,
+      unit: 'dozen',
+      image: 'https://placehold.co/300x200/4f46e5/ffffff?text=Eggs',
+      description: 'Pasture-raised eggs from happy hens.',
+      category: 'Dairy & Eggs',
+      stock: 30
+    },
+    {
+      id: 'prod003',
+      name: 'Artisan Bread',
+      price: 4.50,
+      unit: 'loaf',
+      image: 'https://placehold.co/300x200/6366f1/ffffff?text=Bread',
+      description: 'Hand-kneaded sourdough, baked fresh daily.',
+      category: 'Bakery',
+      stock: 20
+    },
+    {
+      id: 'prod004',
+      name: 'Local Honey',
+      price: 12.00,
+      unit: 'jar',
+      image: 'https://placehold.co/300x200/4f46e5/ffffff?text=Honey',
+      description: 'Pure, unfiltered honey from our own beehives.',
+      category: 'Pantry',
+      stock: 15
+    },
+    {
+      id: 'prod005',
+      name: 'Organic Apples',
+      price: 2.50,
+      unit: 'lb',
+      image: 'https://placehold.co/300x200/6366f1/ffffff?text=Apples',
+      description: 'Crisp and sweet organic apples, perfect for snacking.',
+      category: 'Fruits',
+      stock: 40
+    },
+  ],
+  reviews: [
+    {
+      id: 'rev001',
+      customerName: 'Alice Johnson',
+      rating: 5,
+      comment: 'Absolutely love the fresh produce! The tomatoes are incredible.',
+      date: '2024-07-20'
+    },
+    {
+      id: 'rev002',
+      customerName: 'Bob Williams',
+      rating: 4,
+      comment: 'Good quality eggs, delivery was a bit slow but worth it.',
+      date: '2024-07-18'
+    },
+    {
+      id: 'rev003',
+      customerName: 'Charlie Brown',
+      rating: 5,
+      comment: 'The artisan bread is a must-try! So delicious.',
+      date: '2024-07-15'
+    },
+  ]
+};
 
-  const [vendor, setVendor] = useState(null);
-  const { token, isAuthLoading, logout, isLoggedIn, user } = useAuth(); // Destructure from context
+// Product Card Component
+const ProductCard = ({ product }) => (
+  <div className="bg-white rounded-xl shadow-lg overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+    <img
+      src={product.image}
+      alt={product.name}
+      className="w-full h-48 object-cover object-center"
+      onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/300x200/6366f1/ffffff?text=${product.name.replace(/\s/g, '+')}`; }}
+    />
+    <div className="p-4">
+      <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
+      <p className="text-indigo-600 text-xl font-bold mt-1">${product.price.toFixed(2)} / {product.unit}</p>
+      <p className="text-sm text-gray-600 mt-2 line-clamp-2">{product.description}</p>
+      <button className="mt-4 w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 ease-in-out transform hover:-translate-y-0.5">
+        Add to Cart
+      </button>
+    </div>
+  </div>
+);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (isAuthLoading) return;
-      if (!token || !isLoggedIn || user?.role !== 'vendor') {
-        console.warn("Not authorized to view vendor profile or not logged in as vendor.");
-        return;
-      }
-
-      try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/vendor/profile`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        // Backend returns `res.data.vendor` which directly matches your schema
-        setVendor(res.data.vendor);
-      } catch (err) {
-        console.error("Error fetching vendor profile:", err);
-        if (axios.isAxiosError(err) && err.response) {
-            if (err.response.status === 401) {
-                console.error("Authentication required or token invalid/expired.");
-                if (logout) logout();
-            } else {
-                console.error(`API Error: ${err.response.status} - ${err.response.data.message || err.message}`);
-            }
-        }
-      }
-    };
-
-    fetchProfile();
-  }, [token, isAuthLoading, isLoggedIn, user?.role, logout]);
-
-  if (isAuthLoading || !vendor) return <p>Loading...</p>;
-
-  // Your `renderStars` function is fine as it takes `rating` as a prop
-  const renderStars = (rating) => {
-    return Array(5)
-      .fill(0)
-      .map((_, i) => (
-        <StarIcon
-          key={i}
-          className={`w-5 h-5 ${
-            i < rating ? "text-yellow-400" : "text-gray-300"
-          }`}
-        />
-      ));
-  };
-
-
-  // --- REMOVE OR ADJUST PARTS THAT ARE NOT IN YOUR SCHEMA ---
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Vendor Header */}
-      <div className="relative bg-gradient-to-r from-green-600 to-green-800 text-white py-12 px-4 sm:px-6 lg:px-8 rounded-b-2xl shadow-lg">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-yellow-400"></div>
-
-        <div className="max-w-4xl mx-auto flex flex-col items-center">
-          <div className="relative group">
-            <img
-              // You likely don't have vendor.images[0] unless you add an images array to schema
-              // For now, use a placeholder or remove if vendor doesn't have an image field
-              src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
-              alt={vendor.storeName || vendor.name} // Use storeName or name as alt text
-              className="w-32 h-32 rounded-full border-4 border-white shadow-xl object-cover"
-            />
-            <button
-              onClick={() => setFavorite(!favorite)}
-              className="absolute -bottom-2 -right-2 bg-white p-2 rounded-full shadow-md hover:scale-110 transition-transform"
-            >
-              <HeartIcon
-                className={`w-6 h-6 ${
-                  favorite ? "text-red-500 fill-current" : "text-gray-400"
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="text-center mt-6">
-            <h1 className="text-3xl font-bold">{vendor.storeName || vendor.name}</h1> {/* Use storeName or name */}
-            {/* <span className="inline-block bg-yellow-400 text-gray-800 px-4 py-1 rounded-full text-sm font-semibold mt-2">
-              {vendor.category} // REMOVE: category not in schema
-            </span> */}
-
-            <div className="flex items-center justify-center mt-3">
-              <MapPinIcon className="w-5 h-5 mr-1" />
-              {/* <span>{vendor.location}</span> // REMOVE: location not in schema */}
-              <span>Location not specified</span> {/* Placeholder */}
-            </div>
-
-            <div className="flex items-center justify-center mt-2">
-              <div className="flex mr-2">{renderStars(vendor.rating)}</div>
-              <span>
-                {vendor.rating} {/* REMOVE: reviewCount not in schema */}
-                {/* ({vendor.reviewCount} reviews) */}
-                / 5 stars
-              </span>
-            </div>
-
-            {/* <p className="mt-4 max-w-2xl text-lg">{vendor.bio}</p> // REMOVE: bio not in schema */}
-            <p className="mt-4 max-w-2xl text-lg">No additional bio available.</p> {/* Placeholder */}
-
-            <div className="flex gap-4 justify-center mt-6">
-              <button className="bg-white text-green-700 px-6 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-md">
-                Contact Vendor
-              </button>
-              <button className="border-2 border-white px-6 py-2 rounded-full font-semibold hover:bg-white hover:text-green-700 transition-colors">
-                Visit Store
-              </button>
-            </div>
-          </div>
-        </div>
+// Review Card Component
+const ReviewCard = ({ review }) => (
+  <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+    <div className="flex items-center mb-3">
+      <div className="flex text-yellow-400">
+        {[...Array(5)].map((_, i) => (
+          <svg key={i} className={`w-5 h-5 ${i < review.rating ? 'fill-current' : 'text-gray-300'}`} viewBox="0 0 20 20" fill="currentColor">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.683-1.539 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.565-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
+          </svg>
+        ))}
       </div>
+      <p className="ml-2 text-sm font-medium text-gray-700">{review.customerName}</p>
+    </div>
+    <p className="text-gray-700 text-base">{review.comment}</p>
+    <p className="text-sm text-gray-500 mt-3 text-right">{review.date}</p>
+  </div>
+);
 
-      {/* Gallery Section - REMOVE or provide fallback as vendor.images not in schema */}
-      {/* You'll need to add an 'images' array to your Vendor schema if you want a gallery */}
-      {/* Or provide a conditional render if vendor.images exists:
-      {vendor.images && vendor.images.length > 0 && (
-         <div className="max-w-4xl mx-auto mt-8 relative">...</div>
-      )}
-      For now, commenting it out to avoid errors. */}
-      {/*
-      <div className="max-w-4xl mx-auto mt-8 relative">
-        <div className="relative h-64 md:h-80 rounded-xl overflow-hidden shadow-lg">
-          <img
-            src={vendor.images[currentImageIndex]}
-            alt="Vendor showcase"
-            className="w-full h-full object-cover"
-          />
-          <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all">
-            <ChevronLeftIcon className="w-6 h-6" />
-          </button>
-          <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all">
-            <ChevronRightIcon className="w-6 h-6" />
-          </button>
-          <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
-            {vendor.images.map((_, index) => (
-              <button key={index} onClick={() => setCurrentImageIndex(index)} className={`w-3 h-3 rounded-full ${index === currentImageIndex ? "bg-white" : "bg-white bg-opacity-50"}`} />
+// Main Vendor Profile Page Component
+const VendorProfilePage = () => {
+  const [activeTab, setActiveTab] = useState('products');
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'products':
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {vendorData.products.map(product => (
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
+        );
+      case 'reviews':
+        return (
+          <div className="space-y-6">
+            {vendorData.reviews.map(review => (
+              <ReviewCard key={review.id} review={review} />
+            ))}
+            {vendorData.reviews.length === 0 && (
+              <p className="text-center text-gray-600">No reviews yet.</p>
+            )}
+          </div>
+        );
+      case 'about':
+        return (
+          <div className="bg-white p-8 rounded-xl shadow-md border border-gray-200">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">About {vendorData.name}</h3>
+            <p className="text-gray-700 leading-relaxed mb-4">{vendorData.description}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700">
+              <p><span className="font-semibold">Location:</span> {vendorData.location}</p>
+              <p><span className="font-semibold">Email:</span> <a href={`mailto:${vendorData.contactEmail}`} className="text-indigo-600 hover:underline">{vendorData.contactEmail}</a></p>
+              <p><span className="font-semibold">Phone:</span> <a href={`tel:${vendorData.contactPhone}`} className="text-indigo-600 hover:underline">{vendorData.contactPhone}</a></p>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 antialiased">
+      {/* Tailwind CSS CDN for Inter font and basic styles */}
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      <script src="https://cdn.tailwindcss.com"></script>
+      <style>{`
+        body {
+          font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #888;
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #555;
+        }
+      `}</style>
+
+      {/* Header Section */}
+      <div className="relative bg-indigo-600 h-64 overflow-hidden">
+        <img
+          src={vendorData.bannerImage}
+          alt="Vendor Banner"
+          className="w-full h-full object-cover object-center opacity-70"
+          onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/1200x300/4f46e5/ffffff?text=Farm+Fresh+Produce'; }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-indigo-800 to-transparent"></div>
+        <div className="absolute bottom-0 left-0 right-0 p-8 flex flex-col sm:flex-row items-center sm:items-end z-10">
+          <img
+            src={vendorData.profilePicture}
+            alt={`${vendorData.name} Profile`}
+            className="w-32 h-32 rounded-full border-4 border-white shadow-lg -mb-16 sm:-mb-0 sm:mr-6 object-cover transform transition-transform duration-300 hover:scale-105"
+            onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/150x150/6366f1/ffffff?text=Vendor'; }}
+          />
+          <div className="mt-4 sm:mt-0 text-center sm:text-left">
+            <h1 className="text-4xl font-extrabold text-white leading-tight drop-shadow-lg">{vendorData.name}</h1>
+            <div className="flex items-center justify-center sm:justify-start mt-2 text-white text-lg">
+              <span className="flex text-yellow-300 mr-1">
+                {[...Array(Math.floor(vendorData.rating))].map((_, i) => (
+                  <svg key={i} className="w-5 h-5 fill-current" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.683-1.539 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.565-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+                {vendorData.rating % 1 !== 0 && (
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 20 20" fill="currentColor">
+                    <defs>
+                      <linearGradient id="half-star">
+                        <stop offset="50%" stopColor="currentColor" />
+                        <stop offset="50%" stopColor="transparent" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.683-1.539 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.565-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" fill="url(#half-star)" />
+                  </svg>
+                )}
+              </span>
+              <span>{vendorData.rating.toFixed(1)} ({vendorData.reviewsCount} reviews)</span>
+            </div>
+          </div>
         </div>
       </div>
-      */}
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto mt-8 px-4 sm:px-6 lg:px-8">
-        {/* Tabs - Only show products tab if vendor.products is populated */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            {vendor.products && vendor.products.length > 0 && ( // Conditional render for products tab
-              <button
-                onClick={() => setActiveTab("products")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === "products"
-                    ? "border-green-500 text-green-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Products
-              </button>
-            )}
-            <button
-              onClick={() => setActiveTab("about")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "about"
-                  ? "border-green-500 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              About
-            </button>
-            {/* <button // REMOVE: reviews not in schema
-              onClick={() => setActiveTab("reviews")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "reviews"
-                  ? "border-green-500 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Reviews
-            </button> */}
-          </nav>
+      {/* Main Content Area */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 -mt-16 sm:-mt-8 relative z-20">
+        {/* Tabs Navigation */}
+        <div className="bg-white rounded-xl shadow-lg p-2 flex justify-around sm:justify-start gap-2 mb-8">
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`flex-1 sm:flex-none py-3 px-6 rounded-lg text-lg font-medium transition-all duration-300 ease-in-out ${
+              activeTab === 'products' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100 hover:text-indigo-600'
+            }`}
+          >
+            Products
+          </button>
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`flex-1 sm:flex-none py-3 px-6 rounded-lg text-lg font-medium transition-all duration-300 ease-in-out ${
+              activeTab === 'reviews' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100 hover:text-indigo-600'
+            }`}
+          >
+            Reviews
+          </button>
+          <button
+            onClick={() => setActiveTab('about')}
+            className={`flex-1 sm:flex-none py-3 px-6 rounded-lg text-lg font-medium transition-all duration-300 ease-in-out ${
+              activeTab === 'about' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100 hover:text-indigo-600'
+            }`}
+          >
+            About
+          </button>
         </div>
 
         {/* Tab Content */}
-        <div className="mt-6">
-          {activeTab === "products" && (
-            // IMPORTANT: vendor.products contains only IDs unless populated in backend.
-            // If you populate them, ensure 'product.id', 'product.image', etc. match your Product schema.
-            // For now, assuming products are populated and have these fields.
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {vendor.products && vendor.products.map((product) => ( // Check if products exist
-                <div
-                  key={product._id} // Use _id from Mongoose
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-                >
-                  <img
-                    src={product.image || 'https://via.placeholder.com/150'} // Fallback image
-                    alt={product.name}
-                    className="w-full h-48 object-cover"
-                  />
-                  <div className="p-4">
-                    <h3 className="font-semibold text-lg">{product.name}</h3>
-                    <p className="text-green-600 font-bold mt-1">
-                      ${product.price}
-                      {/* {product.unit ? `/${product.unit}` : ''} */}
-                    </p>
-                    {/* <p className="text-gray-500 text-sm mt-1">
-                      In stock: {product.stock} // REMOVE: stock not in schema, unless it's in Product model
-                    </p> */}
-                    <button
-                      onClick={() => { /* addToCart logic */ }}
-                      className="mt-3 w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition-colors"
-                    >
-                      <ShoppingCartIcon className="w-5 h-5" />
-                      Add to Cart
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {(!vendor.products || vendor.products.length === 0) && (
-                <p className="col-span-full text-center text-gray-500">No products found for this vendor.</p>
-              )}
-            </div>
-          )}
-
-          {activeTab === "about" && (
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-bold mb-4">About {vendor.storeName || vendor.name}</h2> {/* Use storeName or name */}
-              {/* <p className="mb-6">{vendor.bio}</p> // REMOVE: bio not in schema */}
-              <p className="mb-6">This vendor is {vendor.status} since {new Date(vendor.createdAt).toLocaleDateString()}.</p> {/* Using available data */}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold mb-2">Contact Information</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <PhoneIcon className="w-5 h-5 text-green-600 mr-2" />
-                      <span>{vendor.phone || 'N/A'}</span> {/* Use vendor.phone directly */}
-                    </div>
-                    <div className="flex items-center">
-                      <EnvelopeIcon className="w-5 h-5 text-green-600 mr-2" />
-                      <span>{vendor.email || 'N/A'}</span> {/* Use vendor.email directly */}
-                    </div>
-                    <div className="flex items-center">
-                      <MapPinIcon className="w-5 h-5 text-green-600 mr-2" />
-                      {/* <span>{vendor.location}</span> // REMOVE: location not in schema */}
-                      <span>Location not specified</span> {/* Placeholder */}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-2">Business Hours</h3>
-                  {/* <p>{vendor.hours}</p> // REMOVE: hours not in schema */}
-                  <p>Business hours not specified.</p> {/* Placeholder */}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Reviews Section - REMOVE as vendor.reviews not in schema */}
-          {/*
-          {activeTab === "reviews" && (
-            <div className="space-y-6">
-              {vendor.reviews.map((review) => (
-                <div key={review.id} className="bg-white p-6 rounded-lg shadow-md">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold">{review.user}</h3>
-                      <div className="flex items-center mt-1">
-                        {renderStars(review.rating)}
-                        <span className="ml-2 text-sm text-gray-500">
-                          {review.date}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-gray-700">{review.comment}</p>
-                </div>
-              ))}
-            </div>
-          )}
-          */}
+        <div className="py-6 transition-opacity duration-500 ease-in-out">
+          {renderContent()}
         </div>
       </div>
 
-      {/* Cart Indicator (fixed at bottom) */}
-      {cart.length > 0 && (
-        <div className="fixed bottom-4 right-4 bg-green-600 text-white p-3 rounded-full shadow-xl hover:bg-green-700 transition-colors cursor-pointer">
-          <div className="relative">
-            <ShoppingCartIcon className="w-8 h-8" />
-            <span className="absolute -top-2 -right-2 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-              {cart.length}
-            </span>
-          </div>
-        </div>
-      )}
+      {/* Footer (Optional) */}
+      <footer className="bg-gray-100 mt-12 py-8 text-center text-gray-600 text-sm">
+        <p>&copy; {new Date().getFullYear()} LocalCart. All rights reserved.</p>
+      </footer>
     </div>
   );
 };
 
-export default VendorProfile;
+export default VendorProfilePage;

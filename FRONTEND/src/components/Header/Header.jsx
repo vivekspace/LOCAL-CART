@@ -30,6 +30,7 @@ const Header = () => {
   // Authentication-related states/methods from AuthContext
   const { cartItems, logout, isLoggedIn, user, wishlistItems } =
     useContext(AuthContext);
+    console.log(user)
 
   // Location-related states/methods from LocationContext via useLocation hook
   const {
@@ -176,7 +177,7 @@ const Header = () => {
       setCurrentLocationDisplayName("Select Location");
     } else {
       switch (selectedLocation.type) {
-        case LOCATION_TYPE_GPS:
+        case LOCATION_TYPE_GPS: {
           const formattedCity =
             selectedLocation.city && typeof selectedLocation.city === "string"
               ? selectedLocation.city
@@ -186,6 +187,7 @@ const Header = () => {
               : "Current Location";
           setCurrentLocationDisplayName(` ${formattedCity}`);
           break;
+        }
 
         case LOCATION_TYPE_IP:
           setCurrentLocationDisplayName(

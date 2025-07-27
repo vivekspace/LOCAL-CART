@@ -26,7 +26,7 @@ import {
   Legend,
 } from "chart.js";
 import { LayoutDashboard } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion ,AnimatePresence } from "framer-motion";
 
 // Register Chart.js components
 ChartJS.register(
@@ -526,15 +526,15 @@ const Dashboard = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 overflow-hidden"
+          className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow border border-gray-100 overflow-hidden"
         >
-          <div className="flex justify-between items-center p-6 border-b border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-800">
-              Recent Orders
+          <div className="flex justify-between items-center p-6 border-b border-gray-100 ">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <FiBox className="text-indigo-500" /> Recent Orders
             </h2>
             <Link
-              to="/vendor/orders"
-              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium transition-colors"
+              to="/vendor/order"
+              className="text-indigo-600 hover:text-indigo-800 text-sm font-semibold transition-colors px-4 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100"
             >
               View All
             </Link>
@@ -542,72 +542,76 @@ const Dashboard = () => {
           <div className="overflow-x-auto">
             {dashboardData.recentOrders && dashboardData.recentOrders.length > 0 ? (
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-indigo-700 uppercase tracking-wider rounded-tl-xl">
                       Order ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-indigo-700 uppercase tracking-wider">
                       Customer
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-indigo-700 uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-indigo-700 uppercase tracking-wider">
                       Amount
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-indigo-700 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider rounded-tr-xl">
                       Action
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-gray-100">
                   {(dashboardData.recentOrders || []).map((order, index) => (
                     <motion.tr 
                       key={order.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.05 * index }}
-                      className="hover:bg-gray-50 transition-colors"
+                      className="hover:bg-indigo-50 transition-colors"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-xs font-medium text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-indigo-600">
+                        <span className="inline-block bg-indigo-100 rounded-full px-3 py-1 text-xs font-semibold shadow">
                           #{order.id}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-indigo-200 to-indigo-400 flex items-center justify-center text-white font-bold shadow">
                             {order.customer?.charAt(0)?.toUpperCase() || "C"}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {order.customerId || "Customer Name Unavailable"} {/* Displays customer name or fallback */}
+                            <div className="text-sm font-semibold text-gray-900">
+                              {order.customer || "Customer Name Unavailable"}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {order.customerEmail || "Email Unavailable"} {/* Added email fallback */}
+                            <div className="text-xs text-gray-500">
+                              {order.customerEmail || order.email || "Email Unavailable"}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.date ? new Date(order.date).toLocaleDateString() : "Date Unavailable"} {/* Formats date or displays fallback */}
+                        {order.createdAt ? (
+                          <span className="bg-gray-50 rounded px-2 py-1 text-xs font-medium">
+                            {new Date(order.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
+                        ) : "Date Unavailable"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-700">
                         ₹{order.amount?.toLocaleString('en-IN') || "0"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={order.status} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {/* Changed Link to a button to trigger the modal */}
                         <button
                           onClick={() => handleViewDetailsClick(order)}
-                          className="text-indigo-600 hover:text-indigo-900 transition-colors"
+                          className="inline-flex items-center gap-1 text-indigo-600 hover:text-white hover:bg-indigo-600 transition-colors px-3 py-1 rounded-lg border border-indigo-100 shadow-sm font-semibold"
                         >
+                          <FiAward className="w-4 h-4" />
                           View Details
                         </button>
                       </td>
@@ -617,18 +621,17 @@ const Dashboard = () => {
               </table>
             ) : (
               <div className="text-center py-12">
-                <svg className="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-16 h-16 mx-auto text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                <h3 className="mt-2 text-lg font-medium text-gray-900">No orders yet</h3>
+                <h3 className="mt-2 text-lg font-bold text-indigo-700">No orders yet</h3>
                 <p className="mt-1 text-gray-500">Your recent orders will appear here</p>
               </div>
             )}
           </div>
         </motion.div>
-      </main>
+        </main>
 
-      {/* Order Details Modal */}
       {showOrderDetailsModal && selectedOrder && (
         <OrderDetailsModal order={selectedOrder} onClose={closeOrderDetailsModal} />
       )}
@@ -754,94 +757,153 @@ const StatCard = ({ icon, title, value, change, changeType, color = "from-indigo
 const OrderDetailsModal = ({ order, onClose }) => {
   if (!order) return null; // Ensure an order object is provided
 
+  // Fallback for image URL if VITE_API_URL is not set
+  const apiBaseUrl = import.meta.env.VITE_API_URL || ''; 
+  const defaultProductImage = `${apiBaseUrl}/uploads/default-product.png`;
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-50"
-      onClick={onClose} // Allows closing modal by clicking outside
-    >
+    <AnimatePresence>
       <motion.div
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -50, opacity: 0 }}
-        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md md:max-w-lg lg:max-w-2xl relative max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()} // Prevents closing modal when clicking inside
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center p-4 z-50 overflow-y-auto" // Added overflow-y-auto for smaller screens
+        onClick={onClose}
       >
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl"
-          aria-label="Close"
+        <motion.div
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -50, opacity: 0 }}
+          className="bg-white rounded-xl shadow-2xl p-6 sm:p-8 w-full max-w-md md:max-w-xl lg:max-w-3xl relative max-h-[95vh] overflow-y-auto transform scale-100" // Increased max-width, padding
+          onClick={(e) => e.stopPropagation()}
         >
-          &times;
-        </button>
-        <h2 className="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">Order Details - #{order.id}</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
-          <div>
-            <p className="font-semibold">Customer Name:</p>
-            <p>{order.customer || "N/A"}</p>
-          </div>
-          <div>
-            <p className="font-semibold">Customer Email:</p>
-            <p>{order.email || "N/A"}</p>
-          </div>
-          <div>
-            <p className="font-semibold">Order Date:</p>
-            <p>{order.date ? new Date(order.date).toLocaleDateString(undefined, {
-                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
-              }) : "N/A"}</p>
-          </div>
-          <div>
-            <p className="font-semibold">Order Status:</p>
-            <StatusBadge status={order.status} />
-          </div>
-          <div>
-            <p className="font-semibold">Total Amount:</p>
-            <p className="text-indigo-600 text-lg font-bold">₹{order.amount?.toLocaleString('en-IN') || "0"}</p>
-          </div>
-          {/* Display Shipping Address if available */}
-          {order.address && (
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 transition-colors duration-200 text-3xl font-light leading-none"
+            aria-label="Close"
+          >
+            &times;
+          </button>
+
+          {/* Header */}
+          <h2 className="text-3xl font-extrabold mb-6 text-gray-900 border-b-2 border-indigo-500 pb-3">
+            Order Details <span className="text-indigo-600">#{order.id.slice(0, 12)}....</span>
+          </h2>
+
+          {/* Order Summary Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-5 gap-x-6 text-gray-700 mb-8">
+            {/* Customer Details */}
             <div>
-              <p className="font-semibold">Shipping Address:</p>
-              <p>{order.address.street}, {order.address.city}, {order.address.state} - {order.address.zipCode}</p>
-              <p>{order.address.country}</p>
+              <p className="font-bold text-gray-800 mb-1">Customer Name:</p>
+              <p className="text-lg">{order.customer || "N/A"}</p>
+            </div>
+            <div>
+              <p className="font-bold text-gray-800 mb-1">Customer Email:</p>
+              <p className="text-lg">{order.customerEmail || "N/A"}</p>
+            </div>
+
+            {/* Order Info */}
+            <div>
+              <p className="font-bold text-gray-800 mb-1">Order Date:</p>
+              <p className="text-lg">
+                {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', {
+                  year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : "N/A"}
+              </p>
+            </div>
+            <div>
+              <p className="font-bold text-gray-800 mb-1">Order Status:</p>
+              <StatusBadge status={order.status} className="inline-block mt-1" /> {/* Add margin-top for alignment */}
+            </div>
+
+            {/* Payment Info */}
+            <div>
+              <p className="font-bold text-gray-800 mb-1">Payment Method:</p>
+              <p className="text-lg capitalize">{order.paymentMethod || "N/A"}</p>
+            </div>
+            <div>
+              <p className="font-bold text-gray-800 mb-1">Payment Status:</p>
+              <StatusBadge status={order.paymentStatus} className="inline-block mt-1" />
+            </div>
+          </div>
+
+          {/* Shipping Address */}
+          {order.shippingAddress && (
+            <div className="bg-gray-50 p-5 rounded-lg mb-8 shadow-inner">
+              <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2">Shipping Address:</h3>
+              <p>{order.shippingAddress.street || "N/A"}</p>
+              <p>{order.shippingAddress.city || "N/A"}, {order.shippingAddress.state || "N/A"} - {order.shippingAddress.zip || "N/A"}</p>
+              <p>{order.shippingAddress.country || "India"}</p>
             </div>
           )}
-        </div>
 
-        {/* Display Ordered Items if available */}
-        {order.items && order.items.length > 0 && (
-          <div className="mt-6 border-t pt-4">
-            <h3 className="text-xl font-semibold mb-3 text-gray-800">Items Ordered:</h3>
-            <ul className="space-y-3">
-              {order.items.map((item, index) => (
-                <li key={index} className="flex items-center space-x-4 bg-gray-50 p-3 rounded-lg">
-                  <img 
-                    src={item.image ? `${import.meta.env.VITE_API_URL}/uploads/${item.image}` : `/default-product.png`} 
-                    alt={item.name} 
-                    className="w-16 h-16 object-cover rounded-md" 
-                    onError={(e) => { e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; }}
-                  />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{item.name}</p>
-                    <p className="text-sm text-gray-600">Quantity: {item.quantity} | Price: ₹{item.price?.toLocaleString('en-IN') || "0"}</p>
-                  </div>
-                  <span className="font-semibold text-indigo-700">₹{(item.quantity * item.price)?.toLocaleString('en-IN') || "0"}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          {/* Ordered Items */}
+          {order.items && order.items.length > 0 ? (
+            <div className="mt-6 border-t pt-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Items in this Order:</h3>
+              <ul className="space-y-4">
+                {order.items.map((item, index) => (
+                  <li key={index} className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <img 
+                      src={item.image ? `${apiBaseUrl}/uploads/${item.image}` : defaultProductImage} 
+                      alt={item.name} 
+                      className="w-20 h-20 object-cover rounded-lg flex-shrink-0 border border-gray-200" 
+                      onError={(e) => { e.target.src = defaultProductImage; }}
+                    />
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900 text-lg">{item.name}</p>
+                      <p className="text-md text-gray-600">Quantity: <span className="font-medium">{item.quantity}</span></p>
+                      <p className="text-md text-gray-600">Unit Price: <span className="font-medium">₹{(item.price || 0).toLocaleString('en-IN')}</span></p>
+                    </div>
+                    <div className="flex-shrink-0 text-right sm:w-auto w-full">
+                        <span className="font-bold text-indigo-700 text-xl">
+                            ₹{((item.quantity || 0) * (item.price || 0)).toLocaleString('en-IN')}
+                        </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-6 text-gray-500 text-center text-lg py-4 border-t">No items listed for this order.</p>
+          )}
 
-        {!order.items?.length && (
-          <p className="mt-4 text-gray-500">No items listed for this order.</p>
-        )}
+          {/* Pricing Summary (Optional - if you want to show overall subtotal, tax, etc.) */}
+          {order.overallSubtotal !== undefined && ( // Check for existence of any pricing field
+            <div className="mt-8 pt-6 border-t-2 border-gray-200">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Order Pricing Summary:</h3>
+              <div className="space-y-2 text-gray-700">
+                <div className="flex justify-between items-center text-lg">
+                  <p>Subtotal:</p>
+                  <p>₹{(order.overallSubtotal || 0).toLocaleString('en-IN')}</p>
+                </div>
+                <div className="flex justify-between items-center text-lg">
+                  <p>Tax:</p>
+                  <p>₹{(order.overallTax || 0).toLocaleString('en-IN')}</p>
+                </div>
+                <div className="flex justify-between items-center text-lg">
+                  <p>Shipping Cost:</p>
+                  <p>₹{(order.overallShippingCost || 0).toLocaleString('en-IN')}</p>
+                </div>
+                <div className="flex justify-between items-center text-lg">
+                  <p>Discount:</p>
+                  <p>-₹{(order.overallDiscount || 0).toLocaleString('en-IN')}</p>
+                </div>
+                <div className="flex justify-between items-center font-bold text-xl text-indigo-700 border-t pt-3 mt-3">
+                  <p>Total Paid:</p>
+                  <p>₹{(order.overallTotalAmount || 0).toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </AnimatePresence>
   );
+
+
 };
 
 export default Dashboard;
