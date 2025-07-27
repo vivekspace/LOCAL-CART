@@ -1,6 +1,8 @@
 import { FaFacebookF, FaTwitter, FaInstagram, FaLinkedinIn, FaEnvelope, FaPhoneAlt, FaMapMarkerAlt } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import { Link } from "react-router-dom";
+import logo from "../../assets/footer_logo.svg";
+
 
 const Footer = () => {
   return (
@@ -15,8 +17,8 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="space-y-7">
             <div className="flex items-center">
-              <span className="text-3xl font-bold text-white tracking-tight">Local</span>
-              <span className="text-3xl font-bold text-emerald-400 tracking-tight">Cart</span>
+              
+              <img src={logo} alt="LocalCart Logo" className="h-14 w-auto hover:scale-105 cursor-pointer duration-200 transition" />
             </div>
             <p className="text-gray-400 leading-relaxed text-base">
               Connecting communities through local commerce. Supporting small businesses one purchase at a time.
