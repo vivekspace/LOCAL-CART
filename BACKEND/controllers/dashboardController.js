@@ -1,8 +1,8 @@
 // controllers/dashboardController.js
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const User = require('../models/User'); 
-const Vendor = require('../models/Vendor'); 
+const User = require('../models/User');
+const Vendor = require('../models/Vendor');
 const mongoose = require('mongoose');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
@@ -130,7 +130,7 @@ exports.getAddresses = catchAsync(async (req, res, next) => {
 
 
 exports.addAddress = catchAsync(async (req, res, next) => {
-    const { name, street, apartment, city, state, zipCode , phone , isDefault} = req.body;
+    const { name, street, apartment, city, state, zipCode, phone, isDefault } = req.body;
 
     const newAddressData = {
         name,
@@ -176,7 +176,7 @@ exports.updateAddress = catchAsync(async (req, res, next) => {
     }
 
     const address = user.addresses.id(addressId);
-    
+
     if (!address) {
         return next(new AppError('Address not found', 404));
     }
@@ -220,7 +220,7 @@ exports.deleteAddress = catchAsync(async (req, res, next) => {
     if (user.addresses.length === initialAddressCount) {
         return next(new AppError('Address not found or already deleted', 404));
     }
-    
+
     await user.save();
     console.log('deleteAddress: user saved after removal');
 
@@ -279,7 +279,7 @@ exports.getVendorDashboard = async (req, res) => {
     try {
         // --- FIX START ---
         // Change req.vendor._id to req.user._id
-        const vendorId = new mongoose.Types.ObjectId(req.user._id); 
+        const vendorId = new mongoose.Types.ObjectId(req.user._id);
         // --- FIX END ---
 
         console.log('Vendor ID:', vendorId);
@@ -376,17 +376,46 @@ exports.getVendorDashboard = async (req, res) => {
         const recentOrders = await Order.find({ 'cartItems.seller': vendorId })
             .sort({ createdAt: -1 })
             .limit(5)
-            .populate('customerId', 'firstname lastname email')
-            .select('orderId status totalAmount createdAt cartItems.name cartItems.price cartItems.quantity');
+            // Option 1: Populating from User model (if your User model has 'name' field)
+            .populate('customerId', 'name email')
+           
+            .select('orderId status totalAmount createdAt customerDetails.firstname customerDetails.lastname customerDetails.email cartItems'); // Select ALL cartItems
 
-        const formattedRecentOrders = recentOrders.map(order => ({
-            id: order.orderId || order._id,
-            customer: order.customerId ? `${order.customerDetails.firstname || ''} ${order.customerDetails.lastname || ''}`.trim() : 'Guest User',
-            amount: order.totalAmount,
-            status: order.status,
-                        customerEmail: order.customerId ? order.customerId.email : 'Email Unavailable',
+        const formattedRecentOrders = recentOrders.map(order => {
+            // Filter cartItems to only include those belonging to the current vendor
+            const vendorSpecificCartItems = order.cartItems.filter(item => item.seller.toString() === vendorId.toString());
 
-        }));
+            // Calculate total quantity for the vendor's items in this order
+            const totalVendorOrderQuantity = vendorSpecificCartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+            // Determine customer name and email based on whether customerId is populated or customerDetails is present
+            const customerName = order.customerId
+                ? order.customerId.name // From populated User (Option 1)
+                : `${order.customerDetails?.firstname || ''} ${order.customerDetails?.lastname || ''}`.trim(); // From embedded customerDetails (Option 2)
+
+            const customerEmail = order.customerId
+                ? order.customerId.email // From populated User (Option 1)
+                : order.customerDetails?.email || 'Email Unavailable'; // From embedded customerDetails (Option 2)
+
+
+            return {
+                id: order.orderId || order._id,
+                customer: customerName || 'Guest User', // Fallback
+                customerEmail: customerEmail,
+                amount: order.totalAmount, // This is the total for the *entire* order
+                status: order.status,
+                createdAt: order.createdAt,
+                quantity: totalVendorOrderQuantity, // Total quantity of items from this vendor in the order
+                // Include the filtered items array
+                items: vendorSpecificCartItems.map(item => ({
+                    productId: item.productId, // Include product ID if needed
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                    // Add any other relevant item properties here (e.g., image, size)
+                }))
+            };
+        });
         console.log('Recent Orders:', formattedRecentOrders);
 
         res.status(200).json({
@@ -462,12 +491,12 @@ exports.getAdminDashboardStats = async (req, res) => {
         const recentOrders = await Order.find()
             .sort({ createdAt: -1 })
             .limit(5)
-            .populate('customerId', 'firstname lastname')
+            .populate('customerId', 'name')
             .select('orderId status totalAmount createdAt');
 
         const formattedRecentOrders = recentOrders.map(order => ({
             id: order.orderId || order._id,
-            customer: order.customerId ? `${order.customerId.firstname || ''} ${order.customerId.lastname || ''}`.trim() : 'Guest User',
+            customer: order.customerId ? order.customerId.name : 'Guest User',
             amount: order.totalAmount,
             status: order.status,
             createdAt: order.createdAt

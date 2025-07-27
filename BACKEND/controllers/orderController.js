@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const Notification = require('../models/Notification')
 require('dotenv').config();
 
 const { v4: uuidv4 } = require('uuid');
@@ -46,7 +47,7 @@ exports.getCustomerOrders = async (req, res) => {
             createdAt: order.createdAt,
             totalAmount: order.totalAmount ||
                 order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-            itemCount: order.cartItems.length,
+            itemCount: order.cartItems.reduce((sum, item) => sum + item.quantity, 0),
             paymentMethod: order.paymentDetails.method,
             paymentStatus: order.paymentDetails.status,
             cartItems: order.cartItems.map(item => {
@@ -65,6 +66,8 @@ exports.getCustomerOrders = async (req, res) => {
                 };
             })
         }));
+                    console.log("Debug: Final transformedOrders for first order:", transformedOrders[0]); // Log the first order in the transformed array
+
 
         res.status(200).json({
             success: true,
@@ -378,10 +381,15 @@ exports.getVendorOrders = async (req, res) => {
 
         const orders = await Order.find({ 'cartItems.seller': vendorId })
             .sort({ createdAt: -1 })
+            // --- ADDED THESE FIELDS TO .select() ---
+            .select('orderId customerDetails shippingAddress paymentDetails status createdAt subtotal tax shippingCost discount totalAmount cartItems')
             .lean();
 
         const vendorOrders = orders.map(order => {
             const vendorItems = order.cartItems.filter(item => item.seller.toString() === vendorId.toString());
+
+            // Calculate vendor's portion of total amount
+            const vendorTotalAmount = vendorItems.reduce((acc, item) => acc + item.quantity * item.price, 0);
 
             return {
                 _id: order._id,
@@ -390,16 +398,23 @@ exports.getVendorOrders = async (req, res) => {
                 email: order.customerDetails.email,
                 phone: order.customerDetails.phone,
                 shippingAddress: order.shippingAddress,
-                paymentStatus: order.paymentDetails.status,
-                paymentMethod: order.paymentDetails.method,
+                paymentStatus: order.paymentDetails?.status,
+                paymentMethod: order.paymentDetails?.method,
                 orderDate: order.createdAt,
                 status: order.status,
                 items: vendorItems.map(item => ({
                     name: item.name,
                     quantity: item.quantity,
                     price: item.price,
+                    // You might want to include other item details like productId, image, etc. if needed on frontend
                 })),
-                totalAmount: vendorItems.reduce((acc, item) => acc + item.quantity * item.price, 0)
+                subtotal: order.subtotal, 
+                tax: order.tax,
+                shippingCost: order.shippingCost,
+                discount: order.discount,
+                totalAmount: order.totalAmount,
+                // This is the total for this specific vendor's items in the order
+                vendorPortionTotal: vendorTotalAmount 
             };
         });
 
@@ -746,6 +761,93 @@ exports.getAllOrders = async (req, res) => {
         });
     }
 };
+
+
+
+exports.adminUpdateOrderStatus = async (req, res, next) => {
+    try {
+        const { status } = req.body;
+        const { id } = req.params; // Use 'id' to match your route parameter
+        // Admin's ID (req.user._id) is available but not used for order filtering
+
+        const validStatuses = ['pending', 'processing', 'completed', 'failed', 'shipped', 'cancelled', 'delivered']; // Added 'delivered' if applicable
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status value' });
+        }
+
+        // Find the order by its ID only (admins can update any order)
+        const order = await Order.findById(id);
+
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        let paymentStatusUpdate = {};
+        const currentPaymentMethod = order.paymentDetails?.method;
+
+        if (status === 'completed' || status === 'delivered') { // Mark as paid if order completed/delivered and COD
+            if (currentPaymentMethod && currentPaymentMethod.toLowerCase() === 'cod' && order.paymentDetails.status !== 'paid') {
+                paymentStatusUpdate['paymentDetails.status'] = 'paid';
+            }
+        } else if (status === 'failed') {
+            paymentStatusUpdate['paymentDetails.status'] = 'failed';
+        }
+
+        // Update the order fields
+        order.status = status;
+        // Merge payment status updates if any
+        if (Object.keys(paymentStatusUpdate).length > 0) {
+            Object.assign(order.paymentDetails, paymentStatusUpdate);
+        }
+
+        const updatedOrder = await order.save();
+
+        // --- Socket.IO Notification for Customer ---
+        const io = req.app.get('socketio');
+        if (io && updatedOrder && updatedOrder.customerId) {
+            const customerNotificationData = {
+                recipient: updatedOrder.customerId,
+                type: 'order-status-update',
+                title: `Order #${updatedOrder._id.toString().slice(-6).toUpperCase()} Status Updated!`,
+                message: `Your order status is now '${updatedOrder.status}'.`,
+                link: `/orders/${updatedOrder._id}`,
+                isRead: false,
+                createdAt: new Date(),
+                orderId: updatedOrder._id,
+            };
+            // Save notification to DB (assuming Notification model is linked/imported)
+            await Notification.create(customerNotificationData);
+            // Emit to customer's Socket.IO room
+            io.to(updatedOrder.customerId.toString()).emit('newNotification', customerNotificationData);
+            console.log(`[adminUpdateOrderStatus] Socket.IO: Emitted 'newNotification' to customer ${updatedOrder.customerId} for order status update.`);
+        } else {
+            console.warn(`[adminUpdateOrderStatus] Socket.IO instance or order/customer ID missing for notification.`);
+        }
+        // --- End Socket.IO Logic ---
+
+        // Send email notification
+        try {
+            await sendStatusUpdateEmail(updatedOrder); // Re-use your existing email function
+        } catch (emailErr) {
+            console.error('Failed to send status update email (admin):', emailErr.message);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Order status updated by admin successfully',
+            order: {
+                _id: updatedOrder._id,
+                status: updatedOrder.status,
+                paymentDetails: updatedOrder.paymentDetails // Return full payment details
+            }
+        });
+
+    } catch (error) {
+        console.error('Error in adminUpdateOrderStatus:', error);
+        next(error); // Pass error to global error handler
+    }
+};
+
 
 exports.sendOrderMessageToCustomer = async (req, res) => {
     if (!req.user || req.user.role !== 'seller') {
