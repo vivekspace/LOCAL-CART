@@ -31,10 +31,10 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline often needed for dev, but try to avoid in prod
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", 'data:', 'https://*.amazonaws.com'] // Allow AWS S3 if used
+            imgSrc: ["'self'", 'data:', 'https://*.amazonaws.com', `${process.env.VITE_API_URL}`] // Allow AWS S3 and your VITE_API_URL for images
         }
     },
-    crossOriginResourcePolicy: { policy: "cross-origin" } // For CDN support
+    crossOriginResourcePolicy: { policy: "cross-origin" } // For CDN support if needed, or if images are served from a different (sub)domain
 }));
 
 // Morgan: HTTP request logger
@@ -83,7 +83,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     maxAge: '7d', // Cache static assets for 7 days
     setHeaders: (res, path) => {
         // Specific cache control for image types
-        if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.webp')) {
+        if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.webp') || path.endsWith('.jpeg') || path.endsWith('.gif')) {
             res.setHeader('Cache-Control', 'public, max-age=604800');
         }
     }
@@ -92,39 +92,53 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 // =========================================================
 // API Routes Configuration
 // =========================================================
+
+// Create a main API router
 const apiRoutes = express.Router();
 
-// Define API routes. Order matters for conflicting paths.
-// More specific paths should generally come before more general ones if they share a base.
+// Import all route modules
+const authRoutes = require('./routes/authRoutes');
+const vendorRoutes = require('./routes/vendorRoutes');
+const adminProductRoutes = require('./routes/adminProductRoutes');
+const productRoutes = require('./routes/productRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
+const userRoutes = require('./routes/userRoutes');
+const locationRoutes = require('./routes/locationRoutes');
+const chatbotRoutes = require('./routes/chatbotRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const contactRoutes = require('./routes/contactRoutes');
+const marketingRoutes = require('./routes/marketingRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
+const reviewRoutes = require('./routes/reviewRoutes.js');
+const notificationRoutes = require('./routes/notificationRoutes');
+const adminOrderRoutes = require('./routes/adminOrderRoutes.js');
 
-// 1. Authentication Routes (e.g., /api/auth/register, /api/auth/login)
-apiRoutes.use('/auth', require('./routes/authRoutes'));
+// Define API routes. Order matters: place more specific paths before general ones
+// that share a prefix. This is crucial for correct route matching.
 
-// 2. Vendor-Specific Routes (e.g., /api/vendor/products, /api/vendor/orders)
-//    Place this BEFORE '/products' to ensure '/api/vendor/products' is handled by vendorRoutes.
-apiRoutes.use('/vendor', require('./routes/vendorRoutes'));
+// Admin-specific routes (most specific admin paths first)
+apiRoutes.use('/admin/dashboard', dashboardRoutes); // Handles /api/admin/dashboard/...
+apiRoutes.use('/admin/products', adminProductRoutes); // Handles /api/admin/products/...
+apiRoutes.use('/admin/orders', adminOrderRoutes);     // Handles /api/admin/orders/...
 
-// 3. Admin Product Management Routes (if distinct from general product routes)
-//    These typically handle CRUD for all products by an admin.
-apiRoutes.use('/admin/products', require('./routes/adminProductRoutes'));
+// General admin routes (e.g., for admin profile, general settings if not sub-pathed)
+// This must come AFTER the more specific admin sub-routes to avoid conflicts.
+apiRoutes.use('/admin', adminAuthRoutes); // Handles /api/admin/... (but not the specific sub-paths already defined)
 
-// 4. Public/General Product Routes (e.g., /api/products for Browse all products)
-//    This should usually contain `getAllProducts` for public view, and possibly admin-level CRUD
-//    if 'adminProductRoutes' is not used or if you manage some admin aspects here.
-apiRoutes.use('/products', require('./routes/productRoutes'));
-
-// 5. Other Main API Routes
-apiRoutes.use('/orders', require('./routes/orderRoutes'));
-apiRoutes.use('/admin', require('./routes/adminAuthRoutes')); // For admin-specific auth or dashboard access
-apiRoutes.use('/users', require('./routes/userRoutes'));
-apiRoutes.use('/locations', require('./routes/locationRoutes'));
-apiRoutes.use('/chatbot', require('./routes/chatbotRoutes'));
-apiRoutes.use('/admin/dashboard', require('./routes/dashboardRoutes')); // Specific admin dashboard
-apiRoutes.use('/contact', require('./routes/contactRoutes'));
-apiRoutes.use('/marketing', require('./routes/marketingRoutes'));
-apiRoutes.use('/wishlist', require('./routes/wishlistRoutes'));
-apiRoutes.use('/reviews', require('./routes/reviewRoutes.js'));
-apiRoutes.use('/notifications', require('./routes/notificationRoutes'));
+// Other Core API Routes
+apiRoutes.use('/auth', authRoutes); // Handles /api/auth/...
+apiRoutes.use('/vendor', vendorRoutes); // Handles /api/vendor/...
+apiRoutes.use('/products', productRoutes); // Handles /api/products/... (public products)
+apiRoutes.use('/orders', orderRoutes); // Handles /api/orders/... (public orders or user's own orders)
+apiRoutes.use('/users', userRoutes); // Handles /api/users/...
+apiRoutes.use('/locations', locationRoutes); // Handles /api/locations/...
+apiRoutes.use('/chatbot', chatbotRoutes); // Handles /api/chatbot/...
+apiRoutes.use('/contact', contactRoutes); // Handles /api/contact/...
+apiRoutes.use('/marketing', marketingRoutes); // Handles /api/marketing/...
+apiRoutes.use('/wishlist', wishlistRoutes); // Handles /api/wishlist/...
+apiRoutes.use('/reviews', reviewRoutes); // Handles /api/reviews/...
+apiRoutes.use('/notifications', notificationRoutes); // Handles /api/notifications/...
 
 
 // Apply all defined apiRoutes under the /api base path
@@ -159,9 +173,9 @@ app.get('/', (req, res) => {
 // Error Handling Middleware
 // =========================================================
 
-// Catch 404 Not Found errors
+// Catch 404 Not Found errors - MUST be after all routes
 app.use(notFound);
-// General error handling middleware
+// General error handling middleware - MUST be last
 app.use(errorHandler);
 
 // =========================================================
