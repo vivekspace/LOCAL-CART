@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../Context/Context.jsx"; // Assuming correct path to AuthContext
 import { NotificationContext } from "../../NotificationContext/NotificationContext.jsx"; // Import NotificationContext
-import logo from "../../assets/logo.svg";
+import logo from "../../assets/vendor_logo.svg";
 
 import {
   LayoutDashboard,

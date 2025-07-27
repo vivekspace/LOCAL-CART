@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useState, useContext, useRef, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import logo from "../../assets/logo.svg"; // Only need if you plan to put a logo here
+import logo from "../../assets/admin_logo.svg"; // Only need if you plan to put a logo here
 import { AuthContext } from "../../Context/Context"; // Correct import
 import { toast } from "react-toastify"; // Added toast for logout success message
 
