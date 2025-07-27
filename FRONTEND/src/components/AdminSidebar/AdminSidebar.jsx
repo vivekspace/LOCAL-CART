@@ -19,7 +19,7 @@ import {
   User,
   Activity,
 } from "lucide-react";
-import logo from "../../assets/logo.svg";
+import logo from "../../assets/admin_logo.svg";
 
 const menuItems = [
     {

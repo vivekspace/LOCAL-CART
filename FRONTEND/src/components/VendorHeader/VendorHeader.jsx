@@ -287,12 +287,7 @@ const VendorNavbar = () => {
                         Mark All as Read
                       </button>
                     )}
-                    {/* Optional: Simulation buttons for quick testing in dropdown */}
-                    {/* <div className="mt-4 text-center">
-                        <button onClick={() => simulateNotification('order')} className="text-xs px-2 py-1 bg-gray-200 rounded-md mr-2">Simulate Order</button>
-                        <button onClick={() => simulateNotification('message')} className="text-xs px-2 py-1 bg-gray-200 rounded-md mr-2">Simulate Message</button>
-                        <button onClick={() => simulateNotification('review')} className="text-xs px-2 py-1 bg-gray-200 rounded-md">Simulate Review</button>
-                    </div> */}
+                    
                   </div>
                 </div>
               )}
@@ -413,9 +408,7 @@ const VendorNavbar = () => {
                   className="flex items-center gap-2 text-2xl font-bold text-indigo-600 hover:text-indigo-700 transition-colors relative"
                 >
                   <img src={logo} alt="Logo" className="h-12 w-auto" />
-                  <span className="text-xs font-medium text-gray-500 absolute top-2 right-12">
-                    Vendor
-                  </span>
+                  
                 </Link>
               </div>
             </div>
