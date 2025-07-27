@@ -80,15 +80,15 @@ router.get('/analytics', async (req, res) => {
             'cartItems.seller': vendorId,
             status: 'completed'
         });
-       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-const customersForVendor = await Order.aggregate([
-    { $match: { 'cartItems.seller': vendorId, createdAt: { $gte: thirtyDaysAgo } } },
-    { $group: { _id: '$customerId' } }, // Group by customerId to get unique customers
-    { $count: 'newCustomersCount' } // Count the unique customer IDs
-]);
+        const customersForVendor = await Order.aggregate([
+            { $match: { 'cartItems.seller': vendorId, createdAt: { $gte: thirtyDaysAgo } } },
+            { $group: { _id: '$customerId' } }, // Group by customerId to get unique customers
+            { $count: 'newCustomersCount' } // Count the unique customer IDs
+        ]);
 
-const newCustomers = customersForVendor[0]?.newCustomersCount || 0; // Set to 0 if no results
+        const newCustomers = customersForVendor[0]?.newCustomersCount || 0; // Set to 0 if no results
         const popularProducts = await Order.aggregate([
             { $unwind: '$cartItems' },
             { $match: { 'cartItems.seller': vendorId } },
@@ -96,7 +96,9 @@ const newCustomers = customersForVendor[0]?.newCustomersCount || 0; // Set to 0 
                 $group: {
                     _id: '$cartItems.productId',
                     name: { $first: '$cartItems.name' },
-                    totalQuantity: { $sum: '$cartItems.quantity' }
+                    totalQuantity: { $sum: '$cartItems.quantity' },
+                    totalRevenue: { $sum: { $multiply: ['$cartItems.price', '$cartItems.quantity'] } } // ADDED THIS LINE
+
                 }
             },
             { $sort: { totalQuantity: -1 } },
@@ -105,6 +107,7 @@ const newCustomers = customersForVendor[0]?.newCustomersCount || 0; // Set to 0 
                 $project: {
                     name: 1,
                     orders: '$totalQuantity',
+                    revenue: `$totalRevenue`,
                     _id: 0
                 }
             }
