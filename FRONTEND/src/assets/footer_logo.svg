@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 100">
+  <!-- Background (transparent) -->
+  <rect width="500" height="100" fill="transparent"/>
+  
+  <!-- Cart Icon -->
+  <g transform="translate(10, 15) scale(0.7)">
+    <circle cx="25" cy="90" r="10" fill="#34d399"/> <!-- emerald-400 -->
+    <circle cx="75" cy="90" r="10" fill="#34d399"/> <!-- emerald-400 -->
+    <path d="M10 30 L20 30 L35 70 L80 70 L95 30 L35 30" stroke="#34d399" stroke-width="6" fill="none"/>
+    <path d="M35 30 L40 60 L80 60" stroke="#34d399" stroke-width="3" fill="none"/>
+  </g>
+  
+  <!-- Text "LocalCart" -->
+  <g transform="translate(100, 50)">
+    <text font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#ffffff" dominant-baseline="middle">Local</text>
+    <text font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#34d399" dominant-baseline="middle" x="105">Cart</text>
+  </g>
+  
+  <!-- Tagline -->
+  <g transform="translate(100, 75)">
+    <text font-family="Arial, sans-serif" font-size="14" fill="#9ca3af">Farm to door, simplified</text>
+  </g>
+</svg>
