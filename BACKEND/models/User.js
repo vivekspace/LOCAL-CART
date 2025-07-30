@@ -49,6 +49,8 @@ const addressSchema = new mongoose.Schema({
     _id: true
 });
 
+
+
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -79,9 +81,7 @@ const userSchema = new mongoose.Schema({
     photo: {
         url: {
             type: String,
-            default: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1/localcart/default.jpg' // Placeholder or actual default image URL
-            // IMPORTANT: Replace 'your_cloud_name' with your actual Cloudinary cloud name
-            // You should upload a 'default.jpg' image to your 'localcart' folder in Cloudinary.
+            default: null // We'll set it manually in the pre-save hook
         },
         publicId: String // Store the public ID to allow deletion from Cloudinary later
     },
@@ -105,19 +105,34 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.pre('save', async function (next) {
+    // 🖼️ Set default photo based on role if not already provided
+    if (!this.photo || !this.photo.url) {
+        const DEFAULT_PHOTOS = {
+    customer: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753785034/localcart/1753785033784-646705549.png',
+    seller: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753848167/vendor_default_logo_ht2qor.webp',
+    admin: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753887570/admin_logo_img_foeuh2.webp'
+};
+        const role = this.role || 'customer';
+        this.photo = {
+            url: DEFAULT_PHOTOS[role] || DEFAULT_PHOTOS['customer'],
+            publicId: null
+        };
+    }
+
+    // 🔐 Hash the password if it's modified
     if (!this.isModified('password')) return next();
 
-    // --- CRITICAL DEBUGGING LOG ---
     console.log("\n--- User Model Pre-Save Hook Debugging ---");
     console.log("    Password BEFORE hashing (in pre-save hook):", this.password);
     console.log("    Length of password BEFORE hashing:", this.password ? this.password.length : 'N/A');
     console.log("    Type of password BEFORE hashing:", typeof this.password);
-    // --- END CRITICAL DEBUGGING LOG ---
 
     this.password = await bcrypt.hash(this.password, 10);
     console.log("    Password AFTER hashing (in pre-save hook):", this.password);
+    
     next();
 });
+
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
