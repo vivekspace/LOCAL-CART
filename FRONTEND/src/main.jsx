@@ -63,7 +63,7 @@ import ViewAllProducts from "./components/ViewAllProducts/ViewAllProducts.jsx";
 import { NotificationProvider } from './NotificationContext/NotificationContext.jsx'; 
 import VendorNotifications from './components/VendorNotification/VendorNotification.jsx'; 
 import VendorOrderDetailsPage from './components/VendorOrderDetails/VendorOrderDetails.jsx'; 
-import OTPVerification from "./components/OtpVerification/OtpVerification.jsx";
+// import OTPVerification from "./components/OtpVerification/OtpVerification.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
