@@ -469,9 +469,7 @@ const Dashboard = () => {
                         className="w-full h-full object-cover"
                         src={
                           product.images?.[0]
-                            ? `${import.meta.env.VITE_API_URL}/uploads/${
-                                product.images[0]
-                              }`
+                            ? product.images[0]?.url
                             : `/default-product.png`
                         }
                         alt={product.name}

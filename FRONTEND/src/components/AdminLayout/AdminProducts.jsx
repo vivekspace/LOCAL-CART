@@ -279,7 +279,7 @@ export default function AdminProducts() {
                                 <div className="col-span-2 md:col-span-1 flex items-center">
                                     <img
                                         src={product.images && product.images.length > 0 
-                                            ? `${API_BASE_URL}/uploads/${product.images[0]}` 
+                                            ? product.images[0].url
                                             : `${API_BASE_URL}/uploads/default-product.png`}
                                         alt={product.name}
                                         className="w-12 h-12 rounded-md object-cover mr-4 border border-gray-200"
@@ -376,9 +376,9 @@ export default function AdminProducts() {
                                                         product.images.map((image, index) => (
                                                             <img
                                                                 key={index}
-                                                                src={`${API_BASE_URL}/uploads/${image}`}
+                                                                src={image.url}
                                                                 alt={`${product.name} ${index + 1}`}
-                                                                className="w-16 h-16 rounded-md object-cover border border-gray-200"
+                                                                className="w-16 h-16 rounded-md object-contain border border-gray-200"
                                                                 onError={(e) => { 
                                                                     e.target.onerror = null; 
                                                                     e.target.src = `${API_BASE_URL}/uploads/default-product.png`;

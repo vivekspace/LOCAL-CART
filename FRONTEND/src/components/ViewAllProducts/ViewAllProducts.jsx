@@ -175,7 +175,7 @@ const ViewAllProducts = () => {
             <motion.img
               src={
                 product.images?.[0] 
-                  ? `${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`
+                  ?product.images[0]?.url
                   : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
               }
               alt={product.name}
@@ -292,7 +292,7 @@ const ViewAllProducts = () => {
             <motion.img
               src={
                 product.images?.[0]
-                  ? `${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`
+                  ? product.images[0]?.url
                   : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
               }
               alt={product.name}

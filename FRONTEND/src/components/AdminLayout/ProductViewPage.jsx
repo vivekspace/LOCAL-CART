@@ -169,7 +169,7 @@ export default function ProductViewPage() {
                             <div className="space-y-4">
                                 <div className="relative aspect-w-16 aspect-h-9 bg-gray-100 rounded-lg overflow-hidden">
                                     <img
-                                        src={`${API_BASE_URL}/uploads/${product.images[activeImage]}`}
+                                        src={product.images[activeImage].url}
                                         alt={`${product.name} - Main`}
                                         className="w-full h-full object-contain p-4"
                                         onError={(e) => (e.target.src = `${API_BASE_URL}/uploads/default-product.png`)}
@@ -183,9 +183,9 @@ export default function ProductViewPage() {
                                             className={`w-16 h-16 rounded-md overflow-hidden border-2 ${activeImage === index ? 'border-blue-500' : 'border-transparent'}`}
                                         >
                                             <img
-                                                src={`${API_BASE_URL}/uploads/${img}`}
+                                                src={img.url}
                                                 alt={`${product.name} - ${index + 1}`}
-                                                className="w-full h-full object-cover"
+                                                className="w-full h-full object-contain"
                                                 onError={(e) => (e.target.src = `${API_BASE_URL}/uploads/default-product.png`)}
                                             />
                                         </button>

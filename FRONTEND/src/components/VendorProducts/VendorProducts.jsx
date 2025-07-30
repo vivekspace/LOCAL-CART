@@ -388,7 +388,7 @@ const filteredProducts = sortedProducts.filter((product) => {
                               className="h-full w-full object-cover"
                               src={
                                 product.images?.[0]
-                                  ? `${import.meta.env.VITE_API_URL}/uploads/${product.images[0]}`
+                                  ? product.images[0]?.url
                                   : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
                               }
                               alt={product.name}
@@ -483,7 +483,7 @@ const filteredProducts = sortedProducts.filter((product) => {
                                     product.images.slice(0, 3).map((image, index) => (
                                       <div key={index} className="w-16 h-16 rounded-md overflow-hidden bg-gray-100">
                                         <img
-                                          src={`${import.meta.env.VITE_API_URL}/uploads/${image}`}
+                                          src={product.images[0]?.url}
                                           alt={`Product ${index + 1}`}
                                           className="w-full h-full object-cover"
                                           onError={(e) => {

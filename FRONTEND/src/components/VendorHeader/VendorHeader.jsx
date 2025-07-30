@@ -302,7 +302,7 @@ const VendorNavbar = () => {
                 {user?.photo ? (
                   <img
                     className="h-8 w-8 rounded-full border-2 border-indigo-200 object-cover"
-                    src={user.photo}
+                    src={`https://res.cloudinary.com/dr9zse9a6/image/upload/v1753848167/vendor_default_logo_ht2qor.webp`}
                     alt="Profile"
                   />
                 ) : (
@@ -318,7 +318,7 @@ const VendorNavbar = () => {
                       {user?.photo ? (
                         <img
                           className="h-10 w-10 rounded-full border-2 border-indigo-200"
-                          src={user.photo}
+                          src={`https://res.cloudinary.com/dr9zse9a6/image/upload/v1753848167/vendor_default_logo_ht2qor.webp`}
                           alt="Profile"
                         />
                       ) : (
@@ -477,7 +477,7 @@ const VendorNavbar = () => {
               {user?.photo ? (
                 <img
                   className="h-12 w-12 rounded-full border-2 border-indigo-200"
-                  src={user.photo}
+                  src={`https://res.cloudinary.com/dr9zse9a6/image/upload/v1753848167/vendor_default_logo_ht2qor.webp`}
                   alt="Profile"
                 />
               ) : (

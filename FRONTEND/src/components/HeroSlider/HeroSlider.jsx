@@ -1,12 +1,5 @@
 import { useState, useEffect } from "react";
 
-const getProductImageUrl = (imagePath) => {
-   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    return imagePath
-        ? `${API_BASE_URL}/uploads/${imagePath}`
-        : `${API_BASE_URL}/uploads/default-product.png`;
-};
-
 const initialStaticSlides = [
     {
         title: "Farm Fresh Delivered to You",
@@ -82,6 +75,15 @@ export const HeroSlider = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
+    const [data , setData] = useState([]);
+    
+    const getProductImageUrl = (imagePath) => {
+       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        return imagePath
+            ? data.imagePath
+            : `${API_BASE_URL}/uploads/default-product.png`;
+    };
+    console.log("The data is " ,data)
 
     const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -90,6 +92,7 @@ export const HeroSlider = () => {
         setError(null);
         try {
             const response = await fetch(`${API_BASE_URL}/api/marketing/hero-slides`);
+            setData(response)
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -256,7 +259,7 @@ export const HeroSlider = () => {
                                     <div key={i} className="flex flex-col items-center group cursor-pointer">
                                         <div className="relative w-14 h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 bg-white rounded-2xl shadow-xl flex items-center justify-center transform hover:-translate-y-4 transition-all duration-500 mb-2 hover:shadow-2xl hover:bg-gray-50 group-hover:rotate-3">
                                             <img
-                                                src={getProductImageUrl(item.image)}
+                                                src={item.image.url}
                                                 alt={item.label}
                                                 className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 object-contain transition-transform duration-300 group-hover:scale-110"
                                                 loading="lazy"

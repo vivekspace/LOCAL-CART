@@ -1057,9 +1057,7 @@ const Checkout = () => {
                         <div className="flex items-center">
                           <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 h-12 w-12 flex-shrink-0 mr-3 flex items-center justify-center">
                             <img
-                              src={`${import.meta.env.VITE_API_URL}/uploads/${
-                                item.images?.[0]?.url || item.images?.[0] // Handle both url property and direct string
-                              }`}
+                              src={item.images[0]?.url}
                               alt={item.name}
                               className="w-full h-auto object-cover"
                               onError={(e) => {

@@ -32,7 +32,6 @@
     const [currentPage, setCurrentPage] = useState(1);
     const [ordersPerPage] = useState(8);
     const [refreshing, setRefreshing] = useState(false);
-    console.log(orders)
 
     const fetchOrders = async () => {
       try {
@@ -54,6 +53,7 @@
             },
           }
         );
+        console.log(response)
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -421,9 +421,7 @@
                         <div className="flex-shrink-0">
                           <img
                             className="h-auto w-12 rounded-md object-cover border border-gray-200"
-                            src={`${import.meta.env.VITE_API_URL}/uploads/${
-                              order.images?.[0]?.url || order.firstProductImage
-                            }`}
+                            src={order.firstProductImage?.url}
                             alt={order.firstProductName}
                             onError={(e) => {
                               e.target.onerror = null;

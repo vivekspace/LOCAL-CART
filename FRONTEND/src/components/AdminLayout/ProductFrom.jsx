@@ -16,7 +16,7 @@ export default function ProductForm({ product, onSubmit, isEditing, isLoading, e
         newImages: [],
         imagePreviews: []
     });
-
+  console.log(formData)
     // Categories for dropdown
     const categories = [
         'Electronics',
@@ -40,7 +40,8 @@ export default function ProductForm({ product, onSubmit, isEditing, isLoading, e
                 category: product.category || '',
                 brand: product.brand || '',
                 images: product.images || [],
-                imagePreviews: (product.images || []).map(img => `${API_BASE_URL}/uploads/products/${img}`),
+                imagePreviews: (product.images.map(img => ({ url: img.url || img }))) || [],
+               
             }));
         }
     }, [product]);
@@ -267,9 +268,9 @@ export default function ProductForm({ product, onSubmit, isEditing, isLoading, e
                             className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden shadow-sm group"
                         >
                             <img 
-                                src={preview} 
+                                src={preview.url} 
                                 alt={`Preview ${index + 1}`} 
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                             />
                             <button
                                 type="button"

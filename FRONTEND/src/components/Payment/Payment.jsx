@@ -760,9 +760,7 @@ const PaymentPage = () => {
                           <img
                             src={
                               item.images && item.images.length > 0
-                                ? `${import.meta.env.VITE_API_URL}/uploads/${
-                                    item.images[0]
-                                  }`
+                                ? item.images[0]?.url
                                 : `${
                                     import.meta.env.VITE_API_URL
                                   }/uploads/default-product.png`

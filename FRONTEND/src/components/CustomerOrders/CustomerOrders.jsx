@@ -19,7 +19,6 @@ const OrderedItemsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { authAxios } = useAuth(); 
-
   useEffect(() => {
     const fetchOrder = async () => {
       setLoading(true);
@@ -391,10 +390,8 @@ const OrderedItemsPage = () => {
                       <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-white">
                         <img
                           src={
-                            item.images && item.images.length > 0
-                              ? `${import.meta.env.VITE_API_URL}/uploads/${
-                                  item.image
-                                }`
+                            item.image
+                              ? item.image.url
                               : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
                           }
                           alt={item.name}
