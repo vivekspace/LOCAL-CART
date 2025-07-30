@@ -11,14 +11,23 @@ const catchAsync = require('../utils/catchAsync'); // Assuming you have a catchA
 // @route   GET /api/wishlist
 // @access  Private
 exports.getWishlist = catchAsync(async (req, res, next) => {
-    // Find all wishlist items for the current user
-    const wishlist = await Wishlist.find({ user: req.user.id }).sort('-addedAt');
+    // Find all wishlist items for the current user and POPULATE the 'product' field
+    const wishlist = await Wishlist.find({ user: req.user.id })
+        .populate({
+            path: 'product', // Name of the field in Wishlist model that references Product
+            select: 'name price images discountPrice' // Select only the fields you need from the Product model
+        })
+        .sort('-addedAt');
+
+    // Filter out any wishlist items where the product might be null (e.g., if the product was deleted)
+    // This addresses the `[..., null]` issue directly from the backend response.
+    const filteredWishlist = wishlist.filter(item => item.product !== null);
 
     res.status(200).json({
         status: 'success',
-        results: wishlist.length,
+        results: filteredWishlist.length, // Use filtered length
         data: {
-            wishlist
+            wishlist: filteredWishlist // Send the filtered and populated wishlist
         }
     });
 });
