@@ -77,7 +77,7 @@ const router = createBrowserRouter(
       <Route path="contact-us" element={<ContactUs />} />
       <Route path="about-us" element={<AboutUsPage />} />
       <Route path="view-all" element={<ViewAllProducts/>}/>
-      <Route path="verify-otp" element={<OTPVerification />} />
+      {/* <Route path="verify-otp" element={<OTPVerification />} /> */}
 
       {/* Auth Routes (Login/Register specific to roles) */}
       <Route path="vendor/register" element={<VendorRegister />} />
