@@ -1,15 +1,15 @@
-// src/pages/ShoppingPage.jsx
+// src/pages/ShoppingPage.jsx - FIXED VERSION
 import React, { useEffect, useState, useContext, useCallback, useMemo } from "react";
 import { Link, useNavigate, useLocation as useReactRouterLocation } from "react-router-dom";
-import { AuthContext } from "../../Context/Context"; // Ensure this path is correct
-import { useLocation } from "../../LocationContext/LocationContext"; // Import useLocation hook
+import { AuthContext } from "../../Context/Context";
+import { useLocation } from "../../LocationContext/LocationContext";
 import { HeroSlider } from "../HeroSlider/HeroSlider";
 import { ToastContainer, toast } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import { Helmet } from "react-helmet-async";
-import { motion, AnimatePresence } from "framer-motion"; // Import framer-motion
+import { motion, AnimatePresence } from "framer-motion";
 
-// Debounce hook to delay function calls
+// Debounce hook
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -32,31 +32,28 @@ const ShoppingPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [activeResultIndex, setActiveResultIndex] = useState(-1);
 
-  // Products state and loading specific to this page
+  // ✅ SEPARATE LOADING STATES - This is the key fix!
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productError, setProductError] = useState(null);
+  const [lastFetchedLocation, setLastFetchedLocation] = useState(null); // Track what we last fetched
 
-  // New state for view mode: 'grid' or 'list'
-  const [viewMode, setViewMode] = useState('grid'); // Default to grid view
+  const [viewMode, setViewMode] = useState('grid');
 
   const { addToCart, authAxios } = useContext(AuthContext);
   const { selectedLocation, locationsLoading } = useLocation();
 
   const navigate = useNavigate();
-  const reactRouterLocation = useReactRouterLocation(); // For URL search params
+  const reactRouterLocation = useReactRouterLocation();
 
-  // Initialize search and selectedCategory from URL search params
   const queryParams = useMemo(() => new URLSearchParams(reactRouterLocation.search), [reactRouterLocation.search]);
   const initialSearch = queryParams.get("search") || "";
   const initialCategory = queryParams.get("category") || "All";
 
-  // Set initial state from URL params if available
   useEffect(() => {
     setSearch(initialSearch);
     setSelectedCategory(initialCategory);
   }, [initialSearch, initialCategory]);
-
 
   const mockCategories = useMemo(() => ([
     "All", "Fruits", "Bakery", "Dairy & Eggs", "Honey",
@@ -73,102 +70,89 @@ const ShoppingPage = () => {
 
   const debouncedSearch = useDebounce(search, 300);
 
+  // ✅ IMPROVED fetchProducts with better caching and error handling
   const fetchProducts = useCallback(async (locationData) => {
-  // Add early return if same location
-  if (locationData?.city === products[0]?.location) {
-    console.log('Same location, skipping refetch');
-    return;
-  }
-
-  setIsLoadingProducts(true);
-  setProductError(null);
-  // DON'T clear products immediately - keep showing previous ones
-  // setProducts([]); // Remove this line
-
-  if (!locationData || (!locationData.city && !locationData.lat && !locationData.lng)) {
-    console.log("Invalid location data, skipping fetch.");
-    setIsLoadingProducts(false);
-    return;
-  }
-
-  try {
-    let apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
-    const params = {};
-
-    if (locationData.type === 'gps_location' && locationData.lat && locationData.lng) {
-      apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby`;
-      params.lat = locationData.lat;
-      params.lng = locationData.lng;
-      params.distance = 10;
-    } else if (locationData.city) {
-      params.location = locationData.city;
-    } else {
-      console.warn("Cannot determine product fetch endpoint.");
-      setIsLoadingProducts(false);
-      setProductError("Invalid location data provided.");
+    // ✅ Prevent duplicate fetches
+    const locationKey = `${locationData?.city}_${locationData?.lat}_${locationData?.lng}`;
+    if (locationKey === lastFetchedLocation) {
+      console.log('Same location, skipping refetch');
       return;
     }
 
-    const response = await authAxios.get(apiUrl, { 
-      params,
-      timeout: 8000 // Add timeout to prevent hanging
-    });
-
-    if (response.data?.status === "success" && Array.isArray(response.data?.data?.products)) {
-      setProducts(response.data.data.products);
-      toast.success(`${response.data.data.products.length} products loaded for ${locationData.name || locationData.city}`);
-    } else {
-      setProducts([]);
-      toast.info("No products found in this area.");
+    if (!locationData || (!locationData.city && !locationData.lat && !locationData.lng)) {
+      console.log("Invalid location data, skipping fetch.");
+      setIsLoadingProducts(false);
+      return;
     }
 
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    setProductError("Failed to load products for this location.");
-    toast.error("Failed to load products. Please try again.");
-    // Don't clear products on error - keep showing previous ones
-  } finally {
-    setIsLoadingProducts(false);
-  }
-}, [authAxios]);
+    // ✅ Set loading but DON'T clear existing products immediately
+    setIsLoadingProducts(true);
+    setProductError(null);
+    // Keep existing products visible while loading new ones
 
+    try {
+      let apiUrl = `${import.meta.env.VITE_API_URL}/api/products`;
+      const params = {};
 
-useEffect(() => {
-  // Start loading products as soon as we have ANY location data
-  // Don't wait for locationsLoading to be false
-  if (selectedLocation && selectedLocation.city !== 'default') {
-    console.log('Starting product fetch for:', selectedLocation);
-    fetchProducts(selectedLocation);
-  } else if (!selectedLocation && !locationsLoading) {
-    // Only show error if location detection is complete but no location found
-    setIsLoadingProducts(false);
-    setProductError("Please select a location to view products.");
-  }
-  // Remove locationsLoading dependency to avoid waiting
-}, [selectedLocation, fetchProducts]);
+      if (locationData.type === 'gps_location' && locationData.lat && locationData.lng) {
+        apiUrl = `${import.meta.env.VITE_API_URL}/api/products/nearby`;
+        params.lat = locationData.lat;
+        params.lng = locationData.lng;
+        params.distance = 10;
+      } else if (locationData.city) {
+        params.location = locationData.city;
+      } else {
+        console.warn("Cannot determine product fetch endpoint.");
+        setIsLoadingProducts(false);
+        setProductError("Invalid location data provided.");
+        return;
+      }
 
-useEffect(() => {
-  // Start loading immediately if we have basic location info
-  if (selectedLocation?.city && selectedLocation.city !== 'default') {
-    fetchProducts(selectedLocation);
-  }
-}, [selectedLocation?.city, selectedLocation?.lat, selectedLocation?.lng]);
+      const response = await authAxios.get(apiUrl, { 
+        params,
+        timeout: 10000 // Reasonable timeout
+      });
 
-  // Update URL search params whenever search or selectedCategory changes
+      if (response.data?.status === "success" && Array.isArray(response.data?.data?.products)) {
+        setProducts(response.data.data.products);
+        setLastFetchedLocation(locationKey); // ✅ Track what we fetched
+        toast.success(`${response.data.data.products.length} products loaded for ${locationData.name || locationData.city}`);
+      } else {
+        setProducts([]);
+        toast.info("No products found in this area.");
+      }
+
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      setProductError("Failed to load products for this location.");
+      toast.error("Failed to load products. Please try again.");
+      // ✅ Keep existing products on error
+    } finally {
+      setIsLoadingProducts(false); // ✅ Always clear loading state
+    }
+  }, [authAxios, lastFetchedLocation]);
+
+  // ✅ SINGLE useEffect for product fetching - This prevents duplicate fetches
+  useEffect(() => {
+    if (selectedLocation && selectedLocation.city && selectedLocation.city !== 'default') {
+      console.log('Fetching products for:', selectedLocation.name || selectedLocation.city);
+      fetchProducts(selectedLocation);
+    } else if (!locationsLoading && !selectedLocation) {
+      setIsLoadingProducts(false);
+      setProductError("Please select a location to view products.");
+    }
+  }, [selectedLocation?.city, selectedLocation?.lat, selectedLocation?.lng, fetchProducts, locationsLoading]);
+
+  // Update URL search params
   useEffect(() => {
     const newQueryParams = new URLSearchParams();
-    if (search) {
-      newQueryParams.set("search", search);
-    }
-    if (selectedCategory && selectedCategory !== "All") {
-      newQueryParams.set("category", selectedCategory);
-    }
-    // Only update URL if params have actually changed to avoid unnecessary history entries
+    if (search) newQueryParams.set("search", search);
+    if (selectedCategory && selectedCategory !== "All") newQueryParams.set("category", selectedCategory);
+    
     if (newQueryParams.toString() !== queryParams.toString()) {
-        navigate(`?${newQueryParams.toString()}`, { replace: true });
+      navigate(`?${newQueryParams.toString()}`, { replace: true });
     }
   }, [search, selectedCategory, navigate, queryParams]);
-
 
   const filteredProducts = useMemo(
     () =>
