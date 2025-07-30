@@ -12,7 +12,11 @@ const WishlistPage = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [confirmModalMessage, setConfirmModalMessage] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
-
+console.log("Wishlist Items:", 
+  wishlistItems
+    .filter(item => item !== null && item !== undefined) // <-- Add this filter
+    .map(item => item.product)
+);
   // Enhanced animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -385,9 +389,7 @@ const WishlistPage = () => {
                         <motion.img
                           initial={{ opacity: 0.9 }}
                           whileHover={{ opacity: 1, scale: 1.02 }}
-                          src={item.productImageUrl && (item.product?.images?.[0] ? 
-                            `${import.meta.env.VITE_API_URL}/uploads/${item.product.images[0]}` : 
-                            `https://placehold.co/400x300/E0F2F1/00796B?text=${item.productName || item.name}`)}
+                          src={item.product.images[0]?.url || item.product?.mainImage || item.product?.images?.[0] || item.images?.[0] || "/placeholder.png"}
                           alt={item.productName || item.name || "Wishlist Item"}
                           className="w-full h-full object-cover transition-all duration-300"
                         />
