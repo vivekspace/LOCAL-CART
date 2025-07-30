@@ -20,18 +20,40 @@ const app = express();
 const { connect: connectRedis, redisClient: actualRedisClient } = require('./config/redis.js');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
+// Import Cloudinary configuration
+const { cloudinary } = require('./config/cloudinary');
+
+// =========================================================
+// Cloudinary Connection Test
+// =========================================================
+const testCloudinary = async () => {
+    try {
+        const result = await cloudinary.api.ping();
+        console.log('✅ Cloudinary connected successfully');
+    } catch (error) {
+        console.error('❌ Cloudinary connection failed:', error.message);
+    }
+};
+
 // =========================================================
 // Security & Core Middleware
 // =========================================================
 
-// Helmet: Enhanced security headers
+// Helmet: Enhanced security headers (Updated for Cloudinary)
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline often needed for dev, but try to avoid in prod
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", 'data:', 'https://*.amazonaws.com', `${process.env.VITE_API_URL}`] // Allow AWS S3 and your VITE_API_URL for images
+            imgSrc: [
+                "'self'", 
+                'data:', 
+                'https://*.amazonaws.com', 
+                'https://res.cloudinary.com', // Add Cloudinary CDN
+                'https://*.cloudinary.com',   // Additional Cloudinary domains
+                `${process.env.VITE_API_URL}`
+            ] // Allow Cloudinary images
         }
     },
     crossOriginResourcePolicy: { policy: "cross-origin" } // For CDN support if needed, or if images are served from a different (sub)domain
@@ -78,16 +100,19 @@ app.use(cors({
     maxAge: 86400 // Cache preflight requests for 24 hours
 }));
 
-// Static Files: Serve uploaded images/files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-    maxAge: '7d', // Cache static assets for 7 days
-    setHeaders: (res, path) => {
-        // Specific cache control for image types
-        if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.webp') || path.endsWith('.jpeg') || path.endsWith('.gif')) {
-            res.setHeader('Cache-Control', 'public, max-age=604800');
-        }
-    }
-}));
+// =========================================================
+// REMOVED: Static Files Serving (No longer needed with Cloudinary)
+// =========================================================
+// The following code is commented out because we're now using Cloudinary
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+//     maxAge: '7d', // Cache static assets for 7 days
+//     setHeaders: (res, path) => {
+//         // Specific cache control for image types
+//         if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.webp') || path.endsWith('.jpeg') || path.endsWith('.gif')) {
+//             res.setHeader('Cache-Control', 'public, max-age=604800');
+//         }
+//     }
+// }));
 
 // =========================================================
 // API Routes Configuration
@@ -140,22 +165,37 @@ apiRoutes.use('/wishlist', wishlistRoutes); // Handles /api/wishlist/...
 apiRoutes.use('/reviews', reviewRoutes); // Handles /api/reviews/...
 apiRoutes.use('/notifications', notificationRoutes); // Handles /api/notifications/...
 
-
 // Apply all defined apiRoutes under the /api base path
 app.use('/api', apiRoutes);
+
+// Serve React build files (for production)
+app.use(express.static(path.join(__dirname, '../client/build'))); // Serve static files
+
+app.get('*', (req, res) => {  // Catch-all route
+  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+});
 
 // =========================================================
 // Health Checks & Root Route
 // =========================================================
 
-// Health Check Endpoint
-app.get('/api/health', (req, res) => {
+// Health Check Endpoint (Updated to include Cloudinary status)
+app.get('/api/health', async (req, res) => {
+    let cloudinaryStatus = 'disconnected';
+    try {
+        await cloudinary.api.ping();
+        cloudinaryStatus = 'connected';
+    } catch (error) {
+        cloudinaryStatus = 'disconnected';
+    }
+
     res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        redis: actualRedisClient && actualRedisClient.status === 'ready' ? 'connected' : 'disconnected'
+        redis: actualRedisClient && actualRedisClient.status === 'ready' ? 'connected' : 'disconnected',
+        cloudinary: cloudinaryStatus
     });
 });
 
@@ -165,7 +205,8 @@ app.get('/', (req, res) => {
         message: 'LocalCart Backend API',
         version: process.env.npm_package_version || '1.0.0', // Use npm_package_version from package.json
         environment: process.env.NODE_ENV || 'development',
-        docs: '/api-docs' // Placeholder if you implement Swagger/OpenAPI docs
+        docs: '/api-docs', // Placeholder if you implement Swagger/OpenAPI docs
+        storage: 'Cloudinary' // Indicate we're using Cloudinary
     });
 });
 
@@ -218,6 +259,7 @@ const startServer = async () => {
     try {
         await connectDB(); // Connect to MongoDB
         await connectRedis(); // Connect to Redis
+        await testCloudinary(); // Test Cloudinary connection
 
         // Create HTTP server and attach Express app to it
         serverInstance = http.createServer(app);
@@ -257,6 +299,7 @@ const startServer = async () => {
         // Start listening for HTTP requests
         serverInstance.listen(PORT, () => {
             console.log(`🚀 HTTP Server & Socket.IO running on port ${PORT}`);
+            console.log(`🖼️  Using Cloudinary for image storage`);
         });
 
     } catch (err) {
