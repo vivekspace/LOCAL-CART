@@ -378,6 +378,7 @@ exports.getVendorDashboard = async (req, res) => {
             .limit(5)
             // Option 1: Populating from User model (if your User model has 'name' field)
             .populate('customerId', 'name email')
+            .populate('cartItems.productId' , 'images')
            
             .select('orderId status totalAmount createdAt customerDetails.firstname customerDetails.lastname customerDetails.email cartItems'); // Select ALL cartItems
 
@@ -412,6 +413,7 @@ exports.getVendorDashboard = async (req, res) => {
                     name: item.name,
                     quantity: item.quantity,
                     price: item.price,
+                    image: item.image, 
                     // Add any other relevant item properties here (e.g., image, size)
                 }))
             };
