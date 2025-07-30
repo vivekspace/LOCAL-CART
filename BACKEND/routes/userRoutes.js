@@ -1,17 +1,20 @@
+// userRoutes.js
+
 const express = require('express');
 const userController = require('../controllers/userController');
-const { protect, authorizeRoles } = require('../middleware/authMiddleware');
+const { protect, authorizeRoles } = require('../middleware/authMiddleware'); // Assuming these are correct
 
 const router = express.Router();
 
-router.use(protect, authorizeRoles('customer'));
+
+router.use(protect, authorizeRoles('customer', 'seller', 'admin')); // Added seller and admin for flexibility
 
 router.get('/me', userController.getMe, userController.getUser);
 
 router.patch(
     '/updateMe',
-    userController.uploadUserPhoto,
-    userController.resizeUserPhoto,
+    userController.uploadUserPhoto, // This middleware now directly uploads to Cloudinary
+    // userController.resizeUserPhoto, // <--- REMOVE THIS LINE
     userController.updateMe
 );
 
