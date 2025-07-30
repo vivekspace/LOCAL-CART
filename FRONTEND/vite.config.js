@@ -23,13 +23,5 @@ export default defineConfig({
       ws: true
     }
     }
-  },
-  build: {
-    outDir: '../server/public', // Adjust if using different build location
-    emptyOutDir: true,
-    sourcemap: true // Recommended for debugging
-  },
-  optimizeDeps: {
-    include: ['react-router-dom'] // Ensure smooth routing
   }
 });
