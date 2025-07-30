@@ -844,9 +844,9 @@ const OrderDetailsModal = ({ order, onClose }) => {
                 {order.items.map((item, index) => (
                   <li key={index} className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
                     <img 
-                      src={item.image ? `${apiBaseUrl}/uploads/${item.image}` : defaultProductImage} 
+                      src={item.productId.images.length > 0 ? item.productId.images[0].url : defaultProductImage} 
                       alt={item.name} 
-                      className="w-20 h-20 object-cover rounded-lg flex-shrink-0 border border-gray-200" 
+                      className="w-20 h-20 object-contain rounded-lg flex-shrink-0 border border-gray-200" 
                       onError={(e) => { e.target.src = defaultProductImage; }}
                     />
                     <div className="flex-1">

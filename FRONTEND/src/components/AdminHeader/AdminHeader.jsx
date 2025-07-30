@@ -181,7 +181,27 @@ const AdminTopbar = () => {
             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
               {/* User Info in Dropdown */}
               <div className="p-4 border-b border-gray-200 flex items-center space-x-3">
-                {renderAvatar(user, "w-10 h-10", "text-lg")}
+                  {/* Replace with a simple SVG avatar or use an icon from lucide-react */}
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 40 40"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle cx="20" cy="20" r="20" fill="#51ACF2" />
+                    <text
+                      x="50%"
+                      y="55%"
+                      textAnchor="middle"
+                      fill="#fff"
+                      fontSize="18"
+                      fontFamily="Arial"
+                      dy=".3em"
+                    >
+                      {getUserDisplayName(user).charAt(0).toUpperCase()}
+                    </text>
+                  </svg>
                 <div>
                   <div className="font-medium text-gray-900">
                     {getUserDisplayName(user)}

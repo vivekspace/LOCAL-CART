@@ -23,7 +23,7 @@ const AdminOrdersPage = () => {
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
   const [statusFilter, setStatusFilter] = useState('all');
   const [expandedOrderId, setExpandedOrderId] = useState(null);
-  console.log(orders)
+  console.log(selectedOrder)
 
   const statusMessageTimeoutRef = useRef(null);
   const statusErrorTimeoutRef = useRef(null);
@@ -425,7 +425,7 @@ const AdminOrdersPage = () => {
                               <img
                                 src={item.imageUrl.url}
                                 alt={item.name}
-                                className="w-10 h-10 rounded-md object-cover mr-3 border border-gray-200"
+                                className="w-10 h-10 rounded-md object-contain mr-3 border border-gray-200"
                                 onError={(e) => { e.target.onerror = null; e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; }}
                               />
                               <div>
@@ -562,9 +562,9 @@ const AdminOrdersPage = () => {
                       {selectedOrder.items.map((item, index) => (
                         <div key={index} className="flex items-start border-b border-gray-100 pb-4 last:border-0 last:pb-0">
                           <img
-                            src={item.images[0]?.url}
+                            src={item.imageUrl?.url}
                             alt={item.name}
-                            className="w-16 h-16 rounded-md object-cover mr-4 border border-gray-200"
+                            className="w-16 h-16 rounded-md object-contain mr-4 border border-gray-200"
                             onError={(e) => { e.target.onerror = null; e.target.src = `${import.meta.env.VITE_API_URL}/uploads/default-product.png`; }}
                           />
                           <div className="flex-1">

@@ -141,7 +141,7 @@ export default function ProductViewPage() {
                     <div className="flex space-x-3">
                         <Link
                             to={`/admin/products/edit/${product._id}`}
-                            className="flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg shadow-md hover:from-green-700 hover:to-green-600 transition-all"
+                            className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg shadow-md hover:from-green-700 hover:to-green-600 transition-all"
                         >
                             <Edit className="mr-2" /> Edit Product
                         </Link>
@@ -167,7 +167,7 @@ export default function ProductViewPage() {
                         </h2>
                         {product.images?.length > 0 ? (
                             <div className="space-y-4">
-                                <div className="relative aspect-w-16 aspect-h-9 bg-gray-100 rounded-lg overflow-hidden">
+                                <div className="relative aspect-w-16 lg:md:h-[500px] h-[300px] bg-gray-100 rounded-lg overflow-hidden">
                                     <img
                                         src={product.images[activeImage].url}
                                         alt={`${product.name} - Main`}
@@ -180,7 +180,7 @@ export default function ProductViewPage() {
                                         <button
                                             key={index}
                                             onClick={() => setActiveImage(index)}
-                                            className={`w-16 h-16 rounded-md overflow-hidden border-2 ${activeImage === index ? 'border-blue-500' : 'border-transparent'}`}
+                                            className={`w-16 h-16 lg:md:h-24 lg:md:w-24 rounded-md overflow-hidden border-2 ${activeImage === index ? 'border-blue-500' : 'border-transparent'}`}
                                         >
                                             <img
                                                 src={img.url}
