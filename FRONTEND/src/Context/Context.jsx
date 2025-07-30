@@ -426,6 +426,7 @@ const AuthProvider = ({ children }) => {
       register,
       login,
       logout,
+      setAuth,
       authAxios,
 
       // Cart State
@@ -459,6 +460,7 @@ const AuthProvider = ({ children }) => {
       register,
       login,
       logout,
+      setAuth,
       authAxios,
       cartItems,
       addToCart,

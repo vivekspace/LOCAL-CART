@@ -13,6 +13,12 @@ import { useEffect, useMemo } from "react";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 
 const Layout = () => {
+
+  useEffect(() => {
+  console.log("🔁 App component mounted");
+  return () => console.log("🔁 App component unmounted");
+}, []);
+
   const { isAuthLoading, currentRole, isLoggedIn } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();

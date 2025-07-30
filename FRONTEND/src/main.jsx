@@ -63,6 +63,7 @@ import ViewAllProducts from "./components/ViewAllProducts/ViewAllProducts.jsx";
 import { NotificationProvider } from './NotificationContext/NotificationContext.jsx'; 
 import VendorNotifications from './components/VendorNotification/VendorNotification.jsx'; 
 import VendorOrderDetailsPage from './components/VendorOrderDetails/VendorOrderDetails.jsx'; 
+import OTPVerification from "./components/OtpVerification/OtpVerification.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -76,6 +77,7 @@ const router = createBrowserRouter(
       <Route path="contact-us" element={<ContactUs />} />
       <Route path="about-us" element={<AboutUsPage />} />
       <Route path="view-all" element={<ViewAllProducts/>}/>
+      <Route path="verify-otp" element={<OTPVerification />} />
 
       {/* Auth Routes (Login/Register specific to roles) */}
       <Route path="vendor/register" element={<VendorRegister />} />
@@ -161,7 +163,6 @@ const router = createBrowserRouter(
 // The main App component where all providers are wrapped
 function MainApp() {
   return (
-    <StrictMode>
       <HelmetProvider>
         <LocationProvider>
           {/* AuthProvider must wrap NotificationProvider as it provides user context */}
@@ -184,7 +185,6 @@ function MainApp() {
           </AuthProvider>
         </LocationProvider>
       </HelmetProvider>
-    </StrictMode>
   );
 }
 
