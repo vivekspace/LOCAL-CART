@@ -75,10 +75,17 @@ const userSchema = new mongoose.Schema({
         enum: ['customer', 'seller', 'admin'],
         default: 'customer'
     },
+    // --- MODIFIED PROFILE PHOTO FIELD ---
     photo: {
-        type: String,
-        default: 'default.jpg'
+        url: {
+            type: String,
+            default: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1/localcart/default.jpg' // Placeholder or actual default image URL
+            // IMPORTANT: Replace 'your_cloud_name' with your actual Cloudinary cloud name
+            // You should upload a 'default.jpg' image to your 'localcart' folder in Cloudinary.
+        },
+        publicId: String // Store the public ID to allow deletion from Cloudinary later
     },
+    // --- END MODIFIED PROFILE PHOTO FIELD ---
     bio: {
         type: String,
         trim: true,
@@ -102,13 +109,13 @@ userSchema.pre('save', async function (next) {
 
     // --- CRITICAL DEBUGGING LOG ---
     console.log("\n--- User Model Pre-Save Hook Debugging ---");
-    console.log("   Password BEFORE hashing (in pre-save hook):", this.password);
-    console.log("   Length of password BEFORE hashing:", this.password ? this.password.length : 'N/A');
-    console.log("   Type of password BEFORE hashing:", typeof this.password);
+    console.log("    Password BEFORE hashing (in pre-save hook):", this.password);
+    console.log("    Length of password BEFORE hashing:", this.password ? this.password.length : 'N/A');
+    console.log("    Type of password BEFORE hashing:", typeof this.password);
     // --- END CRITICAL DEBUGGING LOG ---
 
     this.password = await bcrypt.hash(this.password, 10);
-    console.log("   Password AFTER hashing (in pre-save hook):", this.password);
+    console.log("    Password AFTER hashing (in pre-save hook):", this.password);
     next();
 });
 

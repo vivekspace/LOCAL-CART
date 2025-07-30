@@ -43,15 +43,33 @@ const productSchema = new mongoose.Schema({
     ref: 'User', // Ensure 'Vendor' matches your actual Vendor model name
     required: [true, 'Product must belong to a vendor']
   },
+  
+  // UPDATED: Images field for Cloudinary URLs and public IDs
   images: [{
-    type: String,
-    validate: {
-      validator: function (v) {
-        return v.length > 0 && !v.includes(DEFAULT_PRODUCT_IMAGE);
-      },
-      message: 'At least one product image is required'
+    url: {
+      type: String,
+      required: [true, 'Image URL is required']
+    },
+    publicId: {
+      type: String,
+      required: [true, 'Image public ID is required for deletion']
+    },
+    altText: {
+      type: String,
+      default: function() {
+        return `${this.parent().name} product image`;
+      }
     }
   }],
+  
+  // Optional: Single main image (first image from images array)
+  mainImage: {
+    type: String, // This will be the URL of the first image
+    default: function() {
+      return this.images && this.images.length > 0 ? this.images[0].url : null;
+    }
+  },
+
   stock: {
     type: Number,
     required: [true, 'Please provide product stock'],
@@ -86,8 +104,6 @@ const productSchema = new mongoose.Schema({
         message: props => `${props.value} is not a valid coordinate pair. Must be [longitude, latitude] numbers.`
       }
     },
-    // IMPORTANT: 'city' is now nested within 'location' object.
-    // Make sure your frontend and backend logic accessing this is updated to product.location.city.
     city: {
       type: String,
       required: [true, 'City name for location is required'],
@@ -104,67 +120,111 @@ const productSchema = new mongoose.Schema({
 
 // --- Schema Enhancements & Middleware ---
 
-// Compound index for unique product name per seller (ensures a seller doesn't have duplicate product names)
+// Compound index for unique product name per seller
 productSchema.index({ name: 1, seller: 1 }, { unique: true });
 
-// Text index for search functionality (enables text search queries across these fields)
+// Text index for search functionality
 productSchema.index({ name: 'text', description: 'text', category: 'text', 'location.city': 'text' });
 
-// Geospatial index for efficient `$geoNear` queries (CRITICAL for nearby product search)
+// Geospatial index for efficient `$geoNear` queries
 productSchema.index({ location: '2dsphere' });
 
-// Indexes for common queries (improves performance of filtering, sorting)
-productSchema.index({ price: 1, ratingsAverage: -1 }); // For sorting by price (ascending) then ratings (descending)
-productSchema.index({ seller: 1 }); // For finding products by a specific seller
-productSchema.index({ category: 1 }); // For filtering products by category
-productSchema.index({ 'location.city': 1 }); // For filtering products by a specific city
+// Indexes for common queries
+productSchema.index({ price: 1, ratingsAverage: -1 });
+productSchema.index({ seller: 1 });
+productSchema.index({ category: 1 });
+productSchema.index({ 'location.city': 1 });
 
+// Virtual for reviews
 productSchema.virtual('reviews', {
-  ref: 'Review',          // The model to use for population
-  foreignField: 'product', // Field in the 'Review' model that references 'Product._id'
-  localField: '_id'       // Field in the 'Product' model that matches 'foreignField'
+  ref: 'Review',
+  foreignField: 'product',
+  localField: '_id'
 });
 
-// Document middleware to set a default image if none provided
-const DEFAULT_PRODUCT_IMAGE = 'default-product.png'; // Define your actual default image filename
+// UPDATED: Middleware for handling default images with Cloudinary
 productSchema.pre('save', function (next) {
-  // Only set default if no files were processed
-  if ((!this.images || this.images.length === 0) && !this._processedFiles) {
-    this.images = [DEFAULT_PRODUCT_IMAGE];
+  // Set mainImage from first image if not already set
+  if (this.images && this.images.length > 0 && !this.mainImage) {
+    this.mainImage = this.images[0].url;
   }
+  
+  // Validate that at least one image exists
+  if (!this.images || this.images.length === 0) {
+    return next(new Error('At least one product image is required'));
+  }
+  
   next();
 });
 
-// Query middleware to populate seller details on find queries
-// This automatically fetches seller information when you query for products
+// UPDATED: Middleware to update mainImage when images change
+productSchema.pre('findOneAndUpdate', function(next) {
+  const update = this.getUpdate();
+  
+  // If images are being updated, update mainImage too
+  if (update.images && update.images.length > 0) {
+    update.mainImage = update.images[0].url;
+  }
+  
+  next();
+});
+
+// Query middleware to populate seller details
 productSchema.pre(/^find/, function (next) {
   this.populate({
     path: 'seller',
-    // Select specific fields to return from the 'seller' document
-    // name: 1, email: 1 (include these)
-    // _id: 0 (exclude _id)
     select: { name: 1, email: 1, _id: 1 }
   });
-  next(); // Proceed to the next middleware or query execution
+  next();
 });
 
-// Static method for getting product statistics by category
-// Useful for analytics dashboards or summary views
+// UPDATED: Static method for getting product statistics
 productSchema.statics.getProductStats = async function () {
   return this.aggregate([
     {
       $group: {
-        _id: '$category', // Group by category
-        numProducts: { $sum: 1 }, // Count products in each category
-        avgPrice: { $avg: '$price' }, // Calculate average price
-        minPrice: { $min: '$price' }, // Find minimum price
-        maxPrice: { $max: '$price' }  // Find maximum price
+        _id: '$category',
+        numProducts: { $sum: 1 },
+        avgPrice: { $avg: '$price' },
+        minPrice: { $min: '$price' },
+        maxPrice: { $max: '$price' },
+        totalImages: { $sum: { $size: '$images' } } // Count total images
       }
     },
     {
-      $sort: { numProducts: -1 } // Sort results by number of products in descending order
+      $sort: { numProducts: -1 }
     }
   ]);
 };
+
+// ADDED: Static method to cleanup orphaned Cloudinary images
+productSchema.statics.cleanupImages = async function (productId) {
+  const { deleteImage } = require('../config/cloudinary');
+  
+  try {
+    const product = await this.findById(productId);
+    if (product && product.images) {
+      // Delete all images from Cloudinary
+      const deletePromises = product.images.map(image => deleteImage(image.publicId));
+      await Promise.all(deletePromises);
+      console.log(`🗑️ Cleaned up ${product.images.length} images for product ${productId}`);
+    }
+  } catch (error) {
+    console.error(`❌ Failed to cleanup images for product ${productId}:`, error.message);
+  }
+};
+
+// ADDED: Pre-remove middleware to cleanup images when product is deleted
+productSchema.pre('findOneAndDelete', async function(next) {
+  try {
+    const product = await this.model.findOne(this.getQuery());
+    if (product) {
+      await this.model.cleanupImages(product._id);
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 module.exports = mongoose.model('Product', productSchema);
