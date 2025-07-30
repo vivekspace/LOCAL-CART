@@ -457,16 +457,15 @@ const PaymentPage = () => {
             seller: sellerId,
           };
         }),
-        paymentDetails: {
-          method: paymentResult.method,
-          status: paymentStatus,
-          amount: finalTotal,
-          transactionId: paymentResult.transactionId,
-          last4: paymentResult.last4,
-          paidAt: paymentResult.paidAt,
-          status: paymentResult.status ||
-            (paymentResult.method?.toLowerCase() === 'cod' ? 'pending' : 'paid')
-        },
+       paymentDetails: {
+  method: paymentResult.method,
+  status: paymentStatus,  // ✅ Keep this
+  amount: finalTotal,
+  transactionId: paymentResult.transactionId,
+  last4: paymentResult.last4,
+  paidAt: paymentResult.paidAt,
+},
+
         shipping: {
           method: orderData?.shippingMethod || "standard",
           cost: shippingCost,
