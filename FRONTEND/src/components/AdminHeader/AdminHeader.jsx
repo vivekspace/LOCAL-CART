@@ -21,7 +21,7 @@ const AdminTopbar = () => {
   // Destructure 'logout' and 'user' from AuthContext
   const { isOpen, setIsOpen, logout, user } = useContext(AuthContext); // Changed adminSignOut to logout, and admin to user
   const dropdownRef = useRef(null);
-
+console.log('User in AdminTopbar:', user); // Debugging line to check user object
   // Close profile dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -97,12 +97,11 @@ const AdminTopbar = () => {
     if (hasPhoto) {
       return (
         <img
-          src={`${import.meta.env.VITE_API_URL}/uploads/users/${currentUser.photo}`}
+          src={currentUser.photo.url}
           alt={`${displayName}'s profile`}
           className={`${sizeClass} rounded-full object-cover border-2 border-emerald-300 shadow-sm`}
           onError={(e) => {
-            e.target.onerror = null; // Prevent infinite loop if fallback also fails
-            // Create a new div element to replace the failed image
+            e.target.onerror = null; 
             const fallbackDiv = document.createElement('div');
             fallbackDiv.className = `${sizeClass} rounded-full bg-gray-200 flex items-center justify-center font-semibold uppercase ${textClass}`;
             fallbackDiv.textContent = initial;
@@ -182,26 +181,7 @@ const AdminTopbar = () => {
               {/* User Info in Dropdown */}
               <div className="p-4 border-b border-gray-200 flex items-center space-x-3">
                   {/* Replace with a simple SVG avatar or use an icon from lucide-react */}
-                  <svg
-                    width="40"
-                    height="40"
-                    viewBox="0 0 40 40"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <circle cx="20" cy="20" r="20" fill="#51ACF2" />
-                    <text
-                      x="50%"
-                      y="55%"
-                      textAnchor="middle"
-                      fill="#fff"
-                      fontSize="18"
-                      fontFamily="Arial"
-                      dy=".3em"
-                    >
-                      {getUserDisplayName(user).charAt(0).toUpperCase()}
-                    </text>
-                  </svg>
+                  <img src={user.photo.url ||  "https://res.cloudinary.com/dr9zse9a6/image/upload/v1753887570/admin_logo_img_foeuh2.webp"} alt={getUserDisplayName(user)} className="w-10 h-10 rounded-full" />
                 <div>
                   <div className="font-medium text-gray-900">
                     {getUserDisplayName(user)}

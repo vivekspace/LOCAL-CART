@@ -572,7 +572,7 @@ const VendorProfile = () => {
             className="relative w-32 h-32 rounded-full border-4 border-white overflow-hidden shadow-xl"
           >
             <img
-              src={user.photo ? user.photo : "https://res.cloudinary.com/dr9zse9a6/image/upload/v1753848167/vendor_default_logo_ht2qor.webp"}
+              src={user.photo ? user.photo.url : "https://res.cloudinary.com/dr9zse9a6/image/upload/v1753848167/vendor_default_logo_ht2qor.webp"}
               alt="Vendor Profile"
               className="w-full h-full object-cover"
             />
