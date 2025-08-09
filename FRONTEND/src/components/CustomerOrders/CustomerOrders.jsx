@@ -18,7 +18,8 @@ const OrderedItemsPage = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { authAxios } = useAuth(); 
+  const { authAxios, isLoggedIn } = useAuth(); // Use isLoggedIn to conditionally fetch
+
   useEffect(() => {
     const fetchOrder = async () => {
       setLoading(true);
@@ -30,34 +31,74 @@ const OrderedItemsPage = () => {
         return;
       }
 
+      // Ensure user is logged in before attempting to fetch private customer orders
+      if (!isLoggedIn) {
+        setError("You must be logged in to view order details.");
+        setLoading(false);
+        return;
+      }
+
       try {
         // Use authAxios which already handles token attachment and 401 refresh
         const response = await authAxios.get(`/api/orders/${orderId}`);
 
-        const orderData = {
-          ...response.data,
-          items: response.data.items.map((item) => ({
-            ...item,
-            image: item.image || "/placeholder-product.jpg",
-          })),
-        };
+        // --- IMPORTANT FIX HERE: Correctly parse the nested API response ---
+        // Your backend's getOrderDetails function returns { success: true, data: orderObject }
+        if (response.data.success && response.data.data) {
+          const backendOrder = response.data.data; // This is the actual order object
 
-        setOrder(orderData);
+          // Map cartItems from backend to 'items' for frontend consistency
+          const transformedItems = backendOrder.cartItems.map((item) => ({
+            ...item,
+            // Adjust image URL based on how your backend's populate returns it
+            // Backend's getOrderDetails transforms productId.images to `image` for each item
+            // in the response, so `item.image` should directly contain the URL.
+            image: item.image || `${import.meta.env.VITE_API_URL}/uploads/default-product.png`,
+          }));
+
+          setOrder({
+            ...backendOrder, // Spread all properties from the actual order object
+            items: transformedItems, // Use the transformed items
+            total: backendOrder.totalAmount, // Ensure 'total' property matches backend's 'totalAmount'
+            // Ensure paymentMethod is correctly structured based on backend response
+            paymentMethod: {
+              type: backendOrder.paymentDetails?.method || 'Card',
+              last4: backendOrder.paymentDetails?.last4 || 'N/A', // Assuming last4 is directly on paymentDetails
+              status: backendOrder.paymentDetails?.status || 'N/A',
+              paidAt: backendOrder.paymentDetails?.paidAt || backendOrder.createdAt,
+            },
+            shippingAddress: {
+                name: `${backendOrder.customerDetails?.firstname || ''} ${backendOrder.customerDetails?.lastname || ''}`.trim(),
+                street: backendOrder.shippingAddress?.street || backendOrder.customerDetails?.address || 'N/A',
+                city: backendOrder.shippingAddress?.city || backendOrder.customerDetails?.city || 'N/A',
+                state: backendOrder.shippingAddress?.state || backendOrder.customerDetails?.state || 'N/A',
+                zip: backendOrder.shippingAddress?.zip || backendOrder.customerDetails?.zip || 'N/A',
+                country: backendOrder.shippingAddress?.country || backendOrder.customerDetails?.country || 'N/A',
+                phone: backendOrder.customerDetails?.phone || 'N/A' // Added phone from customerDetails
+            }
+          });
+        } else {
+          throw new Error(response.data.message || "Unexpected response format from order details API.");
+        }
       } catch (err) {
-        let errorMessage = "Failed to fetch order";
+        console.error('Error fetching order details:', err);
+        let errorMessage = "Failed to fetch order details.";
         if (err.response) {
           switch (err.response.status) {
             case 404:
               errorMessage = "Order not found or you don't have access to it.";
               break;
+            case 401: // Although authAxios handles this, good to have specific message
+              errorMessage = "Authentication required. Please log in.";
+              break;
+            case 403:
+              errorMessage = "Access denied. You do not have permission to view this order.";
+              break;
             case 500:
               errorMessage = "Server error. Please try again later.";
               break;
             default:
-              errorMessage =
-                err.response.data?.message ||
-                err.response.data?.error ||
-                errorMessage;
+              errorMessage = err.response.data?.message || err.response.data?.error || errorMessage;
           }
         } else if (err.request) {
           errorMessage = "Network error. Please check your connection.";
@@ -66,17 +107,18 @@ const OrderedItemsPage = () => {
         }
 
         setError(errorMessage);
-        // No need for explicit 401 handling here, authAxios interceptor does it.
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrder();
-  }, [orderId, authAxios]); // Add authAxios to dependencies
+    if (orderId) { // Only attempt to fetch if orderId exists
+      fetchOrder();
+    }
+  }, [orderId, authAxios, isLoggedIn]); // Add isLoggedIn to dependencies
 
   const getStatusProgress = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) { // Use optional chaining and lowercase for robustness
       case "processing":
         return 25;
       case "shipped":
@@ -91,7 +133,7 @@ const OrderedItemsPage = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) { // Use optional chaining and lowercase
       case "processing":
         return "bg-blue-100 text-blue-800";
       case "shipped":
@@ -191,12 +233,12 @@ const OrderedItemsPage = () => {
                 Order Details
               </h1>
               <p className="text-gray-600 mt-1">
-                Order #{order.orderNumber} • Placed on{" "}
-                {new Date(order.createdAt).toLocaleDateString("en-US", {
+                Order #{order.orderNumber || order._id?.slice(-8).toUpperCase() || 'N/A'} • Placed on{" "}
+                {order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
-                })}
+                }) : 'N/A'}
               </p>
             </div>
 
@@ -373,14 +415,14 @@ const OrderedItemsPage = () => {
             >
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Order Items ({order.items.length})
+                  Order Items ({order.items?.length || 0}) {/* Added optional chaining */}
                 </h2>
               </div>
 
               <div className="divide-y divide-gray-200">
-                {order.items.map((item, index) => (
+                {order.items?.map((item, index) => ( /* Added optional chaining */
                   <motion.div
-                    key={item.id}
+                    key={item.id || item._id || index} 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
@@ -389,11 +431,7 @@ const OrderedItemsPage = () => {
                     <div className="flex">
                       <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-white">
                         <img
-                          src={
-                            item.image
-                              ? item.image.url
-                              : `${import.meta.env.VITE_API_URL}/uploads/default-product.png`
-                          }
+                          src={item.image.url} // This should directly be the URL now
                           alt={item.name}
                           className="w-full h-full object-contain p-2"
                           onError={(e) => {
@@ -418,12 +456,12 @@ const OrderedItemsPage = () => {
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-medium text-gray-900">
-                              ₹{item.price.toFixed(2)}
+                              ₹{item.price?.toFixed(2)}
                             </p>
                             {item.originalPrice &&
                               item.originalPrice > item.price && (
                                 <p className="text-xs text-gray-500 line-through">
-                                  ₹{item.originalPrice.toFixed(2)}
+                                  ₹{item.originalPrice?.toFixed(2)}
                                 </p>
                               )}
                           </div>
@@ -434,7 +472,7 @@ const OrderedItemsPage = () => {
                             Qty: {item.quantity}
                           </p>
                           <p className="text-sm font-medium text-gray-900">
-                            ₹{(item.price * item.quantity).toFixed(2)}
+                            ₹{(item.price * item.quantity)?.toFixed(2)}
                           </p>
                         </div>
                       </div>
@@ -470,7 +508,7 @@ const OrderedItemsPage = () => {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Subtotal</span>
                   <span className="text-sm font-medium">
-                    ₹{order.subtotal.toFixed(2)}
+                    ₹{order.subtotal?.toFixed(2)}
                   </span>
                 </div>
 
@@ -478,7 +516,7 @@ const OrderedItemsPage = () => {
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Discount</span>
                     <span className="text-sm font-medium text-green-600">
-                      -₹{order.discount.toFixed(2)}
+                      -₹{order.discount?.toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -489,7 +527,7 @@ const OrderedItemsPage = () => {
                     {order.shippingCost === 0 ? (
                       <span className="text-green-600">Free</span>
                     ) : (
-                      `₹${order.shippingCost.toFixed(2)}`
+                      `₹${order.shippingCost?.toFixed(2)}`
                     )}
                   </span>
                 </div>
@@ -497,7 +535,7 @@ const OrderedItemsPage = () => {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Tax</span>
                   <span className="text-sm font-medium">
-                    ₹{order.tax.toFixed(2)}
+                    ₹{order.tax?.toFixed(2)}
                   </span>
                 </div>
 
@@ -507,7 +545,7 @@ const OrderedItemsPage = () => {
                       Total
                     </span>
                     <span className="text-base font-bold text-gray-900">
-                      ₹{order.total.toFixed(2)}
+                      ₹{order.total?.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -518,16 +556,16 @@ const OrderedItemsPage = () => {
                   Shipping Address
                 </h3>
                 <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
-                  <p className="font-medium">{order.shippingAddress.name}</p>
-                  <p>{order.shippingAddress.street}</p>
+                  <p className="font-medium">{order.shippingAddress?.name}</p>
+                  <p>{order.shippingAddress?.street}</p>
                   <p>
-                    {order.shippingAddress.city},{" "}
-                    {order.shippingAddress.state}{" "}
-                    {order.shippingAddress.zip}
+                    {order.shippingAddress?.city},{" "}
+                    {order.shippingAddress?.state}{" "}
+                    {order.shippingAddress?.zip}
                   </p>
-                  <p>{order.shippingAddress.country}</p>
+                  <p>{order.shippingAddress?.country}</p>
                   <p className="mt-2 font-medium">
-                    Phone: {order.shippingAddress.phone}
+                    Phone: {order.shippingAddress?.phone}
                   </p>
                 </div>
               </div>
@@ -538,14 +576,14 @@ const OrderedItemsPage = () => {
                 </h3>
                 <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
                   <p className="capitalize font-medium">
-                    {order.paymentMethod.type} ending in{" "}
-                    {order.paymentMethod.last4}
+                    {order.paymentMethod?.type} ending in{" "}
+                    {order.paymentMethod?.last4}
                   </p>
-                  {order.paymentMethod.status === "paid" ? (
+                  {order.paymentMethod?.status === "paid" ? (
                     <p className="inline-flex items-center text-green-600 mt-2">
                       <CheckCircleIcon className="w-4 h-4 mr-2" />
                       Paid on{" "}
-                      {new Date(order.paymentMethod.paidAt).toLocaleDateString()}
+                      {new Date(order.paymentMethod?.paidAt).toLocaleDateString()}
                     </p>
                   ) : (
                     <p className="inline-flex items-center text-yellow-600 mt-2">

@@ -12,7 +12,7 @@ import {
   ChevronRight,
   Check,
   AlertTriangle,
-  Loader2 // <--- Added Loader2 import
+  Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -20,8 +20,8 @@ const SettingsPage = () => {
   const { user: currentAdmin, updateAdmin } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState("profile");
   const [isProfileEditing, setIsProfileEditing] = useState(false);
-  const [isSecurityEditing, setIsSecurityEditing] = useState(false); // New state
-  const [isPermissionsEditing, setIsPermissionsEditing] = useState(false); // New state
+  const [isSecurityEditing, setIsSecurityEditing] = useState(false);
+  const [isPermissionsEditing, setIsPermissionsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -77,7 +77,7 @@ const SettingsPage = () => {
             }));
         }
     }
-  }, [activeTab, currentAdmin]); // Add currentAdmin to dependency array for effect to re-run if admin data changes
+  }, [activeTab, currentAdmin]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -167,7 +167,7 @@ const SettingsPage = () => {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-inter">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-white shadow-sm">
         <div className="flex items-center">
@@ -184,8 +184,8 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      {/* Desktop Header */}
-      <div className="hidden md:block p-6">
+      {/* Desktop Header - Removed as it's redundant with the main layout's header */}
+      {/* <div className="hidden md:block p-6">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -199,7 +199,7 @@ const SettingsPage = () => {
             </p>
           </div>
         </motion.div>
-      </div>
+      </div> */}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Mobile Sidebar Overlay */}
@@ -215,12 +215,12 @@ const SettingsPage = () => {
           )}
         </AnimatePresence>
 
-        {/* Sidebar */}
+        {/* Sidebar for Mobile Only */}
         <motion.div
           initial={{ x: '-100%' }}
           animate={{ x: isSidebarOpen ? 0 : '-100%' }}
           transition={{ type: 'tween' }}
-          className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30 md:relative md:translate-x-0"
+          className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30 md:hidden" // Hidden on md and up
         >
           <div className="h-full flex flex-col">
             <div className="p-4 border-b border-gray-200">
@@ -232,7 +232,7 @@ const SettingsPage = () => {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id);
-                    setIsSidebarOpen(false);
+                    setIsSidebarOpen(false); // Close sidebar on mobile after selection
                   }}
                   className={`flex items-center justify-between w-full px-4 py-3 rounded-lg transition-colors ${
                     activeTab === tab.id
@@ -251,8 +251,31 @@ const SettingsPage = () => {
           </div>
         </motion.div>
 
-        {/* Main Content */}
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto">
+          <div
+            className="flex-1 p-4 md:p-6 overflow-y-auto scrollbar-hide"
+            style={{
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
+            {/* Horizontal Tabs for Desktop */}
+          <div className="hidden md:flex mb-6 border-b border-gray-200">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center px-4 py-2 -mb-px text-sm font-medium transition-colors duration-200 ease-in-out ${
+                  activeTab === tab.id
+                    ? "border-b-2 border-blue-600 text-blue-600"
+                    : "text-gray-600 hover:text-gray-800 hover:border-gray-300"
+                }`}
+              >
+                <span className="mr-2">{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}
@@ -401,8 +424,8 @@ const SettingsPage = () => {
                           Cancel
                         </button>
                         <button
-                          type="submit" // Corrected: This button should submit the form
-                          form="security-form" // Corrected: Link to the form's id
+                          type="submit"
+                          form="security-form"
                           disabled={isLoading}
                           className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg shadow-md hover:from-blue-700 hover:to-blue-600 transition-all disabled:opacity-70 flex items-center"
                         >
@@ -418,7 +441,6 @@ const SettingsPage = () => {
                   </div>
                 </div>
 
-                {/* Added id="security-form" to the form */}
                 <form id="security-form" onSubmit={handleSubmit} className="p-6 space-y-6">
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700">
@@ -468,7 +490,6 @@ const SettingsPage = () => {
                       placeholder="Re-enter new password"
                     />
                   </div>
-                  {/* Removed the redundant submit button from here, as it's now controlled in the header */}
                 </form>
 
                 <div className="p-6 border-t border-gray-200">
