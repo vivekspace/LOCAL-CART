@@ -2,9 +2,9 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const nodemailer = require('nodemailer');
-const User = require('../models/User');
+const User = require('../models/User'); // Ensure User model is imported
 const mongoose = require('mongoose');
-const Notification = require('../models/Notification')
+const Notification = require('../models/Notification'); // Ensure Notification model is imported
 require('dotenv').config();
 
 const { v4: uuidv4 } = require('uuid');
@@ -17,6 +17,28 @@ const transporter = nodemailer.createTransport({
         pass: process.env.Google_Pass
     }
 });
+
+// Helper function to send notification via Socket.IO and save to DB
+async function sendAndSaveNotification(io, recipientId, type, title, message, link, orderId = null) {
+    try {
+        const notificationData = {
+            recipient: recipientId,
+            type,
+            title,
+            message,
+            link,
+            isRead: false,
+            createdAt: new Date(),
+            orderId: orderId,
+        };
+        const newNotification = await Notification.create(notificationData);
+        io.to(recipientId.toString()).emit('newNotification', newNotification);
+        console.log(`[Notification] SUCCESS: Emitted '${type}' notification to ${recipientId}`);
+    } catch (error) {
+        console.error(`[Notification] ERROR: Failed to send/save notification to ${recipientId}:`, error);
+    }
+}
+
 
 // Get all orders (for customers)
 exports.getCustomerOrders = async (req, res) => {
@@ -66,7 +88,7 @@ exports.getCustomerOrders = async (req, res) => {
                 };
             })
         }));
-                    console.log("Debug: Final transformedOrders for first order:", transformedOrders[0]); // Log the first order in the transformed array
+        console.log("Debug: Final transformedOrders for first order:", transformedOrders[0]); // Log the first order in the transformed array
 
 
         res.status(200).json({
@@ -121,7 +143,7 @@ exports.getOrdersByEmail = async (req, res) => {
 };
 
 // Create new order
-exports.createOrder = async (req, res, next) => { // Added 'next' for error handling consistency
+exports.createOrder = async (req, res, next) => {
     console.log('Order Controller: Starting createOrder execution.');
     console.log('Order Controller: req.user at entry:', req.user ? req.user._id : 'null/undefined');
 
@@ -246,31 +268,27 @@ exports.createOrder = async (req, res, next) => { // Added 'next' for error hand
             return map;
         }, {});
 
+        const io = req.app.get('socketio'); // Get the Socket.IO instance
+
+        // NOTIFICATIONS FOR VENDORS
         await Promise.all(
             Object.entries(vendorItemsMap).map(async ([sellerId, items]) => {
                 try {
                     const vendor = await User.findById(sellerId);
-
-                    // --- ADDED SOCKET.IO NOTIFICATION LOGIC FOR REAL ORDERS ---
-                    const io = req.app.get('socketio'); // Get the Socket.IO instance
-                    if (io && vendor) {
-                        const notificationData = {
-                            recipient: vendor._id,
-                            type: 'new-order',
-                            title: `New Order: #${savedOrder._id.toString().slice(-6).toUpperCase()}`,
-                            message: `You received a new order for ${items.length} item(s). Total for your items: ₹${items.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2)}.`,
-                            link: `/vendor/orders/${savedOrder._id}`, // Link to the order details page
-                            isRead: false,
-                            createdAt: new Date(),
-                            orderId: savedOrder._id,
-                        };
-                        await Notification.create(notificationData); // Save notification to DB
-                        io.to(vendor._id.toString()).emit('newNotification', notificationData); // Emit to seller's room
-                        console.log(`[OrderController] SUCCESS: Emitted 'newNotification' for actual order ${savedOrder._id} to vendor ${vendor._id}`);
+                    if (vendor && io) {
+                        const vendorNotificationMessage = `You received a new order for ${items.length} item(s). Total for your items: ₹${items.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2)}.`;
+                        await sendAndSaveNotification(
+                            io,
+                            vendor._id,
+                            'new-order-vendor',
+                            `New Order: #${savedOrder._id.toString().slice(-6).toUpperCase()}`,
+                            vendorNotificationMessage,
+                            `/vendor/orders/${savedOrder._id}`,
+                            savedOrder._id
+                        );
                     } else {
-                        console.warn(`[OrderController] WARNING: Socket.IO instance or vendor not found for real order notification. io: ${!!io}, vendor: ${!!vendor}. Seller ID: ${sellerId}`);
+                        console.warn(`[OrderController] WARNING: Vendor not found or Socket.IO instance missing for vendor notification. Seller ID: ${sellerId}`);
                     }
-                    // --- END ADDED SOCKET.IO LOGIC ---
 
                     if (vendor && vendor.email) {
                         await sendVendorEmail(vendor.email, {
@@ -295,6 +313,27 @@ exports.createOrder = async (req, res, next) => { // Added 'next' for error hand
                 }
             })
         );
+
+        // NOTIFICATIONS FOR ADMINS (NEW)
+        if (io) {
+            const admins = await User.find({ role: 'admin' }).select('_id'); // Get all admin IDs
+            const adminNotificationTitle = `New Customer Order: #${savedOrder._id.toString().slice(-6).toUpperCase()}`;
+            const adminNotificationMessage = `A new order has been placed by ${customerDetails.firstname} ${customerDetails.lastname}. Total: ₹${savedOrder.totalAmount.toFixed(2)}.`;
+            for (const admin of admins) {
+                await sendAndSaveNotification(
+                    io,
+                    admin._id,
+                    'new-order-admin',
+                    adminNotificationTitle,
+                    adminNotificationMessage,
+                    `/admin/orders/${savedOrder._id}`, // Link to admin order details
+                    savedOrder._id
+                );
+            }
+        } else {
+            console.warn('[OrderController] WARNING: Socket.IO instance not found for admin notification during order creation.');
+        }
+
 
         res.status(201).json({
             success: true,
@@ -408,13 +447,13 @@ exports.getVendorOrders = async (req, res) => {
                     price: item.price,
                     // You might want to include other item details like productId, image, etc. if needed on frontend
                 })),
-                subtotal: order.subtotal, 
+                subtotal: order.subtotal,
                 tax: order.tax,
                 shippingCost: order.shippingCost,
                 discount: order.discount,
                 totalAmount: order.totalAmount,
                 // This is the total for this specific vendor's items in the order
-                vendorPortionTotal: vendorTotalAmount 
+                vendorPortionTotal: vendorTotalAmount
             };
         });
 
@@ -503,6 +542,7 @@ exports.getPublicOrderDetails = async (req, res) => {
     }
 };
 
+// MODIFIED: getOrderDetails to handle only customer (and admin) role
 exports.getOrderDetails = async (req, res) => {
     try {
         if (!req.user) {
@@ -513,7 +553,7 @@ exports.getOrderDetails = async (req, res) => {
         }
 
         const { orderId } = req.params;
-        console.log('Fetching order details for:', orderId);
+        console.log('Fetching order details for Customer/Admin:', orderId, 'by user:', req.user._id, 'with role:', req.user.role);
 
         if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
             return res.status(400).json({
@@ -522,10 +562,15 @@ exports.getOrderDetails = async (req, res) => {
             });
         }
 
-        const order = await Order.findOne({
-            _id: orderId,
-            customerId: req.user._id
-        })
+        let queryCondition = { _id: orderId };
+
+        // For customers, ensure they only fetch their own orders
+        if (req.user.role === 'customer') {
+            queryCondition.customerId = req.user._id;
+        }
+        // Admins can fetch any order by _id, so no additional customerId filter needed for them
+
+        const order = await Order.findOne(queryCondition)
             .populate({
                 path: 'cartItems.productId',
                 model: 'Product',
@@ -534,12 +579,14 @@ exports.getOrderDetails = async (req, res) => {
             .lean();
 
         if (!order) {
+            console.log(`Order ${orderId} not found for user ${req.user._id} with role ${req.user.role} or access denied by query.`);
             return res.status(404).json({
                 success: false,
-                message: 'Order not found'
+                message: 'Order not found or you do not have permission to view this order.'
             });
         }
 
+        // Transform and return the order details
         const subtotal = order.subtotal || order.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const tax = order.tax || 0;
         const shippingCost = order.shippingCost || 0;
@@ -547,47 +594,53 @@ exports.getOrderDetails = async (req, res) => {
         const total = order.totalAmount || (subtotal + tax + shippingCost - discount);
 
         const response = {
-            orderNumber: order._id.toString(),
+            _id: order._id, // Keep the original _id
+            orderNumber: order._id.toString().slice(-8).toUpperCase(), // Added for display
             createdAt: order.createdAt,
             status: order.status,
-            items: order.cartItems.map(item => {
+            customerDetails: {
+                firstname: order.customerDetails?.firstname || 'N/A',
+                lastname: order.customerDetails?.lastname || 'N/A',
+                email: order.customerDetails?.email || 'N/A',
+                phone: order.customerDetails?.phone || 'N/A',
+            },
+            shippingAddress: {
+                street: order.shippingAddress?.street || 'N/A',
+                city: order.shippingAddress?.city || 'N/A',
+                state: order.shippingAddress?.state || 'N/A',
+                zip: order.shippingAddress?.zip || 'N/A',
+                country: order.shippingAddress?.country || 'N/A',
+            },
+            cartItems: order.cartItems.map(item => {
                 let imageUrl = '/placeholder-product.png';
                 if (item.productId && item.productId.images && item.productId.images.length > 0) {
                     imageUrl = item.productId.images[0];
                 }
                 return {
-                    id: item._id || uuidv4(),
+                    _id: item._id || uuidv4(),
                     name: item.name,
                     variant: item.variant || '',
                     price: item.price,
                     originalPrice: item.originalPrice || null,
                     quantity: item.quantity,
                     image: imageUrl,
-                    seller: item.seller
+                    seller: item.seller,
+                    productId: item.productId
                 };
             }),
+            paymentDetails: {
+                method: order.paymentDetails?.method || 'N/A',
+                status: order.paymentDetails?.status || 'N/A',
+            },
             subtotal,
             discount,
             shippingCost,
             tax,
-            total,
-            shippingAddress: {
-                name: `${order.customerDetails.firstname} ${order.customerDetails.lastname}`,
-                street: order.shippingAddress?.street || order.customerDetails.address || 'N/A',
-                city: order.shippingAddress?.city || order.customerDetails.city || 'N/A',
-                state: order.shippingAddress?.state || order.customerDetails.state || 'N/A',
-                zip: order.shippingAddress?.zip || order.customerDetails.zip || 'N/A',
-                country: order.shippingAddress?.country || order.customerDetails.country || 'N/A'
-            },
-            paymentMethod: {
-                type: order.paymentDetails.method || 'Card',
-                last4: order.paymentDetails.cardLast4 || '4242',
-                status: order.paymentDetails.status || 'paid',
-                paidAt: order.paymentDetails.paidAt || order.createdAt
-            }
+            totalAmount: total,
         };
 
-        res.status(200).json(response);
+        res.status(200).json({ success: true, data: response });
+
     } catch (error) {
         console.error('Error fetching order details:', error);
         res.status(500).json({
@@ -598,21 +651,144 @@ exports.getOrderDetails = async (req, res) => {
     }
 };
 
-// Update order status
-exports.updateOrderStatus = async (req, res, next) => { // Added 'next' here
+// NEW FUNCTION: getSellerOrderDetails for sellers/vendors to view orders containing their products
+exports.getSellerOrderDetails = async (req, res) => {
+    try {
+        if (!req.user || (req.user.role !== 'seller' && req.user.role !== 'vendor')) {
+            return res.status(403).json({ // Use 403 Forbidden for unauthorized roles
+                success: false,
+                message: "Access denied. Only sellers or vendors can view these order details."
+            });
+        }
+
+        const { orderId } = req.params;
+        const sellerId = req.user._id;
+        console.log('Fetching order details for Seller/Vendor:', orderId, 'by user:', sellerId);
+
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid order ID format'
+            });
+        }
+
+        // Find the order that has the given orderId AND contains products from this seller
+        const order = await Order.findOne({
+            _id: orderId,
+            'cartItems.seller': sellerId // Ensure the order contains products from this seller
+        })
+            .populate({
+                path: 'cartItems.productId',
+                model: 'Product',
+                select: 'images name category' // Populate necessary product details
+            })
+            .lean();
+
+        if (!order) {
+            console.log(`Order ${orderId} not found or does not contain products for seller ${sellerId}.`);
+            // Return 404 to obscure the existence of orders not associated with the seller
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found or you do not have permission to view this order.'
+            });
+        }
+
+        // Filter cart items to only show those belonging to the current seller
+        // This ensures the frontend only displays relevant items if the order contains mixed seller products
+        const sellerSpecificCartItems = order.cartItems.filter(item =>
+            item.seller && item.seller.toString() === sellerId.toString()
+        );
+
+        // Calculate seller's specific subtotal, tax, shipping, total from their items
+        const sellerSubtotal = sellerSpecificCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        // Note: For tax, shippingCost, discount, you might need more complex logic
+        // if they are calculated per-vendor on the backend. For simplicity,
+        // re-using order-level values or defaulting to 0 for display.
+        const sellerTax = (order.tax / order.totalAmount) * sellerSubtotal || 0; // Prorated tax
+        const sellerShippingCost = (order.shippingCost > 0 && sellerSubtotal > 0) ? (order.shippingCost / order.totalAmount) * sellerSubtotal : 0; // Prorated shipping
+        const sellerDiscount = (order.discount > 0 && sellerSubtotal > 0) ? (order.discount / order.totalAmount) * sellerSubtotal : 0; // Prorated discount
+        const sellerTotalAmount = sellerSubtotal + sellerTax + sellerShippingCost - sellerDiscount;
+
+
+        // Prepare the response tailored for the seller
+        const response = {
+            _id: order._id,
+            orderNumber: order._id.toString().slice(-8).toUpperCase(),
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt, // Include updatedAt for frontend display
+            status: order.status,
+            customerDetails: {
+                firstname: order.customerDetails?.firstname || 'N/A',
+                lastname: order.customerDetails?.lastname || 'N/A',
+                email: order.customerDetails?.email || 'N/A',
+                phone: order.customerDetails?.phone || 'N/A',
+            },
+            shippingAddress: {
+                street: order.shippingAddress?.street || 'N/A',
+                city: order.shippingAddress?.city || 'N/A',
+                state: order.shippingAddress?.state || 'N/A',
+                zip: order.shippingAddress?.zip || 'N/A',
+                country: order.shippingAddress?.country || 'N/A',
+            },
+            // ONLY include items relevant to this seller
+            cartItems: sellerSpecificCartItems.map(item => {
+                let imageUrl = '/placeholder-product.png';
+                if (item.productId && item.productId.images && item.productId.images.length > 0) {
+                    imageUrl = item.productId.images[0];
+                }
+                return {
+                    _id: item._id || uuidv4(),
+                    name: item.name || item.productId?.name || "Unknown Product",
+                    variant: item.variant || '',
+                    price: item.price,
+                    originalPrice: item.originalPrice || null,
+                    quantity: item.quantity,
+                    image: imageUrl,
+                    seller: item.seller,
+                    productId: item.productId // Ensure productId is available if frontend needs it
+                };
+            }),
+            paymentDetails: {
+                method: order.paymentDetails?.method || 'N/A',
+                status: order.paymentDetails?.status || 'N/A',
+                // Add other payment details if available
+            },
+            subtotal: sellerSubtotal, // Seller's subtotal
+            discount: sellerDiscount, // Seller's discount
+            shippingCost: sellerShippingCost, // Seller's shipping cost
+            tax: sellerTax, // Seller's tax
+            totalAmount: sellerTotalAmount, // Seller's total
+            // You might want to include the *overall* order total for context too, if needed
+            // overallOrderTotal: order.totalAmount
+        };
+
+        res.status(200).json({ success: true, data: response });
+
+    } catch (error) {
+        console.error('Error fetching seller order details:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch seller order details',
+            error: error.message
+        });
+    }
+};
+
+// Update order status (by Seller/Vendor)
+exports.updateOrderStatus = async (req, res, next) => {
     try {
         const { status } = req.body;
         const { orderId } = req.params;
         const vendorId = req.user._id;
 
-        const validStatuses = ['pending', 'processing', 'completed', 'failed', 'shipped', 'cancelled'];
+        const validStatuses = ['pending', 'processing', 'completed', 'failed', 'shipped', 'cancelled', 'delivered'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: 'Invalid status value' });
         }
 
         const order = await Order.findOne({
             _id: orderId,
-            'cartItems.seller': vendorId
+            'cartItems.seller': vendorId // Ensure vendor owns items in this order
         });
 
         if (!order) {
@@ -622,11 +798,9 @@ exports.updateOrderStatus = async (req, res, next) => { // Added 'next' here
         let paymentStatusUpdate = {};
         const currentPaymentMethod = order.paymentDetails?.method;
 
-        if (status === 'completed') {
-            if (currentPaymentMethod === 'COD') {
+        if (status === 'completed' || status === 'delivered') {
+            if (currentPaymentMethod === 'COD' && order.paymentDetails.status !== 'paid') {
                 paymentStatusUpdate['paymentDetails.status'] = 'paid';
-            } else {
-                paymentStatusUpdate = {};
             }
         } else if (status === 'failed') {
             paymentStatusUpdate['paymentDetails.status'] = 'failed';
@@ -646,26 +820,44 @@ exports.updateOrderStatus = async (req, res, next) => { // Added 'next' here
             { new: true }
         );
 
-        // --- ADDED SOCKET.IO NOTIFICATION LOGIC FOR STATUS UPDATES ---
-        const io = req.app.get('socketio'); // Get the Socket.IO instance
+        const io = req.app.get('socketio');
+
+        // NOTIFICATION FOR CUSTOMER
         if (io && updatedOrder && updatedOrder.customerId) {
-            const customerNotificationData = {
-                recipient: updatedOrder.customerId,
-                type: 'order-status-update',
-                title: `Order #${updatedOrder._id.toString().slice(-6).toUpperCase()} Status Update`,
-                message: `Your order is now '${updatedOrder.status}'.`,
-                link: `/orders/${updatedOrder._id}`, // Link to customer's order details
-                isRead: false,
-                createdAt: new Date(),
-                orderId: updatedOrder._id,
-            };
-            await Notification.create(customerNotificationData); // Save notification to DB
-            io.to(updatedOrder.customerId.toString()).emit('newNotification', customerNotificationData); // Emit to customer's room
-            console.log(`[OrderController] Socket.IO: Emitted 'newNotification' to customer room ${updatedOrder.customerId} for order status update.`);
+            const customerNotificationTitle = `Your Order #${updatedOrder._id.toString().slice(-6).toUpperCase()} Status Update!`;
+            const customerNotificationMessage = `Your order is now '${updatedOrder.status}'.`;
+            await sendAndSaveNotification(
+                io,
+                updatedOrder.customerId,
+                'order-status-update',
+                customerNotificationTitle,
+                customerNotificationMessage,
+                `/orders/${updatedOrder._id}`, // Link to customer's order details
+                updatedOrder._id
+            );
         } else {
-            console.warn(`[OrderController] Socket.IO instance or order/customer not found for status update notification.`);
+            console.warn(`[OrderController] Socket.IO instance or order/customer not found for customer status update notification.`);
         }
-        // --- END ADDED SOCKET.IO LOGIC ---
+
+        // NOTIFICATION FOR ADMINS (NEW)
+        if (io) {
+            const admins = await User.find({ role: 'admin' }).select('_id');
+            const adminNotificationTitle = `Order Status Changed: #${updatedOrder._id.toString().slice(-6).toUpperCase()}`;
+            const adminNotificationMessage = `Order status for customer ${updatedOrder.customerDetails?.firstname || ''} ${updatedOrder.customerDetails?.lastname || ''} changed to '${updatedOrder.status}' by vendor ${req.user.storeName || req.user.name || 'N/A'}.`;
+            for (const admin of admins) {
+                await sendAndSaveNotification(
+                    io,
+                    admin._id,
+                    'order-status-admin',
+                    adminNotificationTitle,
+                    adminNotificationMessage,
+                    `/admin/orders/${updatedOrder._id}`, // Link to admin order details
+                    updatedOrder._id
+                );
+            }
+        } else {
+            console.warn('[OrderController] WARNING: Socket.IO instance not found for admin notification during status update (by vendor).');
+        }
 
         try {
             await sendStatusUpdateEmail(updatedOrder);
@@ -686,7 +878,7 @@ exports.updateOrderStatus = async (req, res, next) => { // Added 'next' here
 
     } catch (error) {
         console.error('Error updating order status:', error);
-        next(error); // Pass error to Express error handling middleware
+        next(error);
     }
 };
 
@@ -802,32 +994,48 @@ exports.adminUpdateOrderStatus = async (req, res, next) => {
 
         const updatedOrder = await order.save();
 
-        // --- Socket.IO Notification for Customer ---
         const io = req.app.get('socketio');
+
+        // NOTIFICATION FOR CUSTOMER
         if (io && updatedOrder && updatedOrder.customerId) {
-            const customerNotificationData = {
-                recipient: updatedOrder.customerId,
-                type: 'order-status-update',
-                title: `Order #${updatedOrder._id.toString().slice(-6).toUpperCase()} Status Updated!`,
-                message: `Your order status is now '${updatedOrder.status}'.`,
-                link: `/orders/${updatedOrder._id}`,
-                isRead: false,
-                createdAt: new Date(),
-                orderId: updatedOrder._id,
-            };
-            // Save notification to DB (assuming Notification model is linked/imported)
-            await Notification.create(customerNotificationData);
-            // Emit to customer's Socket.IO room
-            io.to(updatedOrder.customerId.toString()).emit('newNotification', customerNotificationData);
-            console.log(`[adminUpdateOrderStatus] Socket.IO: Emitted 'newNotification' to customer ${updatedOrder.customerId} for order status update.`);
+            const customerNotificationTitle = `Your Order #${updatedOrder._id.toString().slice(-6).toUpperCase()} Status Updated!`;
+            const customerNotificationMessage = `Your order status is now '${updatedOrder.status}'.`;
+            await sendAndSaveNotification(
+                io,
+                updatedOrder.customerId,
+                'order-status-update',
+                customerNotificationTitle,
+                customerNotificationMessage,
+                `/orders/${updatedOrder._id}`,
+                updatedOrder._id
+            );
         } else {
-            console.warn(`[adminUpdateOrderStatus] Socket.IO instance or order/customer ID missing for notification.`);
+            console.warn(`[adminUpdateOrderStatus] Socket.IO instance or order/customer ID missing for customer notification.`);
         }
-        // --- End Socket.IO Logic ---
+
+        // NOTIFICATION FOR ADMINS (NEW - self-notification for consistency)
+        if (io) {
+            const admins = await User.find({ role: 'admin' }).select('_id');
+            const adminNotificationTitle = `Order Status Changed (Admin): #${updatedOrder._id.toString().slice(-6).toUpperCase()}`;
+            const adminNotificationMessage = `Order status for customer ${updatedOrder.customerDetails?.firstname || ''} ${updatedOrder.customerDetails?.lastname || ''} changed to '${updatedOrder.status}' by an admin.`;
+            for (const admin of admins) {
+                await sendAndSaveNotification(
+                    io,
+                    admin._id,
+                    'order-status-admin',
+                    adminNotificationTitle,
+                    adminNotificationMessage,
+                    `/admin/orders/${updatedOrder._id}`, // Link to admin order details
+                    updatedOrder._id
+                );
+            }
+        } else {
+            console.warn('[OrderController] WARNING: Socket.IO instance not found for admin notification during status update (by admin).');
+        }
 
         // Send email notification
         try {
-            await sendStatusUpdateEmail(updatedOrder); // Re-use your existing email function
+            await sendStatusUpdateEmail(updatedOrder);
         } catch (emailErr) {
             console.error('Failed to send status update email (admin):', emailErr.message);
         }
@@ -838,13 +1046,13 @@ exports.adminUpdateOrderStatus = async (req, res, next) => {
             order: {
                 _id: updatedOrder._id,
                 status: updatedOrder.status,
-                paymentDetails: updatedOrder.paymentDetails // Return full payment details
+                paymentDetails: updatedOrder.paymentDetails
             }
         });
 
     } catch (error) {
         console.error('Error in adminUpdateOrderStatus:', error);
-        next(error); // Pass error to global error handler
+        next(error);
     }
 };
 
