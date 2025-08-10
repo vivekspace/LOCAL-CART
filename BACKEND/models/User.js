@@ -33,7 +33,7 @@ const addressSchema = new mongoose.Schema({
         trim: true,
         maxlength: [50, 'State name cannot exceed 50 characters']
     },
-    zipCode: { // Assuming you want to stick with zipCode for now as per your original working code
+    zipCode: {
         type: String,
         required: [true, 'ZIP Code is required'],
         trim: true,
@@ -48,8 +48,6 @@ const addressSchema = new mongoose.Schema({
     timestamps: true,
     _id: true
 });
-
-
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -70,22 +68,20 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Password is required'],
         minlength: [8, 'Password must be at least 8 characters long'],
-        select: false
+        select: false // Exclude password from query results by default for security
     },
     role: {
         type: String,
         enum: ['customer', 'seller', 'admin'],
         default: 'customer'
     },
-    // --- MODIFIED PROFILE PHOTO FIELD ---
     photo: {
         url: {
             type: String,
-            default: null // We'll set it manually in the pre-save hook
+            default: null // Will be set by pre-save hook
         },
-        publicId: String // Store the public ID to allow deletion from Cloudinary later
+        publicId: String // For Cloudinary or similar services
     },
-    // --- END MODIFIED PROFILE PHOTO FIELD ---
     bio: {
         type: String,
         trim: true,
@@ -94,24 +90,43 @@ const userSchema = new mongoose.Schema({
     },
     lastLoginAt: {
         type: Date,
-        default: null
+        default: Date.now // Set default to current time
     },
     addresses: {
         type: [addressSchema],
         default: []
     },
+    passwordResetToken: {
+        type: String,
+        select: false // For security, exclude from default queries
+    },
+    passwordResetExpires: {
+        type: Date,
+        select: false // For security, exclude from default queries
+    },
+    // --- NEW: Fields for OTP (One-Time Password) ---
+    otp: {
+        type: String,
+        select: false // Crucial: Do not return OTP in regular user queries
+    },
+    otpExpires: {
+        type: Date,
+        select: false // Crucial: Do not return OTP expiration in regular user queries
+    }
+    // --- END NEW OTP FIELDS ---
 }, {
-    timestamps: true
+    timestamps: true // Adds createdAt and updatedAt timestamps
 });
 
+// Mongoose pre-save hook for hashing passwords and setting default photo
 userSchema.pre('save', async function (next) {
     // 🖼️ Set default photo based on role if not already provided
     if (!this.photo || !this.photo.url) {
         const DEFAULT_PHOTOS = {
-    customer: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753785034/localcart/1753785033784-646705549.png',
-    seller: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753848167/vendor_default_logo_ht2qor.webp',
-    admin: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753887570/admin_logo_img_foeuh2.webp'
-};
+            customer: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753785034/localcart/1753785033784-646705549.png',
+            seller: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753848167/vendor_default_logo_ht2qor.webp',
+            admin: 'https://res.cloudinary.com/dr9zse9a6/image/upload/v1753887570/admin_logo_img_foeuh2.webp'
+        };
         const role = this.role || 'customer';
         this.photo = {
             url: DEFAULT_PHOTOS[role] || DEFAULT_PHOTOS['customer'],
@@ -119,7 +134,7 @@ userSchema.pre('save', async function (next) {
         };
     }
 
-    // 🔐 Hash the password if it's modified
+    // 🔐 Hash the password only if it's modified (e.g., during registration or password reset)
     if (!this.isModified('password')) return next();
 
     console.log("\n--- User Model Pre-Save Hook Debugging ---");
@@ -127,15 +142,17 @@ userSchema.pre('save', async function (next) {
     console.log("    Length of password BEFORE hashing:", this.password ? this.password.length : 'N/A');
     console.log("    Type of password BEFORE hashing:", typeof this.password);
 
-    this.password = await bcrypt.hash(this.password, 10);
+    this.password = await bcrypt.hash(this.password, 10); // Hash with a salt round of 10
     console.log("    Password AFTER hashing (in pre-save hook):", this.password);
     
     next();
 });
 
-
+// Instance method to compare entered password with the hashed password
 userSchema.methods.matchPassword = async function (enteredPassword) {
+    // 'this.password' needs to be selected in the query for this to work
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
+// Create and export the User model
 module.exports = mongoose.model('User', userSchema);
