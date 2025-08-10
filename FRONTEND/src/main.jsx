@@ -13,11 +13,14 @@ import { HelmetProvider } from "react-helmet-async";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Layout and Components
 import Layout from "./Layout.jsx";
 import Home from "./components/Home/Home.jsx";
 import Login from "./components/Login/Login.jsx";
 import Register from "./components/Register/Register.jsx";
+
+import ForgotPassword from "./components/ForgetPassword/ForgetPassword.jsx";
+import ResetPassword from "./components/ResetPassword/ResetPassword.jsx";
+
 import Shopping from "./components/Shopping/Shopping.jsx";
 import ProductCardPage from "./components/ProductInfo/ProductInfo.jsx";
 import Cart from "./components/Cart/Cart.jsx";
@@ -72,6 +75,12 @@ const router = createBrowserRouter(
       <Route index element={<Home />} />
       <Route path="login" element={<Login />} />
       <Route path="register" element={<Register />} />
+      
+      {/* ADD THESE FORGOT PASSWORD ROUTES */}
+      <Route path="forgot-password" element={<ForgotPassword />} />
+      <Route path="reset-password/:token" element={<ResetPassword />} />
+      {/* END FORGOT PASSWORD ROUTES */}
+      
       <Route path="shopping" element={<Shopping />} />
       <Route path="product-info/:productId" element={<ProductCardPage />} />
       <Route path="contact-us" element={<ContactUs />} />
@@ -126,8 +135,7 @@ const router = createBrowserRouter(
           <Route path="profile" element={<VendorProfile />} />
           <Route path="messages" element={<VendorMessagesPage />} />
           <Route path="notifications" element={<VendorNotifications />} />
-          <Route path="orders/:orderId" element={<VendorOrderDetailsPage />} /> {/* <--- ADD THIS ROUTE */}
-         
+          <Route path="orders/:orderId" element={<VendorOrderDetailsPage />} />
         </Route>
       </Route>
 
