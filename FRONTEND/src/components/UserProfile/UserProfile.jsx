@@ -100,7 +100,7 @@ const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
 };
 
 const ProfilePage = () => {
-  const { user, jwtToken, isAuthLoading, isLoggedIn, setAuth } = useContext(AuthContext);
+  const { user, jwtToken, isAuthLoading, isLoggedIn, setAuth , logout } = useContext(AuthContext);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
@@ -834,12 +834,7 @@ const ProfilePage = () => {
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  localStorage.removeItem("jwtToken");
-                  localStorage.removeItem("currentUser");
-                  toast.info("Logged out successfully!");
-                  navigate("/login");
-                }}
+                onClick={logout}
                 className="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-xl shadow-lg text-white bg-gradient-to-r from-red-500 to-rose-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all"
               >
                 <LogOut size={20} className="mr-2" /> Log Out
